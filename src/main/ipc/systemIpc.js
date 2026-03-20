@@ -44,12 +44,12 @@ function summarizeKdeglobalsKiosk(text) {
 }
 
 function restartKdeSession() {
-    const dbusAttempts = [
-        ['qdbus6', 'org.kde.KSMServer'],
-        ['qdbus6', 'org.kde.ksmserver'],
-        ['qdbus', 'org.kde.KSMServer'],
-        ['qdbus', 'org.kde.ksmserver']
-    ]
+    const dbusBins = ['qdbus6', 'qdbus', '/usr/lib/qt6/bin/qdbus', '/usr/lib/qt5/bin/qdbus', '/usr/lib64/qt6/bin/qdbus', '/usr/lib64/qt5/bin/qdbus']
+    const dbusServices = ['org.kde.KSMServer', 'org.kde.ksmserver']
+    const dbusAttempts = []
+    for (const bin of dbusBins) {
+        for (const svc of dbusServices) dbusAttempts.push([bin, svc])
+    }
     const runDbusChain = (idx) => {
         if (idx >= dbusAttempts.length) return
         const [bin, svc] = dbusAttempts[idx]

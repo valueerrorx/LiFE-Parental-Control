@@ -16,11 +16,12 @@ function cutoffIsoDate() {
 }
 
 export function pruneUsageArchives(configDir) {
+    let removed = 0
     let names
     try {
         names = fs.readdirSync(configDir)
     } catch {
-        return
+        return { removed: 0 }
     }
     const cutoff = cutoffIsoDate()
     for (const name of names) {
@@ -35,8 +36,10 @@ export function pruneUsageArchives(configDir) {
         if (!isoDay || isoDay >= cutoff) continue
         try {
             fs.unlinkSync(path.join(configDir, name))
+            removed++
         } catch {
             // unreadable or race with cron; skip
         }
     }
+    return { removed }
 }
