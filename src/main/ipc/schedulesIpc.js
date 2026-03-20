@@ -75,8 +75,20 @@ now     = datetime.datetime.now()
 today   = now.strftime('%Y-%m-%d')
 weekday = now.isoweekday()  # 1=Mon, 7=Sun
 
+def _loginctl_session_props(sid):
+    r = subprocess.run(
+        ['loginctl', 'show-session', sid, '-p', 'Type', '-p', 'State', '-p', 'Class'],
+        capture_output=True, text=True, timeout=3, check=False
+    )
+    props = {}
+    for line in r.stdout.strip().splitlines():
+        if '=' in line:
+            k, v = line.split('=', 1)
+            props[k.strip()] = v.strip()
+    return props
+
 def get_active_graphical_sessions():
-    """Return list of (session_id, username) for active X11/Wayland sessions."""
+    """Return (session_id, username) for X11/Wayland sessions (active/online); skip greeter/background."""
     sessions = []
     try:
         r = subprocess.run(
@@ -89,8 +101,12 @@ def get_active_graphical_sessions():
                 continue
             sid, user = parts[0], parts[2]
             try:
-                t  = subprocess.run(['loginctl', 'show-session', sid, '-p', 'Type',  '--value'], capture_output=True, text=True, timeout=3, check=False).stdout.strip()
-                st = subprocess.run(['loginctl', 'show-session', sid, '-p', 'State', '--value'], capture_output=True, text=True, timeout=3, check=False).stdout.strip()
+                p = _loginctl_session_props(sid)
+                cls = p.get('Class', '')
+                if cls in ('greeter', 'background'):
+                    continue
+                t = p.get('Type', '')
+                st = p.get('State', '')
                 if t in ('x11', 'wayland') and st in ('active', 'online'):
                     sessions.append((sid, user))
             except Exception:
@@ -218,6 +234,14 @@ export function registerSchedulesIpc(ipcMain, configDir) {
     ipcMain.handle('schedules:redeploy', () => {
         try {
             redeployScheduleCron(configDir)
+            return { ok: true }
+        } catch (e) { return { error: e.message } }
+    })
+
+    ipcMain.handle('schedules:resetTodayUsage', () => {
+        try {
+            const file = path.join(configDir, `usage-${localIsoDate()}.json`)
+            if (fs.existsSync(file)) fs.unlinkSync(file)
             return { ok: true }
         } catch (e) { return { error: e.message } }
     })

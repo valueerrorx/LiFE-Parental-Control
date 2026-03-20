@@ -43,6 +43,16 @@ function summarizeKdeglobalsKiosk(text) {
     return { active: restrictionCount > 0, restrictionCount }
 }
 
+function parseLoginctlShowSession(text) {
+    const props = {}
+    for (const line of String(text || '').trim().split('\n')) {
+        const eq = line.indexOf('=')
+        if (eq === -1) continue
+        props[line.slice(0, eq).trim()] = line.slice(eq + 1).trim()
+    }
+    return props
+}
+
 function listGraphicalUsers(cb) {
     execFile('loginctl', ['list-sessions', '--no-legend'], { timeout: 5000 }, (err, stdout) => {
         if (err || !stdout) return cb([])
@@ -54,16 +64,22 @@ function listGraphicalUsers(cb) {
             if (parts.length < 3) return step(i + 1)
             const sid = parts[0]
             const user = parts[2]
-            execFile('loginctl', ['show-session', sid, '-p', 'Type', '--value'], { timeout: 3000 }, (e1, tOut) => {
-                execFile('loginctl', ['show-session', sid, '-p', 'State', '--value'], { timeout: 3000 }, (e2, sOut) => {
-                    const t = String(tOut || '').trim()
-                    const s = String(sOut || '').trim()
+            execFile(
+                'loginctl',
+                ['show-session', sid, '-p', 'Type', '-p', 'State', '-p', 'Class'],
+                { timeout: 3000 },
+                (e, out) => {
+                    const p = parseLoginctlShowSession(out)
+                    const t = p.Type || ''
+                    const s = p.State || ''
+                    const cls = p.Class || ''
+                    if (cls === 'greeter' || cls === 'background') return step(i + 1)
                     // Only one session is typically active; other X11/Wayland seats often report online.
                     const live = s === 'active' || s === 'online'
                     if ((t === 'x11' || t === 'wayland') && live) users.add(user)
                     step(i + 1)
-                })
-            })
+                }
+            )
         }
         step(0)
     })

@@ -58,6 +58,18 @@ try:
 except Exception:
     app_usage = {}
 
+def _loginctl_session_props(sid):
+    r = subprocess.run(
+        ['loginctl', 'show-session', sid, '-p', 'Type', '-p', 'State', '-p', 'Class'],
+        capture_output=True, text=True, timeout=3, check=False
+    )
+    props = {}
+    for line in r.stdout.strip().splitlines():
+        if '=' in line:
+            k, v = line.split('=', 1)
+            props[k.strip()] = v.strip()
+    return props
+
 def get_active_users():
     users = []
     try:
@@ -68,8 +80,12 @@ def get_active_users():
             if len(parts) < 3:
                 continue
             sid, user = parts[0], parts[2]
-            t  = subprocess.run(['loginctl', 'show-session', sid, '-p', 'Type',  '--value'], capture_output=True, text=True, timeout=3, check=False).stdout.strip()
-            st = subprocess.run(['loginctl', 'show-session', sid, '-p', 'State', '--value'], capture_output=True, text=True, timeout=3, check=False).stdout.strip()
+            p = _loginctl_session_props(sid)
+            cls = p.get('Class', '')
+            if cls in ('greeter', 'background'):
+                continue
+            t = p.get('Type', '')
+            st = p.get('State', '')
             if t in ('x11', 'wayland') and st in ('active', 'online'):
                 users.append(user)
     except Exception:

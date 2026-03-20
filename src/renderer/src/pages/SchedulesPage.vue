@@ -78,6 +78,11 @@
                             <div class="usage-bar-fill" :style="{ width: usagePercent + '%', background: usageBarColor }" />
                         </div>
                     </div>
+                    <div class="mt-2">
+                        <button type="button" class="btn btn-sm btn-outline-secondary" :disabled="saving || redeploying" @click="onResetTodayUsage">
+                            <i class="bi bi-arrow-counterclockwise me-1" />Reset today's usage
+                        </button>
+                    </div>
                 </div>
             </div>
 
@@ -226,6 +231,22 @@ function applyPreset(kind) {
     saveMsg.value = 'Preset applied — click Save to apply on the system'
     saveError.value = false
     setTimeout(() => { saveMsg.value = '' }, 5000)
+}
+
+async function onResetTodayUsage() {
+    if (!window.confirm('Reset today\'s screen time counter to 0? Removes today\'s usage file; counting continues on the next cron run.')) return
+    saving.value = true
+    const result = await window.api.schedules.resetTodayUsage()
+    saving.value = false
+    if (result?.error) {
+        saveMsg.value = `Error: ${result.error}`
+        saveError.value = true
+    } else {
+        saveMsg.value = 'Today\'s usage reset'
+        saveError.value = false
+        await refreshUsageData()
+    }
+    setTimeout(() => { saveMsg.value = '' }, 4000)
 }
 
 async function onRedeployCron() {

@@ -33,7 +33,8 @@ contextBridge.exposeInMainWorld('api', {
         getUsage: () => ipcRenderer.invoke('schedules:getUsage'),
         getUsageHistory: (maxDays) => ipcRenderer.invoke('schedules:getUsageHistory', maxDays),
         save: (schedule) => ipcRenderer.invoke('schedules:save', schedule),
-        redeploy: () => ipcRenderer.invoke('schedules:redeploy')
+        redeploy: () => ipcRenderer.invoke('schedules:redeploy'),
+        resetTodayUsage: () => ipcRenderer.invoke('schedules:resetTodayUsage')
     },
     lifeMode: {
         list: () => ipcRenderer.invoke('lifeMode:list'),
