@@ -137,7 +137,7 @@
             </div>
             <div class="pc-card-body pt-2">
                 <p class="text-muted small mb-2">
-                    Parent actions and quota/screen-time resets (<code>/etc/life-parental/activity-log.json</code>, last 400 events).
+                    Backup import/export, process whitelist, screen time &amp; quota actions (<code>/etc/life-parental/activity-log.json</code>, last 400 events).
                 </p>
                 <div v-if="activityEntries.length === 0" class="text-muted small mb-0">No entries yet.</div>
                 <ul v-else class="list-unstyled mb-0 small" style="max-height:220px;overflow-y:auto;">
@@ -254,9 +254,17 @@ function activityLabel(e) {
     case 'screen_time_bonus':
         return `Screen time bonus: -${e.granted ?? '?'} min logged (now ${e.minutesAfter ?? '--'} min today)`
     case 'screen_time_reset_today':
-        return 'Screen time: today\'s usage file cleared'
+        return "Screen time: today's usage file cleared"
     case 'quota_reset_today':
-        return 'App quotas: today\'s usage file cleared'
+        return "App quotas: today's usage file cleared"
+    case 'backup_export':
+        return `Settings backup exported (${e.file || 'file'})`
+    case 'backup_import':
+        return `Settings backup imported (${e.file || 'file'})`
+    case 'process_whitelist_save':
+        return `Process whitelist saved (on: ${e.enabled ? 'yes' : 'no'}, ${e.allowedIds ?? 0} apps, ${e.killNames ?? 0} kill names)`
+    case 'process_whitelist_redeploy':
+        return 'Process whitelist: cron/script rewritten from disk'
     default:
         return typeof e.action === 'string' ? e.action : JSON.stringify(e)
     }
