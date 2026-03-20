@@ -43,9 +43,18 @@ export const useAppStore = defineStore('app', () => {
         return result
     }
 
+    async function applyLifeMode(modeKey) {
+        return window.api.lifeMode.apply(modeKey)
+    }
+
+    async function refreshProtectionsState() {
+        await Promise.all([loadWebFilter(), loadBlockedApps(), loadSchedule(), loadKioskStatus()])
+    }
+
     return {
         webFilterEntries, blockedApps, schedule, todayUsageMinutes, kioskStatus, statusMessage,
         webFilterEnabled,
-        loadWebFilter, saveWebFilter, loadBlockedApps, loadSchedule, loadKioskStatus
+        loadWebFilter, saveWebFilter, loadBlockedApps, loadSchedule, loadKioskStatus,
+        applyLifeMode, refreshProtectionsState
     }
 })

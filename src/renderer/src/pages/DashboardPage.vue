@@ -97,14 +97,34 @@
                 </RouterLink>
             </div>
         </div>
+
+        <div class="pc-card mt-3">
+            <div class="pc-card-header">
+                <h6>Family profiles</h6>
+            </div>
+            <div class="pc-card-body d-flex flex-wrap gap-2 align-items-start">
+                <p class="text-muted w-100 mb-0" style="font-size:12px;">
+                    One-click: screen time + web filter (school merges Social/Gaming; leisure removes those preset domains only) + clears blocked apps. KDE kiosk unchanged.
+                </p>
+                <button class="btn-pc-primary" :disabled="modeBusy" @click="onApplyLifeMode('school')">
+                    <i class="bi bi-mortarboard me-2" />School
+                </button>
+                <button class="btn-pc-outline" :disabled="modeBusy" @click="onApplyLifeMode('leisure')">
+                    <i class="bi bi-brightness-high me-2" />Leisure
+                </button>
+            </div>
+        </div>
     </div>
 </template>
 
 <script setup>
-import { computed, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useAppStore } from '../stores/appStore.js'
+import { useModal } from '../composables/useModal.js'
 
 const store = useAppStore()
+const { confirm } = useModal()
+const modeBusy = ref(false)
 
 const filterCount = computed(() => store.webFilterEntries.filter(e => e.enabled).length)
 const blockedCount = computed(() => store.blockedApps.length)
@@ -144,4 +164,22 @@ onMounted(async () => {
         store.loadKioskStatus()
     ])
 })
+
+async function onApplyLifeMode(key) {
+    const label = key === 'school' ? 'School' : 'Leisure'
+    const detail = key === 'school'
+        ? 'Tight weekday schedule, merge Social Media + Gaming into /etc/hosts, unblock all launcher blocks.'
+        : 'Relaxed schedule all week, remove Social/Gaming preset domains from /etc/hosts (your other rules stay), unblock all launcher blocks.'
+    const ok = await confirm(
+        `Apply ${label} profile?`,
+        detail,
+        { ok: 'Apply', cancel: 'Cancel' }
+    )
+    if (!ok) return
+    modeBusy.value = true
+    const result = await store.applyLifeMode(key)
+    modeBusy.value = false
+    if (result?.error) window.alert(result.error)
+    else await store.refreshProtectionsState()
+}
 </script>

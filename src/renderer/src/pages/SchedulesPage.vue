@@ -30,6 +30,21 @@
             </div>
         </div>
 
+        <div class="pc-card mb-3">
+            <div class="pc-card-header"><h6>Profile presets</h6></div>
+            <div class="pc-card-body">
+                <p class="text-muted mb-2" style="font-size:12px;">School / Leisure templates (Screen Time only). Adjust and click <strong>Save</strong>.</p>
+                <div class="d-flex flex-wrap gap-2">
+                    <button type="button" class="btn-pc-outline" @click="applyPreset('school')">
+                        <i class="bi bi-mortarboard me-1" />School week
+                    </button>
+                    <button type="button" class="btn-pc-outline" @click="applyPreset('leisure')">
+                        <i class="bi bi-brightness-high me-1" />Leisure
+                    </button>
+                </div>
+            </div>
+        </div>
+
         <div :class="{ 'opacity-50 pe-none': !schedule.enabled }">
             <!-- Daily time limit -->
             <div class="pc-card mb-3">
@@ -122,6 +137,33 @@ onMounted(async () => {
     if (saved) Object.assign(schedule, saved)
     if (usage) todayMinutes.value = usage.minutes ?? 0
 })
+
+function applyPreset(kind) {
+    if (kind === 'school') {
+        Object.assign(schedule, {
+            enabled: true,
+            dailyLimitEnabled: true,
+            dailyLimitMinutes: 90,
+            allowedHoursEnabled: true,
+            allowedHoursStart: '16:00',
+            allowedHoursEnd: '20:00',
+            allowedDays: [1, 2, 3, 4, 5]
+        })
+    } else if (kind === 'leisure') {
+        Object.assign(schedule, {
+            enabled: true,
+            dailyLimitEnabled: true,
+            dailyLimitMinutes: 180,
+            allowedHoursEnabled: true,
+            allowedHoursStart: '09:00',
+            allowedHoursEnd: '21:00',
+            allowedDays: [1, 2, 3, 4, 5, 6, 7]
+        })
+    }
+    saveMsg.value = 'Preset applied — click Save to apply on the system'
+    saveError.value = false
+    setTimeout(() => { saveMsg.value = '' }, 5000)
+}
 
 async function onSave() {
     saving.value = true

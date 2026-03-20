@@ -31,6 +31,10 @@ contextBridge.exposeInMainWorld('api', {
         getUsage: () => ipcRenderer.invoke('schedules:getUsage'),
         save: (schedule) => ipcRenderer.invoke('schedules:save', schedule)
     },
+    lifeMode: {
+        list: () => ipcRenderer.invoke('lifeMode:list'),
+        apply: (modeKey) => ipcRenderer.invoke('lifeMode:apply', modeKey)
+    },
     settings: {
         isPasswordSet: () => ipcRenderer.invoke('settings:isPasswordSet'),
         checkPassword: (password) => ipcRenderer.invoke('settings:checkPassword', password),
