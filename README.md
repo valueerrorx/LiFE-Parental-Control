@@ -109,7 +109,3 @@ Authoring conventions and stack notes: root **`claude.md`** and **`memory.md`**.
 | **Kiosk / session restart oddities** | Rare stale `loginctl` sessions or multi-seat setups may need a **manual re-login**; the app already skips greeter/background sessions and tries per-user then root `qdbus` logout. |
 | **`NODE_OPTIONS` warning when starting AppImage/deb** | Old builds or a fuse-disabled binary: **rebuild** with current `electron-builder.yml` (`electronFuses` → packaged app ignores `NODE_OPTIONS`). **`npm run dev`** already strips `NODE_OPTIONS` for the dev server. |
 | **DBus / `NameHasOwner` when `npm run dev`** | Same from a normal **Konsole**: Electron runs **as root** on **your** session bus; Chromium logs failed D-Bus probes sometimes. Usually **safe to ignore** if the UI works. **`npm run dev`** forces **`DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/$(id -u)/bus`**. (An AppImage IDE terminal can add *extra* env noise; root+Chromium is the main source.) |
-
-## Legacy
-
-The historical **Python / PyQt** prototype and `kiosk.py` workflow are **not** this app; the UI is the Vue renderer under `src/renderer/`.
