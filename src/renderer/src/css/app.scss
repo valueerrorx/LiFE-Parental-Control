@@ -305,6 +305,7 @@ html, body, #app {
     transition: background 0.15s;
 
     &:hover { background: rgba(21,101,192,0.06); }
+    &:disabled { opacity: 0.5; cursor: default; }
 }
 
 .btn-pc-danger {
@@ -318,6 +319,7 @@ html, body, #app {
     transition: background 0.15s;
 
     &:hover { background: color.adjust(#C62828, $lightness: -8%); }
+    &:disabled { opacity: 0.5; cursor: default; }
 }
 
 // --- Dashboard stat cards ---
