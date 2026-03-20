@@ -2,6 +2,7 @@ import fs from 'fs'
 import path from 'path'
 import { execFile } from 'child_process'
 import { pruneUsageArchives } from './usageArchivePrune.js'
+import { localIsoDate } from './localCalendarDay.js'
 
 const CONFIG_FILE = 'schedules.json'
 const CRON_MARKER = '# LiFE Parental Control'
@@ -23,7 +24,7 @@ function readSchedule(configDir) {
 }
 
 function readUsage(configDir) {
-    const today = new Date().toISOString().slice(0, 10)
+    const today = localIsoDate()
     const file = path.join(configDir, `usage-${today}.json`)
     try {
         const data = JSON.parse(fs.readFileSync(file, 'utf8'))
@@ -150,8 +151,14 @@ if s.get('dailyLimitEnabled'):
             json.dump(usage, f)
 
     limit = s.get('dailyLimitMinutes', 120)
-    if usage.get('minutes', 0) >= limit:
+    used  = usage.get('minutes', 0)
+    remaining = limit - used
+    if remaining <= 0:
         lock_and_notify(f'Daily screen time limit of {limit} minutes reached.')
+    elif remaining == 5 and active_sessions:
+        # 5-minute warning — only notify, do not lock yet
+        for _, user in get_active_graphical_sessions():
+            notify_user(user, f'Screen time: 5 minutes remaining today.')
 `
     fs.writeFileSync(CHECK_SCRIPT, script, { mode: 0o755 })
 }

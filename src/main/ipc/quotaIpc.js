@@ -2,6 +2,7 @@ import fs from 'fs'
 import path from 'path'
 import { execFile } from 'child_process'
 import { pruneUsageArchives } from './usageArchivePrune.js'
+import { localIsoDate } from './localCalendarDay.js'
 
 const QUOTA_FILE = 'quota.json'
 const QUOTA_SCRIPT = '/usr/local/bin/life-parental-quota'
@@ -17,7 +18,7 @@ function saveQuotas(configDir, quotas) {
 }
 
 function readUsage(configDir) {
-    const today = new Date().toISOString().slice(0, 10)
+    const today = localIsoDate()
     const file = path.join(configDir, `quota-usage-${today}.json`)
     try {
         const data = JSON.parse(fs.readFileSync(file, 'utf8'))
@@ -108,10 +109,16 @@ for q in quotas:
         app_usage[app_id] = app_usage.get(app_id, 0) + 1
         changed = True
 
-    if app_usage.get(app_id, 0) >= limit:
+    used      = app_usage.get(app_id, 0)
+    remaining = limit - used
+    if remaining <= 0:
         for user in active_users:
             subprocess.run(['pkill', '-u', user, '-x', '-i', proc], capture_output=True, check=False)
             notify_user(user, f'Daily time limit for {name} reached ({limit} minutes).')
+    elif remaining == 5 and is_running:
+        # 5-minute warning — notify but do not kill yet
+        for user in active_users:
+            notify_user(user, f'{name}: 5 minutes of daily screen time remaining.')
 
 if changed:
     with open(usage_file, 'w') as f:
