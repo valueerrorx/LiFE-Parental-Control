@@ -1,5 +1,7 @@
 # LiFE Parental Control (`life-kiosk` repo, npm package `life-parental-control`)
 
+![LiFE Parental Control — Dashboard](images/dashboard.png)
+
 Desktop app for **KDE Plasma (Linux)**: parental controls via **Electron**, **Vue 3**, **Pinia**, and **Bootstrap 5**. Kiosk restrictions use `.kiosk` profile snippets merged into `/etc/xdg/kdeglobals`.
 
 ## Modules
