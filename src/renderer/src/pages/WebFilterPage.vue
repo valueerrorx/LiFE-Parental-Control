@@ -149,7 +149,12 @@ onMounted(async () => {
 function onAdd() {
     const d = newDomain.value.trim().toLowerCase().replace(/^https?:\/\//, '').replace(/\/.*$/, '')
     if (!d) return
-    if (entries.value.find(e => e.domain === d)) return
+    if (entries.value.find(e => e.domain === d)) {
+        saveMsg.value = `"${d}" is already in the list`
+        saveError.value = true
+        setTimeout(() => { saveMsg.value = '' }, 3000)
+        return
+    }
     store.webFilterEntries.push({ domain: d, enabled: true })
     newDomain.value = ''
 }
@@ -201,6 +206,8 @@ async function onSave() {
 }
 
 function onClearAll() {
+    if (!window.confirm(`Remove all ${entries.value.length} blocked domain rules? (Unsaved changes are also lost. Click "Apply Changes" to write the cleared list to /etc/hosts.)`)) return
     store.webFilterEntries.splice(0)
+    search.value = ''
 }
 </script>
