@@ -1,0 +1,34 @@
+# Full electron-builder run (AppImage + deb); slower than ci.yml — manual or release tags.
+
+name: Package
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+        env:
+          ELECTRON_BUILDER_PUBLISH: never
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux-dist
+          path: dist/*

@@ -1,0 +1,19 @@
+// LiFE Parental Control: pkexec relaunch uses /usr/bin/env + app path; tie AUTH_ADMIN to our command line.
+polkit.addRule(function(action, subject) {
+    if (action.id !== 'org.freedesktop.policykit.exec') {
+        return polkit.Result.NOT_HANDLED;
+    }
+    if (subject.local !== true) {
+        return polkit.Result.NOT_HANDLED;
+    }
+    var cmd = action.lookup('command_line');
+    if (cmd === null) {
+        return polkit.Result.NOT_HANDLED;
+    }
+    var norm = cmd.toLowerCase();
+    // deb installs `life-parental-control`; default AppImage name uses product title with spaces.
+    if (norm.indexOf('life-parental-control') < 0 && norm.indexOf('life parental control') < 0) {
+        return polkit.Result.NOT_HANDLED;
+    }
+    return polkit.Result.AUTH_ADMIN;
+});
