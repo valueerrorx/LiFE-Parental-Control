@@ -17,7 +17,9 @@ Desktop app for **KDE Plasma (Linux)**: parental controls via **Electron**, **Vu
 
 ### Session restart (KDE)
 
-After writing kiosk restrictions to `/etc/xdg/kdeglobals`, the app triggers a Plasma session restart: `kquitapp6|5 ksmserver` first, then `qdbus` logout on **each** graphical user found via `loginctl` (**x11** / **wayland**, session state **active** or **online**) on that user’s session bus (`/run/user/<uid>/bus`), then the same DBus calls as root as a last resort. Typical single-seat setups work out of the box; edge cases may still need a manual re-login.
+After writing kiosk restrictions to `/etc/xdg/kdeglobals`, the app triggers a Plasma session restart: `kquitapp6|5 ksmserver` first, then `qdbus` logout on **each** relevant `loginctl` session (**x11** / **wayland**, **active** or **online**, excluding **greeter** / **background** classes) on that user’s session bus (`/run/user/<uid>/bus`), then the same DBus calls as root as a last resort. Typical single-seat setups work out of the box; edge cases may still need a manual re-login.
+
+Screen-time and app-quota cron jobs use the same session filter when detecting logged-in graphical users (redeploy scripts after upgrading the app).
 
 ## Development
 
