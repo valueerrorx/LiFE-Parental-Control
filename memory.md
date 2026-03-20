@@ -1,23 +1,30 @@
 # LiFE Kiosk — persistent context (compressed)
 
 ## Stack (actual)
-electron-vite, Vue3+Pinia, Bootstrap5, Sass; **not** Quasar (`claude.md` stack line updated). **Only** `src/main/`, `src/preload/`, `src/renderer/` — no duplicate Vue tree under `src/`. Do **not** set npm `"type":"module"` (breaks preload path: outputs `.mjs` vs main expecting `.js`).
+electron-vite, Vue3+Pinia, Bootstrap5, Sass; **not** Quasar (`claude.md` stack line updated). **`src/shared/`** — cross-target modules (e.g. `lockIdleMinutes.js` imported via `@shared` alias in main + renderer). **Only** `src/main/`, `src/preload/`, `src/renderer/` for app code — no duplicate Vue tree under `src/`. Do **not** set npm `"type":"module"` (breaks preload path: outputs `.mjs` vs main expecting `.js`).
 
 ## IPC surface
-`config:readFiles`; `profile:*`; `system:*` (incl. `system:getAppInfo`: name/version/packaged/electron/node); `webfilter:*` (incl. `webfilter:reapplyMirror` → `reapplyWebFilterFromMirror`: hosts from `webfilter.json`); `apps:*`; `quota:*` (incl. `quota:redeploy`); `schedules:*` (incl. `schedules:redeploy`); `lifeMode:*`; `backup:export|import`; `settings:*` (incl. `settings:pruneUsageArchives` → `{ ok, removed }`). **Usage log retention:** `usageArchivePrune.js` deletes `usage-*.json` / `quota-usage-*.json` when filename date is older than **120 days** (local calendar day, matches cron/Python); runs at app start, after schedule persist/redeploy + quota deploy, and manually from Settings **Maintenance**.
+`config:readFiles`; `profile:*`; `system:*` (incl. `system:getAppInfo`: name/version/packaged/electron/node); `webfilter:*` (incl. `webfilter:reapplyMirror` → `reapplyWebFilterFromMirror`: hosts from `webfilter.json`); `apps:*`; `quota:*` (incl. `quota:redeploy`); `schedules:*` (incl. `schedules:redeploy`); `lifeMode:*`; `backup:export|import`; `settings:*` (incl. `settings:getConfig` sanitizes `lockIdleMinutes`; main start `repairInvalidLockIdleInConfig` writes disk cleanup; `settings:pruneUsageArchives` → `{ ok, removed }`). **Usage log retention:** `usageArchivePrune.js` deletes `usage-*.json` / `quota-usage-*.json` when filename date is older than **120 days** (local calendar day, matches cron/Python); runs at app start, after schedule persist/redeploy + quota deploy, and manually from Settings **Maintenance**.
 
 ## KDE integration
 Kiosk: merges into `/etc/xdg/kdeglobals` — strips prior LiFE sections (`[KDE Action Restrictions][$i]` etc.) then appends new blocks; never wipes unrelated keys. Session restart: `kquitapp6 ksmserver` → `kquitapp5 ksmserver` → for each **active x11/wayland** user from `loginctl`, `qdbus` as that uid with `DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/<uid>/bus` (KSMServer variants + qt bin paths) → last resort same qdbus as root (legacy). Status IPC reads same section headers (must match `kioskStore.buildPlasmaConfig`).
 
 ## Recent changes (2026-03-20)
-- **Backup import**: `Object.hasOwn` on `schedules`, `webFilter`, `blockedApps`, `quotas`, `lifeModes` — absent key → leave disk; `webFilter`/`blockedApps`/`quotas` bad/missing arrays → clear; `schedules` non-object → defaults; `lifeModes` non-object → unlink `life-modes.json`.
+- **`src/shared/lockIdleMinutes.js`**: `normalizedLockIdleMinutesOrUndefined` + `isLockIdleMinutesAllowed` (internal); consumers: `settingsIpc`, `App.vue`, `SettingsPage` (`LOCK_IDLE_OPTIONS` for `<select>`); Settings load/import pass raw `cfg.lockIdleMinutes` (normalizer does `Number()`).
+- **`repairInvalidLockIdleInConfig`**: on app start, drops invalid `lockIdleMinutes` from `config.json`. **`settings:getConfig`** sanitizes IPC payload.
+- **`src/shared/lockIdleMinutes.js`**: allowlist + **`LOCK_IDLE_OPTIONS`** (value/label) for Settings session-lock `<select>`; `settingsIpc`, `App.vue`, `SettingsPage`; `@shared`; `eslint` includes `src/shared`.
+- **CI**: `.github/workflows/ci.yml` — Node 22, `npm ci`, `npm run check`, concurrency cancel, `permissions: contents: read`; triggers PR + push `main`/`master` only; **Dependabot** monthly npm + actions; `claude.md` / README aligned.
+- **`package.json`**: `npm run check` = `lint` + `compile`; README dev uses `check` before `dev`. `compile` = `electron-vite build` only.
+- **README**: **Backup** subsection — `examples/life-parental-backup-v1.example.json`, v1 bundle, partial import (keys present only).
+- **electron-builder.yml**: `productName` + `linux.description` aligned with `package.json` / README (no longer “LiFE Kiosk” / kiosk-only wording).
+- **Backup import**: `Object.hasOwn` on `schedules`, `webFilter`, `blockedApps`, `quotas`, `lifeModes`, `preferences` — absent key → unchanged; `preferences` non-object → `clearSessionLockPreference` (drop `lockIdleMinutes`); other rules unchanged (`lifeModes` non-object → unlink, etc.).
 - **README**: Session restart behaviour (kquitapp → per-user session bus qdbus → root fallback); `dev:root` documented for sudo+Vite testing.
 - **Session restart**: after kquitapp, DBus logout as each **active graphical** user (`loginctl` + `id -u/g`, `DBUS_SESSION_BUS_ADDRESS=/run/user/<uid>/bus`), then qt bin path + KSMServer name matrix as **root** fallback.
 - **Settings**: Maintenance button **Usage logs (old)** → `settings:pruneUsageArchives`; `pruneUsageArchives` returns `{ removed }` for the toast.
 - **Local calendar day**: `localCalendarDay.js` — `schedules:getUsage` / `quota:getUsage` / usage prune cutoff use same local `YYYY-MM-DD` as embedded Python (`date.today()`), not `toISOString()` UTC (fixes wrong “today” file near timezone midnight).
 - **Usage archives**: `usageArchivePrune.js` removes `usage-YYYY-MM-DD.json` and `quota-usage-YYYY-MM-DD.json` older than 120d (filename date); app start + schedule persist/redeploy + quota `deployScript` + Settings **Usage logs (old)**.
 - **Navigation**: `MainLayout` refresh on mount; App Control badges (blocked / quotas); Screen Time **on** when `schedule.enabled`; Dashboard only loads `lifeMode:list` (no duplicate protection IPC). Screen Time **Save** calls `refreshProtectionsState` so sidebar badges update immediately.
-- **Backup**: bundle includes `preferences` (session lock); import merges via `mergePreferencesFromBackup`; post-import syncs Session lock UI + `life-parental-lock-prefs`.
+- **Backup**: bundle includes `preferences`; import merges allowed `lockIdleMinutes` via `mergePreferencesFromBackup`, or `clearSessionLockPreference` when key present but value not an object; post-import `life-parental-lock-prefs`.
 - **Auto-lock**: `config.json` `lockIdleMinutes` (0 / 5 / 15 / 30 / 60), Settings **Session lock**; idle timer on unlock + `life-parental-lock-prefs` event to refresh without re-login. `App.vue` fixes first-run `passwordSet` after `setPassword`.
 - **About**: `system:getAppInfo` + Settings shows version, Electron/Node, dev vs packaged.
 - **Web filter**: `webfilter:reapplyMirror` / `reapplyWebFilterFromMirror`; Settings **Maintenance** + Web Filter **Sync from disk**.
@@ -34,7 +41,7 @@ Kiosk: merges into `/etc/xdg/kdeglobals` — strips prior LiFE sections (`[KDE A
 - **`schedules:getUsageHistory`**: reads last N (default 14, max 90) `usage-YYYY-MM-DD.json` under config dir; Schedules page “Recent screen time” table + Refresh; bars scale to daily limit when enabled else to peak day.
 - **Dashboard family profile + KDE**: optional checkbox applies after `lifeMode:apply`: School → `kioskStore.prepareActivation()` + `system:activateKiosk`; Leisure → `activateKiosk('')` (strip LiFE blocks). Session restart as on Kiosk page.
 - **`lifeMode` leisure**: strips Social Media + Gaming preset hostnames from hosts/mirror (domains defined in `webFilterCategories.js` only); custom rules unchanged.
-- **Repo hygiene**: Removed legacy duplicate frontend (`src/App.vue`, `src/pages`, `src/components`, …), root `index.html`; `npm run lint` scopes to `src/main|preload|renderer`. ESLint: Node globals for main/preload, browser globals for renderer; `vue/script-indent` baseIndent 0; `settings:getConfig|saveConfig` use `delete` instead of unused destructuring. `eslint --fix` applied across renderer.
+- **Repo hygiene**: Removed legacy duplicate frontend (`src/App.vue`, `src/pages`, `src/components`, …), root `index.html`; `npm run lint` scopes to `src/main|preload|renderer|shared`. ESLint: Node globals for main/preload, browser globals for renderer; `vue/script-indent` baseIndent 0; `settings:getConfig|saveConfig` use `delete` instead of unused destructuring. `eslint --fix` applied across renderer.
 - **`lifeMode:apply`**: `school` = schedule + merge Social+Gaming into hosts + clear blocked apps; `leisure` = relaxed schedule + clear blocked apps (web rules unchanged). Dashboard “Family profiles” + IPC `lifeMode:list`.
 - **Web filter categories** moved to `src/main/ipc/webFilterCategories.js`; `readWebFilterEntries` / `persistWebFilterEntries` exported for presets.
 - **`persistSchedule` exported** from `schedulesIpc.js`; **`replaceBlockedDesktopIds`** + shared override helper in `appBlockerIpc.js`.
@@ -59,6 +66,12 @@ Kiosk: merges into `/etc/xdg/kdeglobals` — strips prior LiFE sections (`[KDE A
 - **`quota:redeploy`** + **`schedules:redeploy`** IPC: redeploy cron scripts from JSON on disk; buttons in App Control, Schedules, Settings.
 - **`pgrep`/`pkill` `-x -i`**: case-insensitive exact comm matching in quota enforcement script.
 - **Dashboard "App time limits"** card: per-app usage bars sorted by ratio; `quotaSummaryRows` computed from `appStore.appQuotas`+`appQuotaUsage`.
+
+## Recent changes (2026-03-20 final)
+- **Web Filter search**: `filteredEntries` computed by domain substring; header shows `N / total` when searching; empty-search state.
+- **Web Filter UX**: `onClearAll` requires confirmation + resets search; `onAdd` shows saveMsg when domain already in list (instead of silent no-op).
+- **`@shared/lockIdleMinutes.js`**: added `normalizedLockIdleMinutesOrUndefined(raw)` helper; used in `settingsIpc.js` and `SettingsPage.vue`.
+- **Schedules history range**: day selector (14 / 30 / 90) in "Recent screen time" card header; `historyDays` ref drives `getUsageHistory(historyDays)` on refresh.
 
 ## Open / TODO
 - Session logout: multi-seat or stale loginctl edge cases; kquitapp remains preferred.
