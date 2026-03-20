@@ -43,6 +43,7 @@
             <RouterLink to="/kiosk" custom v-slot="{ navigate, isActive }">
                 <button class="nav-item-link" :class="{ active: isActive }" @click="navigate">
                     <i class="bi bi-lock-fill" /> KDE Kiosk
+                    <span v-if="kioskActive" class="ms-auto badge-count badge-schedule" title="KDE kiosk active">on</span>
                 </button>
             </RouterLink>
             <RouterLink to="/settings" custom v-slot="{ navigate, isActive }">
@@ -70,6 +71,7 @@ const filterCount = computed(() => store.webFilterEntries.filter(e => e.enabled)
 const blockedCount = computed(() => store.blockedApps.length)
 const quotaCount = computed(() => store.appQuotas.length)
 const screenTimeOn = computed(() => store.schedule?.enabled === true)
+const kioskActive = computed(() => store.kioskStatus?.active === true)
 
 function onExit() {
     window.api.system.quit()
