@@ -63,7 +63,9 @@
                 <p class="text-muted small mb-3">
                     Per-app daily cap: a root cron job runs every minute, counts minutes while the process is running
                     (<code>pgrep -x -i</code>), then kills the app and notifies when the limit is hit.
-                    <code>Exec</code> is parsed for flatpak <code>--command=</code>, <code>flatpak run</code> app ids, and <code>snap run</code>; edit the process field if <code>pgrep</code> does not match your binary name.
+                    Default process names derive from <code>Exec</code> (flatpak <code>--command=</code> / <code>run</code>, <code>snap run</code>,
+                    <code>sh|bash|dash|zsh -c …</code>, <code>electron</code> + flags, <code>*.AppImage</code> stem).
+                    If the live process name still differs (Steam titles, some AppImages), edit the process field to match <code>comm</code> (e.g. <code>ps -o comm</code>).
                 </p>
                 <div v-if="quotas.length" class="table-responsive mb-3">
                     <table class="table table-sm align-middle mb-0">
@@ -150,8 +152,13 @@ const addAppId = ref('')
 const addMinutes = ref(60)
 const addProcessOverride = ref('')
 
-const filtered = computed(() =>
-    apps.value.filter(a => !search.value || a.name.toLowerCase().includes(search.value.toLowerCase()))
+const filtered = computed(() => {
+    const q = search.value.toLowerCase()
+    return apps.value.filter(a => !q ||
+        a.name.toLowerCase().includes(q) ||
+        (a.exec || '').toLowerCase().includes(q) ||
+        (a.processName || '').toLowerCase().includes(q))
+}
 )
 const blockedCount = computed(() => apps.value.filter(a => a.blocked).length)
 
