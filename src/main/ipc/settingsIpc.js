@@ -1,6 +1,7 @@
 import fs from 'fs'
 import path from 'path'
 import crypto from 'crypto'
+import { pruneUsageArchives } from './usageArchivePrune.js'
 
 const CONFIG_FILE = 'config.json'
 
@@ -84,5 +85,14 @@ export function registerSettingsIpc(ipcMain, configDir) {
         delete incoming.passwordHash
         delete incoming.salt
         saveConfig(configDir, { ...cfg, ...incoming })
+    })
+
+    ipcMain.handle('settings:pruneUsageArchives', () => {
+        try {
+            const { removed } = pruneUsageArchives(configDir)
+            return { ok: true, removed }
+        } catch (e) {
+            return { error: e.message }
+        }
     })
 }

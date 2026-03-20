@@ -56,6 +56,7 @@ contextBridge.exposeInMainWorld('api', {
         setPassword: (password) => ipcRenderer.invoke('settings:setPassword', password),
         changePassword: (oldPass, newPass) => ipcRenderer.invoke('settings:changePassword', oldPass, newPass),
         getConfig: () => ipcRenderer.invoke('settings:getConfig'),
-        saveConfig: (cfg) => ipcRenderer.invoke('settings:saveConfig', cfg)
+        saveConfig: (cfg) => ipcRenderer.invoke('settings:saveConfig', cfg),
+        pruneUsageArchives: () => ipcRenderer.invoke('settings:pruneUsageArchives')
     }
 })

@@ -74,6 +74,7 @@
                             Re-deploy cron jobs from JSON on disk (after app updates) — same as <strong>Screen Time</strong> /
                             <strong>App Control</strong> “Rewrite”. <strong>Web filter</strong> rewrites the LiFE
                             <code>/etc/hosts</code> block from <code>webfilter.json</code> (e.g. hosts edited by hand).
+                            <strong>Usage logs</strong> removes <code>usage-*</code> and <code>quota-usage-*</code> JSON older than 120 days (same rule as automatic cleanup).
                         </p>
                         <div class="d-flex flex-wrap gap-2">
                             <button type="button" class="btn-pc-outline" :disabled="maintBusy" @click="onRedeployScheduleCron">
@@ -84,6 +85,9 @@
                             </button>
                             <button type="button" class="btn-pc-outline" :disabled="maintBusy" @click="onReapplyWebHosts">
                                 <i class="bi bi-arrow-repeat me-1" />Web filter hosts
+                            </button>
+                            <button type="button" class="btn-pc-outline" :disabled="maintBusy" @click="onPruneUsageArchives">
+                                <i class="bi bi-trash me-1" />Usage logs (old)
                             </button>
                         </div>
                         <p v-if="maintMsg" class="small mt-2 mb-0" :class="maintError ? 'text-danger' : 'text-success'">{{ maintMsg }}</p>
@@ -242,6 +246,23 @@ async function onRedeployQuotaCron() {
         maintError.value = true
     } else {
         maintMsg.value = 'App quota cron and script updated.'
+        maintError.value = false
+    }
+}
+
+async function onPruneUsageArchives() {
+    if (!window.confirm(
+        'Delete usage-*.json and quota-usage-*.json in /etc/life-parental/ older than 120 days (by date in the filename)?'
+    )) return
+    maintBusy.value = true
+    maintMsg.value = ''
+    const r = await window.api.settings.pruneUsageArchives()
+    maintBusy.value = false
+    if (r?.error) {
+        maintMsg.value = r.error
+        maintError.value = true
+    } else {
+        maintMsg.value = `Removed ${r?.removed ?? 0} old file(s).`
         maintError.value = false
     }
 }
