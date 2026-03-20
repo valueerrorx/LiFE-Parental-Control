@@ -1,4 +1,4 @@
-# LiFE Parental Control (`life-kiosk` repo, npm package `life-parental-control`)
+# LiFE Parental Control
 
 ![LiFE Parental Control — Dashboard](images/dashboard.png)
 
