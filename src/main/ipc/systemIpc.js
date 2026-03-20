@@ -68,6 +68,14 @@ function restartKdeSession() {
 }
 
 export function registerSystemIpc(ipcMain, getWindow) {
+    ipcMain.handle('system:getAppInfo', () => ({
+        name: app.getName(),
+        version: app.getVersion(),
+        packaged: app.isPackaged,
+        electron: process.versions.electron,
+        node: process.versions.node
+    }))
+
     ipcMain.handle('system:getKioskStatus', async () => {
         try {
             const text = fs.readFileSync(KDEGLOBALS_PATH, 'utf8')

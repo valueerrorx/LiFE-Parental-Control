@@ -31,6 +31,25 @@
                 </div>
 
                 <div class="pc-card mt-3">
+                    <div class="pc-card-header"><h6><i class="bi bi-shield-lock me-2" />Session lock</h6></div>
+                    <div class="pc-card-body">
+                        <p class="text-muted small mb-3">
+                            After unlocking with a password, the app locks again after inactivity (mouse, keyboard, scroll).
+                        </p>
+                        <label class="form-label small text-muted">Auto-lock after idle</label>
+                        <select v-model.number="sessionPrefs.lockIdleMinutes" class="pc-input mb-3" style="max-width:220px;">
+                            <option :value="0">Off</option>
+                            <option :value="5">5 minutes</option>
+                            <option :value="15">15 minutes</option>
+                            <option :value="30">30 minutes</option>
+                            <option :value="60">60 minutes</option>
+                        </select>
+                        <p v-if="sessionPrefsMsg" class="small mb-2" :class="sessionPrefsError ? 'text-danger' : 'text-success'">{{ sessionPrefsMsg }}</p>
+                        <button type="button" class="btn-pc-outline" @click="onSaveSessionPrefs">Save</button>
+                    </div>
+                </div>
+
+                <div class="pc-card mt-3">
                     <div class="pc-card-header"><h6><i class="bi bi-archive me-2" />Backup &amp; restore</h6></div>
                     <div class="pc-card-body">
                         <p class="text-muted small mb-3">
@@ -78,7 +97,16 @@
                     <div class="pc-card-header"><h6><i class="bi bi-info-circle me-2" />About</h6></div>
                     <div class="pc-card-body">
                         <div class="d-flex flex-column gap-1" style="font-size:13px;">
-                            <div><span class="text-muted" style="min-width:120px;display:inline-block;">Application</span> LiFE Parental Control</div>
+                            <div>
+                                <span class="text-muted" style="min-width:120px;display:inline-block;">Application</span>
+                                {{ appInfo?.name || 'LiFE Parental Control' }}
+                            </div>
+                            <div>
+                                <span class="text-muted" style="min-width:120px;display:inline-block;">Version</span>
+                                {{ appInfo?.version ?? '—' }}
+                                <span v-if="appInfo && !appInfo.packaged" class="text-muted small ms-1">(dev)</span>
+                            </div>
+                            <div><span class="text-muted" style="min-width:120px;display:inline-block;">Runtime</span> Electron {{ appInfo?.electron ?? '—' }}, Node {{ appInfo?.node ?? '—' }}</div>
                             <div><span class="text-muted" style="min-width:120px;display:inline-block;">Platform</span> KDE Plasma (Linux)</div>
                             <div><span class="text-muted" style="min-width:120px;display:inline-block;">Config directory</span> <code>/etc/life-parental/</code></div>
                             <div><span class="text-muted" style="min-width:120px;display:inline-block;">Running as</span> root</div>
@@ -127,10 +155,14 @@
 </template>
 
 <script setup>
-import { reactive, ref } from 'vue'
+import { reactive, ref, onMounted } from 'vue'
 import { useAppStore } from '../stores/appStore.js'
 
 const appStore = useAppStore()
+const appInfo = ref(null)
+const sessionPrefs = reactive({ lockIdleMinutes: 15 })
+const sessionPrefsMsg = ref('')
+const sessionPrefsError = ref(false)
 
 const changePw = reactive({ current: '', new1: '', new2: '' })
 const pwMsg = ref('')
@@ -141,6 +173,31 @@ const backupError = ref(false)
 const maintBusy = ref(false)
 const maintMsg = ref('')
 const maintError = ref(false)
+
+onMounted(async () => {
+    appInfo.value = await window.api.system.getAppInfo()
+    const cfg = await window.api.settings.getConfig()
+    const m = Number(cfg.lockIdleMinutes)
+    sessionPrefs.lockIdleMinutes = Number.isFinite(m) && m >= 0 && [0, 5, 15, 30, 60].includes(m)
+        ? m
+        : 15
+})
+
+async function onSaveSessionPrefs() {
+    sessionPrefsMsg.value = ''
+    const minutes = Math.max(0, Math.min(120, Number(sessionPrefs.lockIdleMinutes) || 0))
+    sessionPrefs.lockIdleMinutes = [0, 5, 15, 30, 60].includes(minutes) ? minutes : 15
+    try {
+        await window.api.settings.saveConfig({ lockIdleMinutes: sessionPrefs.lockIdleMinutes })
+        sessionPrefsMsg.value = 'Saved. Applies to the next unlock or immediately if already unlocked.'
+        sessionPrefsError.value = false
+        window.dispatchEvent(new CustomEvent('life-parental-lock-prefs'))
+    } catch (e) {
+        sessionPrefsMsg.value = e?.message || 'Save failed'
+        sessionPrefsError.value = true
+    }
+    setTimeout(() => { sessionPrefsMsg.value = '' }, 5000)
+}
 
 async function onChangePassword() {
     pwMsg.value = ''

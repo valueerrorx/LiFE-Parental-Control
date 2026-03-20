@@ -4,12 +4,14 @@
 electron-vite, Vue3+Pinia, Bootstrap5, Sass; **not** Quasar (`claude.md` stack line updated). **Only** `src/main/`, `src/preload/`, `src/renderer/` — no duplicate Vue tree under `src/`. Do **not** set npm `"type":"module"` (breaks preload path: outputs `.mjs` vs main expecting `.js`).
 
 ## IPC surface
-`config:readFiles`; `profile:*`; `system:*`; `webfilter:*` (incl. `webfilter:reapplyMirror` → `reapplyWebFilterFromMirror`: hosts from `webfilter.json`); `apps:*`; `quota:*` (incl. `quota:redeploy`); `schedules:*` (incl. `schedules:redeploy`); `lifeMode:*`; `backup:export|import`; `settings:*`.
+`config:readFiles`; `profile:*`; `system:*` (incl. `system:getAppInfo`: name/version/packaged/electron/node); `webfilter:*` (incl. `webfilter:reapplyMirror` → `reapplyWebFilterFromMirror`: hosts from `webfilter.json`); `apps:*`; `quota:*` (incl. `quota:redeploy`); `schedules:*` (incl. `schedules:redeploy`); `lifeMode:*`; `backup:export|import`; `settings:*`.
 
 ## KDE integration
 Kiosk: merges into `/etc/xdg/kdeglobals` — strips prior LiFE sections (`[KDE Action Restrictions][$i]` etc.) then appends new blocks; never wipes unrelated keys. Session restart: `kquitapp6 ksmserver` → `kquitapp5 ksmserver` → `qdbus(6) org.kde.KSMServer|ksmserver /KSMServer logout 0 0 1`. Status IPC reads same section headers (must match `kioskStore.buildPlasmaConfig`).
 
 ## Recent changes (2026-03-20)
+- **Auto-lock**: `config.json` `lockIdleMinutes` (0 / 5 / 15 / 30 / 60), Settings **Session lock**; idle timer on unlock + `life-parental-lock-prefs` event to refresh without re-login. `App.vue` fixes first-run `passwordSet` after `setPassword`.
+- **About**: `system:getAppInfo` + Settings shows version, Electron/Node, dev vs packaged.
 - **Web filter**: `webfilter:reapplyMirror` / `reapplyWebFilterFromMirror`; Settings **Maintenance** + Web Filter **Sync from disk**.
 - **README.md**: aligned with Electron/Vue app (obsolete Python/PyQt text removed). **Settings**: “Cron scripts” maintenance card (schedule + quota redeploy).
 - **Screen Time**: `schedules:redeploy` + Schedules page “Rewrite cron script” (`redeployScheduleCron` reads `schedules.json`, same `updateCron` as Save).

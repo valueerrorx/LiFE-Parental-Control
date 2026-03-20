@@ -36,11 +36,13 @@
         </div>
     </div>
 
-    <router-view v-else />
+    <div v-else @pointerdown="onUserActivity">
+        <router-view />
+    </div>
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, onUnmounted, watch } from 'vue'
 
 const unlocked = ref(false)
 const passwordSet = ref(false)
@@ -49,21 +51,73 @@ const pw1 = ref('')
 const pw2 = ref('')
 const error = ref('')
 const busy = ref(false)
+const lockIdleMs = ref(0)
+let idleTimer = null
+
+function idleMsFromConfig(cfg) {
+    const m = Number(cfg?.lockIdleMinutes)
+    if (!Number.isFinite(m) || m < 0) return 15 * 60 * 1000
+    if (m === 0) return 0
+    return Math.min(120, m) * 60 * 1000
+}
+
+function clearIdleLockTimer() {
+    if (idleTimer) clearTimeout(idleTimer)
+    idleTimer = null
+}
+
+function scheduleIdleLock() {
+    clearIdleLockTimer()
+    if (!unlocked.value || !passwordSet.value || lockIdleMs.value <= 0) return
+    idleTimer = setTimeout(() => {
+        idleTimer = null
+        unlocked.value = false
+        password.value = ''
+        error.value = ''
+    }, lockIdleMs.value)
+}
+
+function onUserActivity() {
+    scheduleIdleLock()
+}
 
 onMounted(async () => {
     passwordSet.value = await window.api.settings.isPasswordSet()
-    // If no password is configured, go straight in (but prompt to set one)
-    if (!passwordSet.value) {
-        // First run: show set-password form
-    }
+    window.addEventListener('wheel', onUserActivity, { passive: true })
+    window.addEventListener('keydown', onUserActivity)
+    window.addEventListener('life-parental-lock-prefs', onLockPrefsChanged)
 })
+
+onUnmounted(() => {
+    window.removeEventListener('wheel', onUserActivity)
+    window.removeEventListener('keydown', onUserActivity)
+    window.removeEventListener('life-parental-lock-prefs', onLockPrefsChanged)
+    clearIdleLockTimer()
+})
+
+function onLockPrefsChanged() {
+    if (unlocked.value && passwordSet.value) void applyUnlockIdlePolicy()
+}
+
+watch(unlocked, (open) => {
+    if (!open) clearIdleLockTimer()
+})
+
+async function applyUnlockIdlePolicy() {
+    const cfg = await window.api.settings.getConfig()
+    lockIdleMs.value = idleMsFromConfig(cfg)
+    scheduleIdleLock()
+}
 
 async function onSetPassword() {
     error.value = ''
     if (!pw1.value) { error.value = 'Password cannot be empty'; return }
     if (pw1.value !== pw2.value) { error.value = 'Passwords do not match'; return }
     await window.api.settings.setPassword(pw1.value)
+    passwordSet.value = true
     unlocked.value = true
+    pw1.value = pw2.value = ''
+    await applyUnlockIdlePolicy()
 }
 
 async function onUnlock() {
@@ -74,6 +128,8 @@ async function onUnlock() {
     if (ok) {
         unlocked.value = true
         error.value = ''
+        password.value = ''
+        await applyUnlockIdlePolicy()
     } else {
         error.value = 'Incorrect password'
         password.value = ''

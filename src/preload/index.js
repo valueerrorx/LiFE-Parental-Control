@@ -11,6 +11,7 @@ contextBridge.exposeInMainWorld('api', {
         delete: (name) => ipcRenderer.invoke('profile:delete', name)
     },
     system: {
+        getAppInfo: () => ipcRenderer.invoke('system:getAppInfo'),
         activateKiosk: (configText) => ipcRenderer.invoke('system:activateKiosk', configText),
         getKioskStatus: () => ipcRenderer.invoke('system:getKioskStatus'),
         openDirectory: () => ipcRenderer.invoke('dialog:openDirectory'),
