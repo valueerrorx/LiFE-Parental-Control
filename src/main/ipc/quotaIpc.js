@@ -1,6 +1,7 @@
 import fs from 'fs'
 import path from 'path'
 import { execFile } from 'child_process'
+import { pruneUsageArchives } from './usageArchivePrune.js'
 
 const QUOTA_FILE = 'quota.json'
 const QUOTA_SCRIPT = '/usr/local/bin/life-parental-quota'
@@ -121,6 +122,11 @@ if changed:
     fs.writeFileSync(QUOTA_CRON, content, 'utf8')
     execFile('systemctl', ['reload', 'cron'],  { timeout: 3000 }, () => {})
     execFile('systemctl', ['reload', 'crond'], { timeout: 3000 }, () => {})
+    try {
+        pruneUsageArchives(configDir)
+    } catch {
+        // best-effort cleanup
+    }
 }
 
 export function readQuotaEntries(configDir) {

@@ -1,6 +1,7 @@
 import fs from 'fs'
 import path from 'path'
 import { execFile } from 'child_process'
+import { pruneUsageArchives } from './usageArchivePrune.js'
 
 const CONFIG_FILE = 'schedules.json'
 const CRON_MARKER = '# LiFE Parental Control'
@@ -170,11 +171,21 @@ function updateCron(schedule, configDir) {
 
 export function redeployScheduleCron(configDir) {
     updateCron(readSchedule(configDir), configDir)
+    try {
+        pruneUsageArchives(configDir)
+    } catch {
+        // best-effort cleanup
+    }
 }
 
 export function persistSchedule(configDir, schedule) {
     fs.writeFileSync(path.join(configDir, CONFIG_FILE), JSON.stringify(schedule, null, 2), 'utf8')
     updateCron(schedule, configDir)
+    try {
+        pruneUsageArchives(configDir)
+    } catch {
+        // best-effort cleanup
+    }
 }
 
 export function registerSchedulesIpc(ipcMain, configDir) {

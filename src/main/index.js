@@ -12,6 +12,7 @@ import { registerSettingsIpc } from './ipc/settingsIpc.js'
 import { registerLifeModeIpc } from './ipc/lifeModeIpc.js'
 import { registerBackupIpc } from './ipc/backupIpc.js'
 import { registerQuotaIpc } from './ipc/quotaIpc.js'
+import { pruneUsageArchives } from './ipc/usageArchivePrune.js'
 
 // __dirname = out/main/ after electron-vite compilation
 
@@ -45,6 +46,11 @@ app.whenReady().then(() => {
 
     mkdirSync(profilesDir, { recursive: true })
     mkdirSync(APP_CONFIG_DIR, { recursive: true })
+    try {
+        pruneUsageArchives(APP_CONFIG_DIR)
+    } catch {
+        // best-effort cleanup
+    }
 
     registerConfigIpc(ipcMain, kioskDir)
     registerProfileIpc(ipcMain, profilesDir)
