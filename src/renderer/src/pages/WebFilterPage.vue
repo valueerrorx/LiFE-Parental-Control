@@ -27,9 +27,11 @@
             <div class="col-8">
                 <div class="pc-card h-100">
                     <div class="pc-card-header">
-                        <h6>Blocked Domains ({{ entries.length }})</h6>
+                        <h6>Blocked Domains ({{ search ? `${filteredEntries.length} / ${entries.length}` : entries.length }})</h6>
                         <div class="d-flex gap-2">
-                            <input v-model="newDomain" class="pc-input" style="width:220px;"
+                            <input v-model="search" class="pc-input" style="width:170px;"
+                                   placeholder="Search domains…" />
+                            <input v-model="newDomain" class="pc-input" style="width:190px;"
                                    placeholder="e.g. facebook.com" @keyup.enter="onAdd" />
                             <button class="btn-pc-primary" @click="onAdd">
                                 <i class="bi bi-plus-lg" />
@@ -42,8 +44,13 @@
                         <p class="mt-2">No rules yet. Add a domain or use the Quick Add panel.</p>
                     </div>
 
+                    <div v-else-if="filteredEntries.length === 0" class="pc-card-body text-center text-muted py-5">
+                        <i class="bi bi-search" style="font-size:40px;opacity:0.3;" />
+                        <p class="mt-2">No domains match "{{ search }}".</p>
+                    </div>
+
                     <div v-else class="overflow-auto" style="max-height: 480px;">
-                        <div v-for="(entry, idx) in entries" :key="idx" class="pc-list-item">
+                        <div v-for="entry in filteredEntries" :key="entry.domain" class="pc-list-item">
                             <div class="item-icon">
                                 <i class="bi bi-globe" />
                             </div>
@@ -54,7 +61,7 @@
                                 <input type="checkbox" v-model="entry.enabled" />
                                 <span class="slider" />
                             </label>
-                            <button class="btn-pc-danger" style="padding:4px 10px;" @click="onRemove(idx)">
+                            <button class="btn-pc-danger" style="padding:4px 10px;" @click="onRemove(entry)">
                                 <i class="bi bi-trash" />
                             </button>
                         </div>
@@ -111,7 +118,14 @@ const store = useAppStore()
 const entries = computed(() => store.webFilterEntries)
 const categories = ref([])
 const newDomain = ref('')
+const search = ref('')
 const saving = ref(false)
+
+const filteredEntries = computed(() => {
+    const q = search.value.trim().toLowerCase()
+    if (!q) return entries.value
+    return entries.value.filter(e => e.domain.includes(q))
+})
 const saveMsg = ref('')
 const saveError = ref(false)
 const hostsBackupWarning = ref('')
@@ -140,8 +154,9 @@ function onAdd() {
     newDomain.value = ''
 }
 
-function onRemove(idx) {
-    store.webFilterEntries.splice(idx, 1)
+function onRemove(entry) {
+    const idx = store.webFilterEntries.indexOf(entry)
+    if (idx >= 0) store.webFilterEntries.splice(idx, 1)
 }
 
 async function onAddCategory(cat) {
