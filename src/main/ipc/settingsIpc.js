@@ -54,6 +54,15 @@ export function repairInvalidLockIdleInConfig(configDir) {
     saveConfig(configDir, next)
 }
 
+// Parent gate for privileged actions (screen-time bonus); unrelated to unlock-screen "no password" bypass.
+export function checkParentPassword(configDir, plain) {
+    const cfg = readConfig(configDir)
+    if (!cfg.passwordHash) return { ok: false, reason: 'no_password' }
+    if (typeof plain !== 'string' || plain.length === 0) return { ok: false, reason: 'invalid' }
+    if (hashPassword(plain, cfg.salt) !== cfg.passwordHash) return { ok: false, reason: 'invalid' }
+    return { ok: true }
+}
+
 export function registerSettingsIpc(ipcMain, configDir) {
     ipcMain.handle('settings:isPasswordSet', () => {
         const cfg = readConfig(configDir)

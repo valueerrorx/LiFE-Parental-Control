@@ -3,6 +3,7 @@ import path from 'path'
 import { execFile } from 'child_process'
 import { pruneUsageArchives } from './usageArchivePrune.js'
 import { localIsoDate } from './localCalendarDay.js'
+import { appendActivity } from './activityLog.js'
 
 const QUOTA_FILE = 'quota.json'
 const QUOTA_SCRIPT = '/usr/local/bin/life-parental-quota'
@@ -187,6 +188,7 @@ export function registerQuotaIpc(ipcMain, configDir) {
         try {
             const file = path.join(configDir, `quota-usage-${localIsoDate()}.json`)
             if (fs.existsSync(file)) fs.unlinkSync(file)
+            appendActivity(configDir, { action: 'quota_reset_today' })
             return { ok: true }
         } catch (e) {
             return { error: e.message }
@@ -217,14 +219,6 @@ export function registerQuotaIpc(ipcMain, configDir) {
             const quotas = readQuotaEntries(configDir).filter(q => q.appId !== appId)
             saveQuotas(configDir, quotas)
             deployScript(configDir, quotas)
-        } catch (e) { return { error: e.message } }
-    })
-
-    ipcMain.handle('quota:resetTodayUsage', () => {
-        try {
-            const file = path.join(configDir, `quota-usage-${localIsoDate()}.json`)
-            if (fs.existsSync(file)) fs.unlinkSync(file)
-            return { ok: true }
         } catch (e) { return { error: e.message } }
     })
 }

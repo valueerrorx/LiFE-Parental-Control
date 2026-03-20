@@ -38,6 +38,12 @@
                     <span v-if="screenTimeOn" class="ms-auto badge-count badge-schedule" title="Screen time enforcement enabled">on</span>
                 </button>
             </RouterLink>
+            <RouterLink to="/process-whitelist" custom v-slot="{ navigate, isActive }">
+                <button class="nav-item-link" :class="{ active: isActive }" @click="navigate">
+                    <i class="bi bi-list-check" /> Process Whitelist
+                    <span v-if="whitelistActive" class="ms-auto badge-count badge-schedule" title="Process whitelist active">on</span>
+                </button>
+            </RouterLink>
 
             <div class="nav-section-label">Advanced</div>
             <RouterLink to="/kiosk" custom v-slot="{ navigate, isActive }">
@@ -72,6 +78,7 @@ const blockedCount = computed(() => store.blockedApps.length)
 const quotaCount = computed(() => store.appQuotas.length)
 const screenTimeOn = computed(() => store.schedule?.enabled === true)
 const kioskActive = computed(() => store.kioskStatus?.active === true)
+const whitelistActive = computed(() => store.whitelistEnabled === true)
 
 function onExit() {
     window.api.system.quit()

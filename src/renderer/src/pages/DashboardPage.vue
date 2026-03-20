@@ -109,6 +109,7 @@
                     Bars use today’s quota usage file; enforcement on the device matches the process name from
                     <RouterLink to="/apps" class="text-decoration-none">App Control</RouterLink>
                     (<code>pgrep -x -i</code>).
+                    To clear today’s tallies, use <strong>Reset today’s quota usage</strong> on that page (screen time has an equivalent for <code>usage-*</code>).
                 </p>
                 <div v-for="row in quotaSummaryRows" :key="row.appId" class="mb-3">
                     <div class="d-flex justify-content-between align-items-baseline small mb-1">
@@ -124,6 +125,27 @@
                         />
                     </div>
                 </div>
+            </div>
+        </div>
+
+        <div class="pc-card mt-3">
+            <div class="pc-card-header d-flex align-items-center justify-content-between flex-wrap gap-2">
+                <h6 class="mb-0">Recent activity</h6>
+                <button type="button" class="btn btn-sm btn-outline-secondary" @click="loadActivity">
+                    Refresh
+                </button>
+            </div>
+            <div class="pc-card-body pt-2">
+                <p class="text-muted small mb-2">
+                    Parent actions and quota/screen-time resets (<code>/etc/life-parental/activity-log.json</code>, last 400 events).
+                </p>
+                <div v-if="activityEntries.length === 0" class="text-muted small mb-0">No entries yet.</div>
+                <ul v-else class="list-unstyled mb-0 small" style="max-height:220px;overflow-y:auto;">
+                    <li v-for="(e, idx) in activityEntries" :key="idx" class="mb-2 pb-2 border-bottom border-light">
+                        <div class="text-muted" style="font-size:11px;">{{ formatActivityTime(e.t) }}</div>
+                        <div>{{ activityLabel(e) }}</div>
+                    </li>
+                </ul>
             </div>
         </div>
 
@@ -167,6 +189,7 @@ const modeBusy = ref(false)
 const profileIncludeKiosk = ref(false)
 const lifeModeKeys = ref(['school', 'leisure'])
 const lifeModeLabels = ref({ school: 'School', leisure: 'Leisure' })
+const activityEntries = ref([])
 
 const filterCount = computed(() => store.webFilterEntries.filter(e => e.enabled).length)
 const blockedCount = computed(() => store.blockedApps.length)
@@ -218,12 +241,39 @@ function lifeModeIcon(key) {
     return 'bi-sliders'
 }
 
+function formatActivityTime(iso) {
+    try {
+        return new Date(iso).toLocaleString()
+    } catch {
+        return iso || '—'
+    }
+}
+
+function activityLabel(e) {
+    switch (e.action) {
+    case 'screen_time_bonus':
+        return `Screen time bonus: -${e.granted ?? '?'} min logged (now ${e.minutesAfter ?? '--'} min today)`
+    case 'screen_time_reset_today':
+        return 'Screen time: today\'s usage file cleared'
+    case 'quota_reset_today':
+        return 'App quotas: today\'s usage file cleared'
+    default:
+        return typeof e.action === 'string' ? e.action : JSON.stringify(e)
+    }
+}
+
+async function loadActivity() {
+    const r = await window.api.activity.list(25)
+    activityEntries.value = Array.isArray(r?.entries) ? r.entries : []
+}
+
 onMounted(async () => {
     const lm = await window.api.lifeMode.list()
     if (lm?.modes?.length) {
         lifeModeKeys.value = lm.modes
         lifeModeLabels.value = lm.labels ?? {}
     }
+    await loadActivity()
 })
 
 async function onApplyLifeMode(key) {
@@ -267,5 +317,6 @@ async function onApplyLifeMode(key) {
     }
     modeBusy.value = false
     await store.refreshProtectionsState()
+    await loadActivity()
 }
 </script>

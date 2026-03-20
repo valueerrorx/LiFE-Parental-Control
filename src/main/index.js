@@ -12,6 +12,8 @@ import { registerSettingsIpc, repairInvalidLockIdleInConfig } from './ipc/settin
 import { registerLifeModeIpc } from './ipc/lifeModeIpc.js'
 import { registerBackupIpc } from './ipc/backupIpc.js'
 import { registerQuotaIpc } from './ipc/quotaIpc.js'
+import { registerProcessWhitelistIpc } from './ipc/processWhitelistIpc.js'
+import { registerActivityIpc } from './ipc/activityIpc.js'
 import { pruneUsageArchives } from './ipc/usageArchivePrune.js'
 
 // __dirname = out/main/ after electron-vite compilation
@@ -66,6 +68,8 @@ app.whenReady().then(() => {
     registerSettingsIpc(ipcMain, APP_CONFIG_DIR)
     registerLifeModeIpc(ipcMain, APP_CONFIG_DIR)
     registerQuotaIpc(ipcMain, APP_CONFIG_DIR)
+    registerProcessWhitelistIpc(ipcMain, APP_CONFIG_DIR)
+    registerActivityIpc(ipcMain, APP_CONFIG_DIR)
     registerBackupIpc(ipcMain, APP_CONFIG_DIR, () => mainWindow)
 
     Menu.setApplicationMenu(null)

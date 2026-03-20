@@ -1,4 +1,4 @@
-# LiFE Parental Control (`life-kiosk`)
+# LiFE Parental Control (`life-kiosk` repo, npm package `life-parental-control`)
 
 Desktop app for **KDE Plasma (Linux)**: parental controls via **Electron**, **Vue 3**, **Pinia**, and **Bootstrap 5**. Kiosk restrictions use `.kiosk` profile snippets merged into `/etc/xdg/kdeglobals`.
 
@@ -8,12 +8,12 @@ Desktop app for **KDE Plasma (Linux)**: parental controls via **Electron**, **Vu
 |------|----------------|
 | **KDE kiosk** | Lockdown sections in `kdeglobals` (actions, URLs, control modules); session restart after apply |
 | **Web filter** | `webfilter.json` + `/etc/hosts` marker block; category presets |
-| **Screen time** | `schedules.json`; root cron → `/usr/local/bin/life-parental-check` (limits, allowed hours, overnight windows) |
+| **Screen time** | `schedules.json`; cron → `/usr/local/bin/life-parental-check` (limits, allowed hours, overnight windows); daily tally in `usage-YYYY-MM-DD.json`; reset **today** or **+30 min bonus** (parent password) on the Screen Time page |
 | **App blocking** | `.desktop` overrides under `/usr/local/share/applications/` |
-| **App quotas** | `quota.json`; cron → `/usr/local/bin/life-parental-quota` (`pgrep` / `pkill` per process name) |
+| **App quotas** | `quota.json`; cron → `/usr/local/bin/life-parental-quota` (`pgrep` / `pkill` per process name); per-app tally in `quota-usage-YYYY-MM-DD.json` (reset **today** from **App Control**) |
 | **Profiles** | School / Leisure + optional `life-modes.json`; backup/export JSON bundle |
 
-**Config:** `/etc/life-parental/` (app expects elevated rights when packaged; see main process).
+**Config:** `/etc/life-parental/` (app expects elevated rights when packaged; see main process). Optional **`activity-log.json`** stores the last parental actions shown on the Dashboard (not part of backup export).
 
 ### Session restart (KDE)
 

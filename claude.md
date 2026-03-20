@@ -1,15 +1,16 @@
-# Project: Linux Parental Control (KDE/Plasma)
+# Project: LiFE Parental Control (KDE/Plasma)
 # Architecture: Electron-Vite + Electron + Vue 3 + Bootstrap (see memory.md; Quasar not used)
 
 ## 🎯 Core Objectives
 Development of a modern parental control suite for KDE/Plasma on Linux.
 Modules: KDE Kiosk System, Web-Filtering, Time-Tracking, App-Blocking (Total & Quota-based), School/Leisure Profiles.
+Features: process allowlist (see `processWhitelistIpc.js`); **bonus time** — +30 min screen time per parent password (Screen Time); **activity log** — `activity-log.json` + Dashboard “Recent activity” (screen/quota resets & bonuses).
 
 ## 🛠 Tech Stack & Standards
 - **Runtime:** Node.js / Electron (Latest ESM, no `require`, use `import`).
 - **Frontend:** Vue 3 (Composition API), Pinia, Bootstrap 5.
 - **Styling:** Modern Flat Design (Google Material Style).
-- **Environment:** Arch Linux, KDE/Plasma (integration via `kwriteconfig6`, `qdbus`, etc.).
+- **Environment:** Arch Linux, KDE/Plasma — integration via **`/etc/xdg/kdeglobals`** LiFE block merge, **`qdbus`** / **`kquitapp`** (session restart), **`loginctl`** (graphical sessions for cron + logout); root **cron** for screen time and quotas (`memory.md`).
 
 ## 📜 Coding Rules
 - **Indentation:** Exactly 4 spaces.

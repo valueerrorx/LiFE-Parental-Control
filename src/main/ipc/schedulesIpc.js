@@ -3,11 +3,16 @@ import path from 'path'
 import { execFile } from 'child_process'
 import { pruneUsageArchives } from './usageArchivePrune.js'
 import { localIsoDate } from './localCalendarDay.js'
+import { checkParentPassword } from './settingsIpc.js'
+import { appendActivity } from './activityLog.js'
 
 const CONFIG_FILE = 'schedules.json'
 const CRON_MARKER = '# LiFE Parental Control'
 const CHECK_SCRIPT = '/usr/local/bin/life-parental-check'
 const CRON_FILE = '/etc/cron.d/life-parental'
+const BONUS_MIN = 5
+const BONUS_MAX = 180
+const BONUS_DEFAULT = 30
 
 export const DEFAULT_SCHEDULE = {
     enabled: false,
@@ -242,7 +247,33 @@ export function registerSchedulesIpc(ipcMain, configDir) {
         try {
             const file = path.join(configDir, `usage-${localIsoDate()}.json`)
             if (fs.existsSync(file)) fs.unlinkSync(file)
+            appendActivity(configDir, { action: 'screen_time_reset_today' })
             return { ok: true }
         } catch (e) { return { error: e.message } }
+    })
+
+    ipcMain.handle('schedules:grantBonusMinutes', (_, payload) => {
+        try {
+            const gate = checkParentPassword(configDir, payload?.password)
+            if (!gate.ok) {
+                if (gate.reason === 'no_password') return { error: 'Set a parent password in Settings first.' }
+                return { error: 'Invalid password.' }
+            }
+            const raw = Number(payload?.minutes)
+            const bonus = Number.isFinite(raw) && raw > 0
+                ? Math.min(BONUS_MAX, Math.max(BONUS_MIN, Math.floor(raw)))
+                : BONUS_DEFAULT
+            const today = localIsoDate()
+            const data = readUsage(configDir)
+            const prev = Math.max(0, Number(data.minutes) || 0)
+            const nextMinutes = Math.max(0, prev - bonus)
+            const file = path.join(configDir, `usage-${today}.json`)
+            fs.mkdirSync(configDir, { recursive: true })
+            fs.writeFileSync(file, JSON.stringify({ date: today, minutes: nextMinutes }), 'utf8')
+            appendActivity(configDir, { action: 'screen_time_bonus', granted: bonus, minutesAfter: nextMinutes })
+            return { ok: true, minutes: nextMinutes, granted: bonus }
+        } catch (e) {
+            return { error: e.message }
+        }
     })
 }

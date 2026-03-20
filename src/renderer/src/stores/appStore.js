@@ -10,6 +10,7 @@ export const useAppStore = defineStore('app', () => {
     const appQuotas = ref([])
     const appQuotaUsage = ref({})
     const statusMessage = ref('')
+    const whitelistEnabled = ref(false)
 
     const webFilterEnabled = computed(() => webFilterEntries.value.some(e => e.enabled))
 
@@ -58,17 +59,22 @@ export const useAppStore = defineStore('app', () => {
         return window.api.lifeMode.apply(modeKey)
     }
 
+    async function loadProcessWhitelist() {
+        const cfg = await window.api.processWhitelist.get()
+        whitelistEnabled.value = cfg?.enabled === true
+    }
+
     async function refreshProtectionsState() {
         await Promise.all([
-            loadWebFilter(), loadBlockedApps(), loadSchedule(), loadKioskStatus(), loadAppQuotas()
+            loadWebFilter(), loadBlockedApps(), loadSchedule(), loadKioskStatus(), loadAppQuotas(), loadProcessWhitelist()
         ])
     }
 
     return {
         webFilterEntries, blockedApps, schedule, todayUsageMinutes, kioskStatus,
-        appQuotas, appQuotaUsage, statusMessage,
+        appQuotas, appQuotaUsage, statusMessage, whitelistEnabled,
         webFilterEnabled,
         loadWebFilter, saveWebFilter, loadBlockedApps, loadSchedule, loadKioskStatus, loadAppQuotas,
-        applyLifeMode, refreshProtectionsState
+        loadProcessWhitelist, applyLifeMode, refreshProtectionsState
     }
 })

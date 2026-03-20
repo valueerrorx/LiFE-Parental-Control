@@ -34,7 +34,8 @@ contextBridge.exposeInMainWorld('api', {
         getUsageHistory: (maxDays) => ipcRenderer.invoke('schedules:getUsageHistory', maxDays),
         save: (schedule) => ipcRenderer.invoke('schedules:save', schedule),
         redeploy: () => ipcRenderer.invoke('schedules:redeploy'),
-        resetTodayUsage: () => ipcRenderer.invoke('schedules:resetTodayUsage')
+        resetTodayUsage: () => ipcRenderer.invoke('schedules:resetTodayUsage'),
+        grantBonusMinutes: (payload) => ipcRenderer.invoke('schedules:grantBonusMinutes', payload)
     },
     lifeMode: {
         list: () => ipcRenderer.invoke('lifeMode:list'),
@@ -43,9 +44,18 @@ contextBridge.exposeInMainWorld('api', {
     quota: {
         getList: () => ipcRenderer.invoke('quota:getList'),
         getUsage: () => ipcRenderer.invoke('quota:getUsage'),
+        resetTodayUsage: () => ipcRenderer.invoke('quota:resetTodayUsage'),
         setEntry: (entry) => ipcRenderer.invoke('quota:setEntry', entry),
         removeEntry: (appId) => ipcRenderer.invoke('quota:removeEntry', appId),
         redeploy: () => ipcRenderer.invoke('quota:redeploy')
+    },
+    activity: {
+        list: (limit) => ipcRenderer.invoke('activity:list', limit)
+    },
+    processWhitelist: {
+        get: () => ipcRenderer.invoke('processWhitelist:get'),
+        save: (config) => ipcRenderer.invoke('processWhitelist:save', config),
+        redeploy: () => ipcRenderer.invoke('processWhitelist:redeploy')
     },
     backup: {
         export: () => ipcRenderer.invoke('backup:export'),

@@ -78,11 +78,23 @@
                             <div class="usage-bar-fill" :style="{ width: usagePercent + '%', background: usageBarColor }" />
                         </div>
                     </div>
-                    <div class="mt-2">
+                    <div class="mt-2 d-flex flex-wrap align-items-end gap-2">
                         <button type="button" class="btn btn-sm btn-outline-secondary" :disabled="saving || redeploying" @click="onResetTodayUsage">
                             <i class="bi bi-arrow-counterclockwise me-1" />Reset today's usage
                         </button>
+                        <div class="d-flex flex-wrap align-items-end gap-2 ms-md-2">
+                            <div>
+                                <label class="form-label small text-muted mb-1">Parent password (Settings)</label>
+                                <input v-model="bonusPassword" type="password" class="pc-input" style="width:160px;" autocomplete="off" />
+                            </div>
+                            <button type="button" class="btn btn-sm btn-outline-primary" :disabled="saving || redeploying" @click="onGrantBonus">
+                                +30 min bonus
+                            </button>
+                        </div>
                     </div>
+                    <p class="text-muted small mt-2 mb-0">
+                        Bonus reduces today’s stored minutes (extra allowance until midnight). Default 30; requires a parent password.
+                    </p>
                 </div>
             </div>
 
@@ -134,7 +146,8 @@
             </div>
             <div class="pc-card-body">
                 <p class="text-muted small mb-2">
-                    Logged minutes from <code>usage-*.json</code> (cron increments while a graphical session is active and daily limit is enabled).
+                    Logged minutes from <code>usage-*.json</code>. While daily limit is on, the root cron adds one minute per run when
+                    <code>loginctl</code> shows a graphical session (<strong>active</strong> or <strong>online</strong>, excluding <strong>greeter</strong> / <strong>background</strong>).
                 </p>
                 <div v-if="usageHistory.length === 0" class="text-muted small">No history files in config dir yet.</div>
                 <div v-else class="d-flex flex-column gap-2">
@@ -174,6 +187,7 @@ const saveError = ref(false)
 const todayMinutes = ref(0)
 const usageHistory = ref([])
 const historyDays = ref(14)
+const bonusPassword = ref('')
 
 const usagePercent  = computed(() => Math.min(100, Math.round((todayMinutes.value / (schedule.dailyLimitMinutes || 120)) * 100)))
 const usageBarColor = computed(() => usagePercent.value >= 100 ? '#C62828' : usagePercent.value >= 80 ? '#E65100' : '#1565C0')
@@ -230,6 +244,23 @@ function applyPreset(kind) {
     }
     saveMsg.value = 'Preset applied — click Save to apply on the system'
     saveError.value = false
+    setTimeout(() => { saveMsg.value = '' }, 5000)
+}
+
+async function onGrantBonus() {
+    saving.value = true
+    const r = await window.api.schedules.grantBonusMinutes({ password: bonusPassword.value, minutes: 30 })
+    saving.value = false
+    if (r?.error) {
+        saveMsg.value = r.error
+        saveError.value = true
+    } else {
+        bonusPassword.value = ''
+        saveMsg.value = `Bonus applied: −${r.granted} min recorded (now ${r.minutes} min today).`
+        saveError.value = false
+        await refreshUsageData()
+        await appStore.loadSchedule()
+    }
     setTimeout(() => { saveMsg.value = '' }, 5000)
 }
 
