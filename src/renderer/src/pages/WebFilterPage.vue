@@ -81,12 +81,13 @@
                             v-for="cat in categories"
                             :key="cat"
                             class="btn-pc-outline text-start"
+                            :disabled="saving"
                             @click="onAddCategory(cat)"
                         >
                             <i class="bi me-2" :class="categoryIcon(cat)" />{{ cat }}
                         </button>
                         <hr class="my-1" />
-                        <button class="btn-pc-danger" @click="onClearAll">
+                        <button class="btn-pc-danger" :disabled="saving" @click="onClearAll">
                             <i class="bi bi-trash me-1" />Clear All Rules
                         </button>
                     </div>
