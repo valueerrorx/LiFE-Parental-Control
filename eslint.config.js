@@ -26,6 +26,7 @@ export default [
         languageOptions: {
             globals: {
                 window: 'readonly',
+                CustomEvent: 'readonly',
                 alert: 'readonly',
                 confirm: 'readonly',
                 setTimeout: 'readonly',
