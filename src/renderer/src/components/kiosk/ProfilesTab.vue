@@ -60,7 +60,9 @@ async function onSave() {
 
 async function onSaveAs() {
     const name = await prompt('Save As', 'Enter a profile name')
-    if (name) await store.saveProfile(name + '.profile')
+    if (!name) return
+    const clean = name.trim().replace(/\.profile$/i, '')
+    if (clean) await store.saveProfile(clean + '.profile')
 }
 
 async function onDelete() {
