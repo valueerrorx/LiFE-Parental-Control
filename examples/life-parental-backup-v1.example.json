@@ -13,12 +13,19 @@
     "webFilter": {
         "entries": [
             { "domain": "example.com", "enabled": true }
-        ]
+        ],
+        "feedState": {
+            "social": false,
+            "nsfw": false
+        },
+        "listAllowlist": []
     },
     "blockedApps": [],
     "quotas": [],
+    "processWhitelist": { "enabled": false, "allowedIds": [] },
     "lifeModes": {},
     "preferences": {
-        "lockIdleMinutes": 15
+        "lockIdleMinutes": 15,
+        "autostartEnabled": true
     }
 }

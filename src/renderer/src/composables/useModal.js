@@ -11,6 +11,8 @@ const state = reactive({
     inputValue: '',
     okLabel: 'OK',
     cancelLabel: 'Cancel',
+    hideCancel: false,
+    wide: false,
     _resolve: null
 })
 
@@ -27,6 +29,8 @@ function _open(opts) {
             inputValue: '',
             okLabel: opts.ok ?? 'OK',
             cancelLabel: opts.cancel ?? 'Cancel',
+            hideCancel: opts.hideCancel ?? false,
+            wide: opts.wide ?? false,
             _resolve: resolve
         })
     })
@@ -41,6 +45,10 @@ export function useModal() {
         return _open({ title, hasInput: true, inputLabel, inputType, ok, cancel })
     }
 
+    function inform(title, html, { ok = 'Close', wide = false } = {}) {
+        return _open({ title, html, ok, cancel: 'Cancel', hideCancel: true, wide })
+    }
+
     function _ok() {
         const result = state.hasInput ? (state.inputValue.trim() || null) : true
         state.visible = false
@@ -52,5 +60,5 @@ export function useModal() {
         state._resolve(state.hasInput ? null : false)
     }
 
-    return { state, confirm, prompt, _ok, _cancel }
+    return { state, confirm, prompt, inform, _ok, _cancel }
 }

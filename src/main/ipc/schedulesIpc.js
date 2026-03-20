@@ -5,6 +5,7 @@ import { pruneUsageArchives } from './usageArchivePrune.js'
 import { localIsoDate } from './localCalendarDay.js'
 import { checkParentPassword } from './settingsIpc.js'
 import { appendActivity } from './activityLog.js'
+import { assertParentalCronInstallDirs } from './cronInstallPaths.js'
 
 const CONFIG_FILE = 'schedules.json'
 const CRON_MARKER = '# LiFE Parental Control'
@@ -33,9 +34,14 @@ function readUsage(configDir) {
     const file = path.join(configDir, `usage-${today}.json`)
     try {
         const data = JSON.parse(fs.readFileSync(file, 'utf8'))
-        return data.date === today ? data : { date: today, minutes: 0 }
+        if (data.date !== today) return { date: today, minutes: 0, extraAllowanceMinutes: 0 }
+        return {
+            date: today,
+            minutes: Math.max(0, Number(data.minutes) || 0),
+            extraAllowanceMinutes: Math.max(0, Number(data.extraAllowanceMinutes) || 0)
+        }
     } catch {
-        return { date: today, minutes: 0 }
+        return { date: today, minutes: 0, extraAllowanceMinutes: 0 }
     }
 }
 
@@ -59,6 +65,7 @@ function readUsageHistory(configDir, maxDays) {
 }
 
 function installCheckScript(configDir) {
+    assertParentalCronInstallDirs()
     // Python script deployed to /usr/local/bin — runs every minute via cron as root
     const script = `#!/usr/bin/env python3
 # LiFE Parental Control - screen time enforcement
@@ -171,11 +178,20 @@ if s.get('dailyLimitEnabled'):
         with open(usage_file, 'w') as f:
             json.dump(usage, f)
 
-    limit = s.get('dailyLimitMinutes', 120)
+    limit_base = s.get('dailyLimitMinutes', 120)
+    try:
+        extra = int(usage.get('extraAllowanceMinutes') or 0)
+    except Exception:
+        extra = 0
+    if extra < 0:
+        extra = 0
+    limit = limit_base + extra
     used  = usage.get('minutes', 0)
     remaining = limit - used
     if remaining <= 0:
-        lock_and_notify(f'Daily screen time limit of {limit} minutes reached.')
+        lock_and_notify(
+            f'Daily screen time limit reached ({used}/{limit} min). Open LiFE Parental Control to add more time (parent password).'
+        )
     elif remaining == 5 and active_sessions:
         # 5-minute warning — only notify, do not lock yet
         for _, user in get_active_graphical_sessions():
@@ -239,6 +255,7 @@ export function registerSchedulesIpc(ipcMain, configDir) {
     ipcMain.handle('schedules:redeploy', () => {
         try {
             redeployScheduleCron(configDir)
+            appendActivity(configDir, { action: 'schedule_cron_redeploy' })
             return { ok: true }
         } catch (e) { return { error: e.message } }
     })
@@ -265,13 +282,22 @@ export function registerSchedulesIpc(ipcMain, configDir) {
                 : BONUS_DEFAULT
             const today = localIsoDate()
             const data = readUsage(configDir)
-            const prev = Math.max(0, Number(data.minutes) || 0)
-            const nextMinutes = Math.max(0, prev - bonus)
+            const minutesLogged = Math.max(0, Number(data.minutes) || 0)
+            const prevExtra = Math.max(0, Number(data.extraAllowanceMinutes) || 0)
+            const nextExtra = prevExtra + bonus
             const file = path.join(configDir, `usage-${today}.json`)
             fs.mkdirSync(configDir, { recursive: true })
-            fs.writeFileSync(file, JSON.stringify({ date: today, minutes: nextMinutes }), 'utf8')
-            appendActivity(configDir, { action: 'screen_time_bonus', granted: bonus, minutesAfter: nextMinutes })
-            return { ok: true, minutes: nextMinutes, granted: bonus }
+            fs.writeFileSync(file, JSON.stringify({
+                date: today,
+                minutes: minutesLogged,
+                extraAllowanceMinutes: nextExtra
+            }), 'utf8')
+            appendActivity(configDir, {
+                action: 'screen_time_bonus',
+                granted: bonus,
+                extraAllowanceAfter: nextExtra
+            })
+            return { ok: true, minutes: minutesLogged, extraAllowanceMinutes: nextExtra, granted: bonus }
         } catch (e) {
             return { error: e.message }
         }

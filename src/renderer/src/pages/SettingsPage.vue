@@ -31,6 +31,29 @@
                 </div>
 
                 <div class="pc-card mt-3">
+                    <div class="pc-card-header"><h6><i class="bi bi-box-arrow-in-right me-2" />Startup</h6></div>
+                    <div class="pc-card-body">
+                        <div class="form-check form-switch">
+                            <input
+                                id="life-autostart"
+                                v-model="autostartEnabled"
+                                class="form-check-input"
+                                type="checkbox"
+                                role="switch"
+                                :disabled="!appInfo?.packaged || autostartBusy"
+                                @change="onAutostartChange"
+                            />
+                            <label class="form-check-label" for="life-autostart">Start automatically at login</label>
+                        </div>
+                        <p v-if="autostartMismatch" class="small text-warning mb-0 mt-2">
+                            Preference is on but the autostart file is missing — toggle off and on to restore, or check permissions.
+                        </p>
+                        <p v-if="autostartMsg" class="small mt-2 mb-0" :class="autostartError ? 'text-danger' : 'text-success'">{{ autostartMsg }}</p>
+                        <p v-if="appInfo && !appInfo.packaged" class="small text-warning mb-0 mt-2">Not available in development builds.</p>
+                    </div>
+                </div>
+
+                <div class="pc-card mt-3">
                     <div class="pc-card-header"><h6><i class="bi bi-shield-lock me-2" />Session lock</h6></div>
                     <div class="pc-card-body">
                         <p class="text-muted small mb-3">
@@ -51,7 +74,7 @@
                     <div class="pc-card-header"><h6><i class="bi bi-archive me-2" />Backup &amp; restore</h6></div>
                     <div class="pc-card-body">
                         <p class="text-muted small mb-3">
-                            Export or import a JSON bundle: only <strong>top-level keys present</strong> in the file are applied; omitted keys leave the system unchanged. For <code>webFilter</code>, <code>blockedApps</code>, and <code>quotas</code>, a missing <code>entries</code> array or a non-array value clears that section (same as <code>[]</code>). <code>preferences</code> non-object (e.g. <code>null</code>) removes <code>lockIdleMinutes</code> from config (app default applies). Screen time, web filter, blocked apps, quotas, life modes, session lock. Password and usage history are <strong>not</strong> included.
+                            Export or import a JSON bundle: only <strong>top-level keys present</strong> in the file are applied; omitted keys leave the system unchanged. For <code>webFilter</code>, <code>blockedApps</code>, and <code>quotas</code>, a missing <code>entries</code> array or a non-array value clears that section (same as <code>[]</code>). <code>preferences</code> non-object (e.g. <code>null</code>) removes <code>lockIdleMinutes</code> from config (app default applies). Screen time, web filter, blocked apps, quotas, life modes, session lock, startup flag. Password and usage history are <strong>not</strong> included.
                         </p>
                         <div class="d-flex flex-wrap gap-2">
                             <button type="button" class="btn-pc-outline" :disabled="backupBusy" @click="onBackupExport">
@@ -69,10 +92,12 @@
                     <div class="pc-card-header"><h6><i class="bi bi-wrench-adjustable me-2" />Maintenance</h6></div>
                     <div class="pc-card-body">
                         <p class="text-muted small mb-3">
-                            Re-deploy cron jobs from JSON on disk (after app updates) — same as <strong>Screen Time</strong> /
-                            <strong>App Control</strong> / <strong>Process Whitelist</strong> “Rewrite”. <strong>Web filter</strong> rewrites the LiFE
-                            <code>/etc/hosts</code> block from <code>webfilter.json</code> (e.g. hosts edited by hand).
-                            <strong>Usage logs</strong> removes <code>usage-*</code> and <code>quota-usage-*</code> JSON older than 120 days (same rule as automatic cleanup).
+                            Re-deploy cron jobs from JSON on disk if a script or cron file was removed or edited outside the app
+                            (<strong>Save</strong> on Screen Time / App quotas / Quota exemptions already redeploys). Packaged installs also
+                            <strong>auto-redeploy</strong> screen-time and quota cron on first root start after an <strong>app version</strong> bump (see Dashboard
+                            <em>Recent activity</em>: <code>embedded_enforcement_redeploy</code>). <strong>Web filter</strong> is the same as
+                            <strong>Restore from saved rules</strong> on the Web Filter page (rebuilds the hosts block from <code>webfilter.json</code>).
+                            <strong>Usage logs</strong> removes <code>usage-*</code>, <code>quota-usage-*</code>, and <code>app-usage-*</code> JSON older than 120 days (same rule as automatic cleanup).
                         </p>
                         <div class="d-flex flex-wrap gap-2">
                             <button type="button" class="btn-pc-outline" :disabled="maintBusy" @click="onRedeployScheduleCron">
@@ -82,10 +107,10 @@
                                 <i class="bi bi-arrow-repeat me-1" />App quotas
                             </button>
                             <button type="button" class="btn-pc-outline" :disabled="maintBusy" @click="onReapplyWebHosts">
-                                <i class="bi bi-arrow-repeat me-1" />Web filter hosts
+                                <i class="bi bi-arrow-repeat me-1" />Web filter restore
                             </button>
                             <button type="button" class="btn-pc-outline" :disabled="maintBusy" @click="onRedeployKillCron">
-                                <i class="bi bi-arrow-repeat me-1" />Process whitelist
+                                <i class="bi bi-arrow-repeat me-1" />Quota exemptions
                             </button>
                             <button type="button" class="btn-pc-outline" :disabled="maintBusy" @click="onPruneUsageArchives">
                                 <i class="bi bi-trash me-1" />Usage logs (old)
@@ -114,7 +139,14 @@
                             <div><span class="text-muted" style="min-width:120px;display:inline-block;">Runtime</span> Electron {{ appInfo?.electron ?? '—' }}, Node {{ appInfo?.node ?? '—' }}</div>
                             <div><span class="text-muted" style="min-width:120px;display:inline-block;">Platform</span> KDE Plasma (Linux)</div>
                             <div><span class="text-muted" style="min-width:120px;display:inline-block;">Config directory</span> <code>/etc/life-parental/</code></div>
-                            <div><span class="text-muted" style="min-width:120px;display:inline-block;">Running as</span> root</div>
+                            <div>
+                                <span class="text-muted" style="min-width:120px;display:inline-block;">Running as</span>
+                                <template v-if="appInfo?.runningAsRoot === true">root</template>
+                                <template v-else-if="appInfo?.runningAsRoot === false">
+                                    <span class="text-warning">regular user — system changes will fail; use packaged app with pkexec or <code>npm run dev</code></span>
+                                </template>
+                                <template v-else>—</template>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -148,10 +180,33 @@
                     <div class="pc-card-header" style="background:#FFF5F5;">
                         <h6 style="color:#C62828;"><i class="bi bi-exclamation-triangle me-2" />Danger Zone</h6>
                     </div>
-                    <div class="pc-card-body d-flex flex-column gap-2">
-                        <button class="btn-pc-danger" @click="onExit">
-                            <i class="bi bi-box-arrow-right me-1" />Exit Application
-                        </button>
+                    <div class="pc-card-body d-flex flex-column gap-3">
+                        <p class="text-muted small mb-0">
+                            Destructive actions for the whole system profile under <code>/etc/life-parental/</code>.
+                        </p>
+                        <div>
+                            <div class="fw-semibold mb-1" style="font-size:13px;">Stop and remove all restrictions</div>
+                            <p class="text-muted small mb-2">
+                                Disables screen time (removes its cron), clears app quotas and quota cron,
+                                unblocks all apps, removes web-filter rules from <code>/etc/hosts</code> (LiFE block),
+                                turns off quota exemptions list, and removes KDE kiosk sections from
+                                <code>kdeglobals</code> (only if kiosk rules are active — triggers a Plasma session restart then).
+                            </p>
+                            <button type="button" class="btn-pc-danger" :disabled="dangerBusy" @click="onStopAllProtections">
+                                <i class="bi bi-slash-circle me-1" />Stop all protections
+                            </button>
+                        </div>
+                        <div class="pt-2 border-top" style="border-color:#FFCDD2;">
+                            <div class="fw-semibold mb-1" style="font-size:13px;">Delete all usage history</div>
+                            <p class="text-muted small mb-2">
+                                Deletes every <code>usage-*.json</code>, <code>quota-usage-*.json</code>, and <code>app-usage-*.json</code> file in the config directory
+                                (all days — screen time and per-app quota logs). Does not change schedules or limits.
+                            </p>
+                            <button type="button" class="btn-pc-danger" :disabled="dangerBusy" @click="onDeleteAllUsageHistory">
+                                <i class="bi bi-trash3 me-1" />Delete all usage history
+                            </button>
+                        </div>
+                        <p v-if="dangerMsg" class="small mb-0" :class="dangerError ? 'text-danger' : 'text-success'">{{ dangerMsg }}</p>
                     </div>
                 </div>
             </div>
@@ -160,7 +215,7 @@
 </template>
 
 <script setup>
-import { reactive, ref, onMounted } from 'vue'
+import { reactive, ref, computed, onMounted } from 'vue'
 import { normalizedLockIdleMinutesOrUndefined, LOCK_IDLE_OPTIONS } from '@shared/lockIdleMinutes.js'
 import { useAppStore } from '../stores/appStore.js'
 
@@ -179,12 +234,47 @@ const backupError = ref(false)
 const maintBusy = ref(false)
 const maintMsg = ref('')
 const maintError = ref(false)
+const dangerBusy = ref(false)
+const dangerMsg = ref('')
+const dangerError = ref(false)
+const autostartEnabled = ref(false)
+const autostartFilePresent = ref(false)
+const autostartBusy = ref(false)
+const autostartMsg = ref('')
+const autostartError = ref(false)
+
+const autostartMismatch = computed(() => autostartEnabled.value && !autostartFilePresent.value)
 
 onMounted(async () => {
     appInfo.value = await window.api.system.getAppInfo()
     const cfg = await window.api.settings.getConfig()
     sessionPrefs.lockIdleMinutes = normalizedLockIdleMinutesOrUndefined(cfg.lockIdleMinutes) ?? 15
+    autostartEnabled.value = cfg.autostartEnabled === true
+    autostartFilePresent.value = cfg.autostartFilePresent === true
 })
+
+async function onAutostartChange() {
+    autostartMsg.value = ''
+    autostartBusy.value = true
+    const r = await window.api.settings.setAutostart(autostartEnabled.value)
+    autostartBusy.value = false
+    if (r?.error) {
+        autostartError.value = true
+        autostartMsg.value = r.error
+        autostartEnabled.value = !autostartEnabled.value
+    } else {
+        autostartError.value = false
+        autostartMsg.value = autostartEnabled.value
+            ? 'Autostart installed under /etc/xdg/autostart.'
+            : 'Autostart desktop file removed.'
+        if (typeof r?.autostartFilePresent === 'boolean') autostartFilePresent.value = r.autostartFilePresent
+        else {
+            const cfg = await window.api.settings.getConfig()
+            autostartFilePresent.value = cfg.autostartFilePresent === true
+        }
+    }
+    setTimeout(() => { autostartMsg.value = '' }, 6000)
+}
 
 async function onSaveSessionPrefs() {
     sessionPrefsMsg.value = ''
@@ -215,8 +305,42 @@ async function onChangePassword() {
     }
 }
 
-function onExit() {
-    window.api.system.quit()
+async function onStopAllProtections() {
+    if (!window.confirm(
+        'Stop and remove ALL LiFE protections? This clears schedules (screen time off), quotas, blocks, web filter hosts block, quota exemptions, and KDE kiosk (if active — session will restart).'
+    )) return
+    dangerBusy.value = true
+    dangerMsg.value = ''
+    const r = await window.api.settings.stopAllProtections()
+    dangerBusy.value = false
+    if (r?.error) {
+        dangerMsg.value = r.error
+        dangerError.value = true
+    } else {
+        dangerMsg.value = 'All protections removed. Refresh sidebar state…'
+        dangerError.value = false
+        await appStore.refreshProtectionsState()
+    }
+    setTimeout(() => { dangerMsg.value = '' }, 8000)
+}
+
+async function onDeleteAllUsageHistory() {
+    if (!window.confirm(
+        'Delete ALL screen-time and app-usage daily log files (usage-*.json, quota-usage-*.json, app-usage-*.json)? This cannot be undone.'
+    )) return
+    dangerBusy.value = true
+    dangerMsg.value = ''
+    const r = await window.api.settings.deleteAllUsageHistory()
+    dangerBusy.value = false
+    if (r?.error) {
+        dangerMsg.value = r.error
+        dangerError.value = true
+    } else {
+        dangerMsg.value = `Removed ${r?.removed ?? 0} log file(s).`
+        dangerError.value = false
+        await appStore.refreshProtectionsState()
+    }
+    setTimeout(() => { dangerMsg.value = '' }, 8000)
 }
 
 async function onRedeployScheduleCron() {
@@ -250,7 +374,9 @@ async function onRedeployQuotaCron() {
 }
 
 async function onRedeployKillCron() {
-    if (!window.confirm('Rewrite /usr/local/bin/life-parental-kill and /etc/cron.d/life-parental-kill from process-whitelist.json?')) return
+    if (!window.confirm(
+        'Re-deploy /usr/local/bin/life-parental-quota from disk (pick up process-whitelist.json) and remove legacy life-parental-kill files if present?'
+    )) return
     maintBusy.value = true
     maintMsg.value = ''
     const r = await window.api.processWhitelist.redeploy()
@@ -259,14 +385,14 @@ async function onRedeployKillCron() {
         maintMsg.value = r.error
         maintError.value = true
     } else {
-        maintMsg.value = 'Process whitelist kill script and cron updated.'
+        maintMsg.value = 'Quota script re-deployed; quota exemptions picked up from disk.'
         maintError.value = false
     }
 }
 
 async function onPruneUsageArchives() {
     if (!window.confirm(
-        'Delete usage-*.json and quota-usage-*.json in /etc/life-parental/ older than 120 days (by date in the filename)?'
+        'Delete usage-*.json, quota-usage-*.json, and app-usage-*.json in /etc/life-parental/ older than 120 days (by date in the filename)?'
     )) return
     maintBusy.value = true
     maintMsg.value = ''
@@ -282,7 +408,9 @@ async function onPruneUsageArchives() {
 }
 
 async function onReapplyWebHosts() {
-    if (!window.confirm('Rewrite the LiFE block in /etc/hosts from /etc/life-parental/webfilter.json?')) return
+    if (!window.confirm(
+        'Restore web filter: replace the hosts-file block with /etc/life-parental/webfilter.json? (same as Web Filter → Restore from saved rules.)'
+    )) return
     maintBusy.value = true
     maintMsg.value = ''
     const r = await window.api.webFilter.reapplyMirror()
@@ -292,7 +420,7 @@ async function onReapplyWebHosts() {
         maintError.value = true
     } else {
         await appStore.loadWebFilter()
-        maintMsg.value = 'Web filter hosts block updated from webfilter.json.'
+        maintMsg.value = 'Web filter restored from webfilter.json.'
         maintError.value = false
     }
 }
@@ -315,7 +443,7 @@ async function onBackupExport() {
 async function onBackupImport() {
     backupMsg.value = ''
     if (!window.confirm(
-        'Import from the selected backup? Only top-level sections present in the file are applied (/etc/hosts + mirror when webFilter is included; cron when schedules/quotas change). Omitted sections are left unchanged.'
+        'Import from the selected backup? Only top-level sections present in the file are applied (/etc/hosts + mirror when webFilter is included; cron when schedules, quotas, or processWhitelist change). Omitted sections are left unchanged.'
     )) return
     backupBusy.value = true
     const r = await window.api.backup.import()

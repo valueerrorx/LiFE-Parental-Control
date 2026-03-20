@@ -15,12 +15,20 @@ contextBridge.exposeInMainWorld('api', {
         activateKiosk: (configText) => ipcRenderer.invoke('system:activateKiosk', configText),
         getKioskStatus: () => ipcRenderer.invoke('system:getKioskStatus'),
         openDirectory: () => ipcRenderer.invoke('dialog:openDirectory'),
-        quit: () => ipcRenderer.invoke('app:quit')
+        showError: (payload) => ipcRenderer.invoke('dialog:showError', payload),
+        showConfirm: (opts) => ipcRenderer.invoke('dialog:showConfirm', opts),
+        quit: () => ipcRenderer.invoke('app:quit'),
+        onQuitFromTray: (cb) => ipcRenderer.on('app:quit-from-tray', cb),
+        offQuitFromTray: (cb) => ipcRenderer.removeListener('app:quit-from-tray', cb)
     },
     webFilter: {
         getList: () => ipcRenderer.invoke('webfilter:getList'),
         setList: (entries) => ipcRenderer.invoke('webfilter:setList', entries),
+        setAllowlist: (domains) => ipcRenderer.invoke('webfilter:setAllowlist', domains),
         addCategory: (name) => ipcRenderer.invoke('webfilter:addCategory', name),
+        setFeedEnabled: (feedId, enabled) => ipcRenderer.invoke('webfilter:setFeedEnabled', feedId, enabled),
+        clearAll: () => ipcRenderer.invoke('webfilter:clearAll'),
+        syncFeeds: () => ipcRenderer.invoke('webfilter:syncFeeds'),
         reapplyMirror: () => ipcRenderer.invoke('webfilter:reapplyMirror')
     },
     apps: {
@@ -44,6 +52,7 @@ contextBridge.exposeInMainWorld('api', {
     quota: {
         getList: () => ipcRenderer.invoke('quota:getList'),
         getUsage: () => ipcRenderer.invoke('quota:getUsage'),
+        getAppMonitorUsage: () => ipcRenderer.invoke('quota:getAppMonitorUsage'),
         resetTodayUsage: () => ipcRenderer.invoke('quota:resetTodayUsage'),
         setEntry: (entry) => ipcRenderer.invoke('quota:setEntry', entry),
         removeEntry: (appId) => ipcRenderer.invoke('quota:removeEntry', appId),
@@ -68,6 +77,9 @@ contextBridge.exposeInMainWorld('api', {
         changePassword: (oldPass, newPass) => ipcRenderer.invoke('settings:changePassword', oldPass, newPass),
         getConfig: () => ipcRenderer.invoke('settings:getConfig'),
         saveConfig: (cfg) => ipcRenderer.invoke('settings:saveConfig', cfg),
-        pruneUsageArchives: () => ipcRenderer.invoke('settings:pruneUsageArchives')
+        setAutostart: (enabled) => ipcRenderer.invoke('settings:setAutostart', enabled),
+        pruneUsageArchives: () => ipcRenderer.invoke('settings:pruneUsageArchives'),
+        stopAllProtections: () => ipcRenderer.invoke('settings:stopAllProtections'),
+        deleteAllUsageHistory: () => ipcRenderer.invoke('settings:deleteAllUsageHistory')
     }
 })

@@ -1,6 +1,7 @@
 import { app, dialog } from 'electron'
 import { execFile } from 'child_process'
 import fs from 'fs'
+import { appendActivity } from './activityLog.js'
 
 const KDEGLOBALS_PATH = '/etc/xdg/kdeglobals'
 
@@ -27,7 +28,7 @@ function stripLiFEKioskSections(text) {
     return out.join('\n').replace(/\n{3,}/g, '\n\n')
 }
 
-function summarizeKdeglobalsKiosk(text) {
+export function summarizeKdeglobalsKiosk(text) {
     let inKioskSection = false
     let restrictionCount = 0
     for (const rawLine of text.split('\n')) {
@@ -138,38 +139,57 @@ function restartKdeSession() {
     })
 }
 
-export function registerSystemIpc(ipcMain, getWindow) {
+export function readKioskLockdownSummary() {
+    try {
+        const text = fs.readFileSync(KDEGLOBALS_PATH, 'utf8')
+        return summarizeKdeglobalsKiosk(text)
+    } catch (err) {
+        if (err.code === 'ENOENT') return { active: false, restrictionCount: 0 }
+        throw err
+    }
+}
+
+export function persistKioskConfigText(configDir, configText) {
+    let existing = ''
+    try {
+        existing = fs.readFileSync(KDEGLOBALS_PATH, 'utf8')
+    } catch (e) {
+        if (e.code !== 'ENOENT') throw e
+    }
+    const stripped = stripLiFEKioskSections(existing).trimEnd()
+    const block = (configText ?? '').trim()
+    const next = block
+        ? (stripped ? `${stripped}\n\n${block}\n` : `${block}\n`)
+        : (stripped ? `${stripped}\n` : '')
+    fs.writeFileSync(KDEGLOBALS_PATH, next, 'utf8')
+    if (configDir) {
+        appendActivity(configDir, { action: block ? 'kiosk_apply' : 'kiosk_strip' })
+    }
+    restartKdeSession()
+}
+
+export function registerSystemIpc(ipcMain, getWindow, configDir) {
     ipcMain.handle('system:getAppInfo', () => ({
         name: app.getName(),
         version: app.getVersion(),
         packaged: app.isPackaged,
         electron: process.versions.electron,
-        node: process.versions.node
+        node: process.versions.node,
+        runningAsRoot: typeof process.getuid === 'function' ? process.getuid() === 0 : null
     }))
 
     ipcMain.handle('system:getKioskStatus', async () => {
         try {
-            const text = fs.readFileSync(KDEGLOBALS_PATH, 'utf8')
-            return { ok: true, ...summarizeKdeglobalsKiosk(text) }
+            return { ok: true, ...readKioskLockdownSummary() }
         } catch (err) {
-            if (err.code === 'ENOENT') return { ok: true, active: false, restrictionCount: 0 }
             return { ok: false, error: err.message, active: false, restrictionCount: 0 }
         }
     })
 
     ipcMain.handle('system:activateKiosk', async (_, configText) => {
         try {
-            let existing = ''
-            try {
-                existing = fs.readFileSync(KDEGLOBALS_PATH, 'utf8')
-            } catch (e) {
-                if (e.code !== 'ENOENT') throw e
-            }
-            const stripped = stripLiFEKioskSections(existing).trimEnd()
-            const block = (configText ?? '').trim()
-            const next = block ? (stripped ? `${stripped}\n\n${block}\n` : `${block}\n`) : (stripped ? `${stripped}\n` : '')
-            fs.writeFileSync(KDEGLOBALS_PATH, next, 'utf8')
-            restartKdeSession()
+            persistKioskConfigText(configDir, configText)
+            return { ok: true }
         } catch (err) {
             return { error: err.message }
         }
@@ -184,5 +204,29 @@ export function registerSystemIpc(ipcMain, getWindow) {
         return canceled ? null : filePaths[0]
     })
 
-    ipcMain.handle('app:quit', () => app.quit())
+    ipcMain.handle('dialog:showError', async (_, { title, message }) => {
+        const win = getWindow()
+        await dialog.showMessageBox(win, {
+            type: 'error',
+            title: title || 'LiFE Parental Control',
+            message: String(message ?? '')
+        })
+    })
+
+    ipcMain.handle('dialog:showConfirm', async (_, opts) => {
+        const win = getWindow()
+        const title = (opts && opts.title) || 'Confirm'
+        const message = String((opts && opts.message) ?? '')
+        const okLabel = (opts && opts.okLabel) || 'OK'
+        const cancelLabel = (opts && opts.cancelLabel) || 'Cancel'
+        const { response } = await dialog.showMessageBox(win, {
+            type: 'question',
+            buttons: [cancelLabel, okLabel],
+            defaultId: 0,
+            cancelId: 0,
+            title,
+            message
+        })
+        return response === 1
+    })
 }

@@ -1,27 +1,54 @@
 import { defineStore } from 'pinia'
-import { ref, computed } from 'vue'
+import { ref, computed, toRaw } from 'vue'
 
 export const useAppStore = defineStore('app', () => {
     const webFilterEntries = ref([])
+    const webFilterFeedState = ref({})
+    const webFilterHostRuleCount = ref(0)
+    const webFilterAllowlist = ref([])
     const blockedApps = ref([])
     const schedule = ref(null)
     const todayUsageMinutes = ref(0)
+    const todayExtraAllowanceMinutes = ref(0)
     const kioskStatus = ref({ active: false, restrictionCount: 0, ok: true })
     const appQuotas = ref([])
     const appQuotaUsage = ref({})
+    const appMonitorUsage = ref({})
+    const appMonitorLabels = ref({})
     const statusMessage = ref('')
     const whitelistEnabled = ref(false)
+    const runningAsRoot = ref(null)
 
-    const webFilterEnabled = computed(() => webFilterEntries.value.some(e => e.enabled))
+    const webFilterEnabled = computed(() =>
+        webFilterEntries.value.some(e => e.enabled)
+        || Object.values(webFilterFeedState.value).some(Boolean)
+    )
 
     async function loadWebFilter() {
         const result = await window.api.webFilter.getList()
         webFilterEntries.value = result.entries ?? []
+        webFilterFeedState.value = result.feedState && typeof result.feedState === 'object'
+            ? { ...result.feedState }
+            : {}
+        webFilterHostRuleCount.value = typeof result.hostRuleCount === 'number' ? result.hostRuleCount : 0
+        webFilterAllowlist.value = Array.isArray(result.listAllowlist) ? [...result.listAllowlist] : []
+        return result
+    }
+
+    async function persistWebFilterAllowlist() {
+        const domains = webFilterAllowlist.value.map((d) => String(d).trim().toLowerCase()).filter(Boolean)
+        const result = await window.api.webFilter.setAllowlist(domains)
+        await loadWebFilter()
         return result
     }
 
     async function saveWebFilter() {
-        const result = await window.api.webFilter.setList(webFilterEntries.value)
+        // Electron IPC cannot clone Vue proxies; unwrap to plain { domain, enabled } shapes.
+        const entries = webFilterEntries.value.map((e) => {
+            const o = toRaw(e)
+            return { domain: String(o.domain), enabled: Boolean(o.enabled) }
+        })
+        const result = await window.api.webFilter.setList(entries)
         return result
     }
 
@@ -33,6 +60,7 @@ export const useAppStore = defineStore('app', () => {
         const [sched, usage] = await Promise.all([window.api.schedules.get(), window.api.schedules.getUsage()])
         schedule.value = sched
         todayUsageMinutes.value = usage?.minutes ?? 0
+        todayExtraAllowanceMinutes.value = usage?.extraAllowanceMinutes ?? 0
     }
 
     async function loadKioskStatus() {
@@ -47,12 +75,15 @@ export const useAppStore = defineStore('app', () => {
     }
 
     async function loadAppQuotas() {
-        const [list, usage] = await Promise.all([
+        const [list, usage, mon] = await Promise.all([
             window.api.quota.getList(),
-            window.api.quota.getUsage()
+            window.api.quota.getUsage(),
+            window.api.quota.getAppMonitorUsage()
         ])
         appQuotas.value = Array.isArray(list) ? list : []
         appQuotaUsage.value = usage && typeof usage === 'object' ? usage : {}
+        appMonitorUsage.value = mon?.usage && typeof mon.usage === 'object' ? mon.usage : {}
+        appMonitorLabels.value = mon?.labels && typeof mon.labels === 'object' ? mon.labels : {}
     }
 
     async function applyLifeMode(modeKey) {
@@ -65,16 +96,20 @@ export const useAppStore = defineStore('app', () => {
     }
 
     async function refreshProtectionsState() {
-        await Promise.all([
-            loadWebFilter(), loadBlockedApps(), loadSchedule(), loadKioskStatus(), loadAppQuotas(), loadProcessWhitelist()
+        const [info] = await Promise.all([
+            window.api.system.getAppInfo(),
+            Promise.all([
+                loadWebFilter(), loadBlockedApps(), loadSchedule(), loadKioskStatus(), loadAppQuotas(), loadProcessWhitelist()
+            ])
         ])
+        runningAsRoot.value = info?.runningAsRoot ?? null
     }
 
     return {
-        webFilterEntries, blockedApps, schedule, todayUsageMinutes, kioskStatus,
-        appQuotas, appQuotaUsage, statusMessage, whitelistEnabled,
+        webFilterEntries, webFilterFeedState, webFilterHostRuleCount, webFilterAllowlist, blockedApps, schedule, todayUsageMinutes, todayExtraAllowanceMinutes, kioskStatus,
+        appQuotas, appQuotaUsage, appMonitorUsage, appMonitorLabels, statusMessage, whitelistEnabled, runningAsRoot,
         webFilterEnabled,
-        loadWebFilter, saveWebFilter, loadBlockedApps, loadSchedule, loadKioskStatus, loadAppQuotas,
+        loadWebFilter, saveWebFilter, persistWebFilterAllowlist, loadBlockedApps, loadSchedule, loadKioskStatus, loadAppQuotas,
         loadProcessWhitelist, applyLifeMode, refreshProtectionsState
     }
 })

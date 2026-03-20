@@ -16,7 +16,7 @@
 
     <div class="pc-content d-flex gap-3" style="min-height: 0;">
         <!-- Inner tabs -->
-        <div class="pc-card" style="width:200px;min-width:200px;padding:0;align-self:start;">
+        <div class="pc-card pc-kiosk-subnav" style="width:200px;min-width:200px;padding:0;align-self:start;">
             <div style="padding:12px 0;">
                 <button
                     class="nav-item-link w-100"
@@ -57,8 +57,6 @@
             <RestrictionTab v-else-if="activeTab" :config="currentConfig" />
         </div>
     </div>
-
-    <AppModal />
 </template>
 
 <script setup>
@@ -69,7 +67,6 @@ import { useModal } from '../composables/useModal.js'
 import ProfilesTab from '../components/kiosk/ProfilesTab.vue'
 import UrlRestrictionsTab from '../components/kiosk/UrlRestrictionsTab.vue'
 import RestrictionTab from '../components/kiosk/RestrictionTab.vue'
-import AppModal from '../components/AppModal.vue'
 
 const store = useKioskStore()
 const appStore = useAppStore()
@@ -79,9 +76,13 @@ const activeTab = ref('profiles')
 const currentConfig = computed(() => store.configFiles.find(c => c.filename === activeTab.value))
 
 const kdeIconMap = {
-    kdeapp: 'bi-app-indicator', homerun: 'bi-grid-3x3-gap',
-    'preferences-desktop-plasma': 'bi-gear', kolourpaint: 'bi-palette',
-    plasmavault: 'bi-folder-lock', 'security-high': 'bi-shield-lock', folder: 'bi-folder'
+    kdeapp: 'bi-app-indicator',
+    homerun: 'bi-grid-3x3-gap',
+    'preferences-desktop-plasma': 'bi-gear',
+    kolourpaint: 'bi-palette',
+    plasmavault: 'bi-folder2-open',
+    'security-high': 'bi-shield-lock',
+    folder: 'bi-folder'
 }
 const kdeIconToBootstrap = (name) => kdeIconMap[name] ?? 'bi-gear'
 
@@ -116,7 +117,8 @@ async function onActivate() {
 </script>
 
 <style scoped>
-.nav-item-link.active-inner {
+/* Outer layout only; base .nav-item-link resets live in app.scss (.pc-kiosk-subnav) */
+.pc-kiosk-subnav .nav-item-link.active-inner {
     background: #E3F2FD;
     color: var(--pc-primary) !important;
     font-weight: 600;

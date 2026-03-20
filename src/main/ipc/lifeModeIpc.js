@@ -1,14 +1,17 @@
 import fs from 'fs'
 import path from 'path'
-import { WEB_FILTER_CATEGORIES } from './webFilterCategories.js'
+import {
+    WEB_FILTER_STATIC_CATEGORIES,
+    CATEGORY_TO_HAGEZI_FEED,
+    isKnownWebFilterCategory
+} from './webFilterCategories.js'
 import { DEFAULT_SCHEDULE, persistSchedule } from './schedulesIpc.js'
-import { readWebFilterEntries, persistWebFilterEntries } from './webFilterIpc.js'
+import { readWebFilterMirror, persistWebFilterEntries } from './webFilterIpc.js'
 import { replaceBlockedDesktopIds } from './appBlockerIpc.js'
 import { appendActivity } from './activityLog.js'
 
 const LIFE_MODES_FILE = 'life-modes.json'
 const RESERVED_KEYS = new Set(['school', 'leisure'])
-const KNOWN_CATEGORIES = new Set(Object.keys(WEB_FILTER_CATEGORIES))
 
 const BUILTIN_LABELS = { school: 'School', leisure: 'Leisure' }
 
@@ -44,7 +47,7 @@ const BUILTIN_LIFE_MODES = {
 
 function filterCategoryNames(arr) {
     if (!Array.isArray(arr)) return []
-    return arr.filter(c => KNOWN_CATEGORIES.has(c))
+    return arr.filter(c => isKnownWebFilterCategory(c))
 }
 
 function normalizeCustomMode(modeId, def) {
@@ -81,26 +84,40 @@ function getAllLifeModes(configDir) {
     return out
 }
 
-function mergeCategoriesIntoEntries(entries, categoryNames) {
+function mergeCategoriesIntoMirror(mirror, categoryNames) {
+    const entries = [...mirror.entries]
+    const feedState = { ...mirror.feedState }
     const existing = new Set(entries.map(e => e.domain))
-    const out = [...entries]
     for (const name of categoryNames) {
-        for (const d of WEB_FILTER_CATEGORIES[name] || []) {
-            if (!existing.has(d)) {
-                out.push({ domain: d, enabled: true })
-                existing.add(d)
+        const feedId = CATEGORY_TO_HAGEZI_FEED[name]
+        if (feedId) {
+            feedState[feedId] = true
+        } else {
+            for (const d of WEB_FILTER_STATIC_CATEGORIES[name] || []) {
+                if (!existing.has(d)) {
+                    entries.push({ domain: d, enabled: true })
+                    existing.add(d)
+                }
             }
         }
     }
-    return out
+    return { entries, feedState }
 }
 
-function stripCategoryDomainsFromEntries(entries, categoryNames) {
-    const strip = new Set()
+function stripCategoriesFromMirror(mirror, categoryNames) {
+    let entries = [...mirror.entries]
+    const feedState = { ...mirror.feedState }
+    const stripDomains = new Set()
     for (const name of categoryNames) {
-        for (const d of WEB_FILTER_CATEGORIES[name] || []) strip.add(d)
+        const feedId = CATEGORY_TO_HAGEZI_FEED[name]
+        if (feedId) {
+            feedState[feedId] = false
+        } else {
+            for (const d of WEB_FILTER_STATIC_CATEGORIES[name] || []) stripDomains.add(d)
+        }
     }
-    return entries.filter(e => !strip.has(e.domain))
+    entries = entries.filter(e => !stripDomains.has(e.domain))
+    return { entries, feedState }
 }
 
 export function registerLifeModeIpc(ipcMain, configDir) {
@@ -126,13 +143,13 @@ export function registerLifeModeIpc(ipcMain, configDir) {
         }
         try {
             if (mode.mergeCategories?.length) {
-                const cur = readWebFilterEntries(configDir)
-                const mergedHosts = mergeCategoriesIntoEntries(cur, mode.mergeCategories)
-                persistWebFilterEntries(configDir, mergedHosts)
+                const cur = readWebFilterMirror(configDir)
+                const next = mergeCategoriesIntoMirror(cur, mode.mergeCategories)
+                persistWebFilterEntries(configDir, next.entries, next.feedState)
             } else if (mode.stripCategories?.length) {
-                const cur = readWebFilterEntries(configDir)
-                const stripped = stripCategoryDomainsFromEntries(cur, mode.stripCategories)
-                persistWebFilterEntries(configDir, stripped)
+                const cur = readWebFilterMirror(configDir)
+                const next = stripCategoriesFromMirror(cur, mode.stripCategories)
+                persistWebFilterEntries(configDir, next.entries, next.feedState)
             }
         } catch (e) {
             errs.push(`webfilter: ${e.message}`)

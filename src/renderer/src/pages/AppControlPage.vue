@@ -30,9 +30,10 @@
 
             <div v-else class="overflow-auto" style="max-height: 540px;">
                 <div v-for="app in filtered" :key="app.id" class="pc-list-item">
-                    <div class="item-icon" :style="app.blocked ? 'background:#FFEBEE;color:#C62828;' : ''">
-                        <i class="bi bi-app" />
-                    </div>
+                    <AppListItemIcon
+                        :icon-data-url="app.iconDataUrl || ''"
+                        :extra-style="app.blocked ? 'background:#FFEBEE;color:#C62828;' : ''"
+                    />
                     <div class="flex-grow-1">
                         <div class="item-name">{{ app.name }}</div>
                         <div class="item-sub text-truncate" style="max-width:360px;">{{ app.exec }}</div>
@@ -48,11 +49,8 @@
 
         <div class="pc-card mt-3">
             <div class="pc-card-header d-flex align-items-center justify-content-between flex-wrap gap-2">
-                <h6 class="mb-0">Daily time limits</h6>
+                <h6 class="mb-0">Daily time limits for individual apps</h6>
                 <div class="d-flex align-items-center gap-2 flex-wrap">
-                    <button type="button" class="btn btn-sm btn-outline-secondary" :disabled="quotaBusy" @click="onRedeployQuota">
-                        Rewrite cron script
-                    </button>
                     <button type="button" class="btn btn-sm btn-outline-secondary" :disabled="quotaBusy" @click="onResetQuotaTodayUsage">
                         Reset today’s quota usage
                     </button>
@@ -63,20 +61,12 @@
                 </div>
             </div>
             <div class="pc-card-body">
-                <p class="text-muted small mb-3">
-                    Per-app daily cap: a root cron job runs every minute, counts minutes while the process is running
-                    (<code>pgrep -x -i</code>), then kills the app and notifies when the limit is hit.
-                    Default process names derive from <code>Exec</code> (flatpak <code>--command=</code> / <code>run</code>, <code>snap run</code>,
-                    <code>sh|bash|dash|zsh -c …</code>, <code>electron</code> + flags, <code>*.AppImage</code> stem).
-                    If the live process name still differs (Steam titles, some AppImages), edit the process field to match <code>comm</code> (e.g. <code>ps -o comm</code>).
-                    Counting only runs while the same <code>loginctl</code> rules as Screen Time apply (graphical <strong>active</strong>/<strong>online</strong>, not greeter/background).
-                </p>
-                <div v-if="quotas.length" class="table-responsive mb-3">
+                <div v-if="quotas.length" class="table-responsive mb-0">
                     <table class="table table-sm align-middle mb-0">
                         <thead>
                             <tr>
                                 <th>Application</th>
-                                <th>Process <span class="fw-normal text-muted">(pgrep -x -i)</span></th>
+                                <th>Process</th>
                                 <th>Limit (min/day)</th>
                                 <th>Used today</th>
                                 <th />
@@ -86,12 +76,12 @@
                             <tr v-for="q in quotas" :key="q.appId">
                                 <td>{{ q.appName }}</td>
                                 <td style="min-width:120px;">
-                                    <input v-model="q.editProcess" type="text" class="pc-input" style="width:100%;" autocomplete="off" />
+                                    <input v-model="q.editProcess" type="text" class="pc-input pc-input-sm" style="width:100%;" autocomplete="off" />
                                 </td>
                                 <td style="width:110px;">
-                                    <input v-model.number="q.editLimit" type="number" min="1" max="1440" class="pc-input" style="width:100%;" />
+                                    <input v-model.number="q.editLimit" type="number" min="1" max="1440" class="pc-input pc-input-sm" style="width:100%;" />
                                 </td>
-                                <td>{{ quotaUsage[q.appId] ?? 0 }} min</td>
+                                <td>{{ store.appQuotaUsage[q.appId] ?? 0 }} min</td>
                                 <td class="text-nowrap">
                                     <button type="button" class="btn btn-sm btn-outline-secondary me-1" :disabled="quotaBusy" @click="onSaveQuota(q)">
                                         Save
@@ -104,9 +94,12 @@
                         </tbody>
                     </table>
                 </div>
-                <div class="d-flex flex-wrap gap-2 align-items-end">
+                <div
+                    class="d-flex flex-wrap gap-2 align-items-end"
+                    :class="quotas.length ? 'mt-4 pt-3 border-top border-light' : ''"
+                >
                     <div>
-                        <label class="form-label small text-muted mb-1">Add limit for app</label>
+                        <label class="form-label small text-muted mb-1 d-block">Add limit for app</label>
                         <select v-model="addAppId" class="pc-input" style="min-width:240px;">
                             <option disabled value="">Choose application…</option>
                             <option v-for="a in appsForQuota" :key="a.id" :value="a.id">
@@ -115,11 +108,11 @@
                         </select>
                     </div>
                     <div>
-                        <label class="form-label small text-muted mb-1">Minutes / day</label>
+                        <label class="form-label small text-muted mb-1 d-block">Minutes / day</label>
                         <input v-model.number="addMinutes" type="number" min="1" max="1440" class="pc-input" style="width:100px;" />
                     </div>
                     <div>
-                        <label class="form-label small text-muted mb-1">Override process name</label>
+                        <label class="form-label small text-muted mb-1 d-block">Override process name</label>
                         <input v-model="addProcessOverride" type="text" class="pc-input" style="width:140px;" placeholder="optional" autocomplete="off" />
                     </div>
                     <button type="button" class="btn-pc-primary mt-3 mt-sm-4" :disabled="quotaBusy || !addAppId || !canAddQuota" @click="onAddQuota">
@@ -128,29 +121,19 @@
                 </div>
             </div>
         </div>
-
-        <div class="pc-card mt-3">
-            <div class="pc-card-header"><h6>How it works</h6></div>
-            <div class="pc-card-body text-muted" style="font-size:12px; line-height:1.7;">
-                Blocking an app creates an override desktop file in <code>/usr/local/share/applications/</code>
-                with <code>NoDisplay=true</code> which hides it from the KDE application launcher.
-                The override replaces the launch command with a notification informing the user
-                that the application is blocked.
-            </div>
-        </div>
     </div>
 </template>
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { useAppStore } from '../stores/appStore.js'
+import AppListItemIcon from '../components/AppListItemIcon.vue'
 
 const store = useAppStore()
 const apps = ref([])
 const search = ref('')
 const loading = ref(true)
 const quotas = ref([])
-const quotaUsage = ref({})
 const quotaBusy = ref(false)
 const addAppId = ref('')
 const addMinutes = ref(60)
@@ -185,21 +168,13 @@ onMounted(async () => {
     loading.value = false
 })
 
-async function onRedeployQuota() {
-    if (!window.confirm('Rewrite /usr/local/bin/life-parental-quota and /etc/cron.d/life-parental-quota from current quota.json? (No quota data is changed.)')) return
-    quotaBusy.value = true
-    const r = await window.api.quota.redeploy()
-    quotaBusy.value = false
-    if (r?.error) window.alert(r.error)
-}
-
 async function onResetQuotaTodayUsage() {
     if (!window.confirm('Delete today’s quota-usage file? All “used today” minutes reset to 0; cron starts counting again on the next run.')) return
     quotaBusy.value = true
     const r = await window.api.quota.resetTodayUsage()
     quotaBusy.value = false
     if (r?.error) {
-        window.alert(r.error)
+        await window.api.system.showError({ title: 'LiFE Parental Control', message: r.error })
         return
     }
     await loadQuotas()
@@ -207,15 +182,15 @@ async function onResetQuotaTodayUsage() {
 }
 
 async function loadQuotas() {
-    const list = await window.api.quota.getList()
-    const usage = await window.api.quota.getUsage()
-    const arr = Array.isArray(list) ? list : []
-    quotas.value = arr.map(q => ({
-        ...q,
+    await store.loadAppQuotas()
+    quotas.value = store.appQuotas.map(q => ({
+        appId: q.appId,
+        appName: q.appName,
+        processName: q.processName,
+        minutesPerDay: q.minutesPerDay,
         editLimit: q.minutesPerDay,
         editProcess: q.processName || ''
     }))
-    quotaUsage.value = usage && typeof usage === 'object' ? usage : {}
 }
 
 async function onAddQuota() {
@@ -232,7 +207,7 @@ async function onAddQuota() {
     })
     quotaBusy.value = false
     if (r?.error) {
-        window.alert(r.error)
+        await window.api.system.showError({ title: 'LiFE Parental Control', message: r.error })
         return
     }
     await loadQuotas()
@@ -245,7 +220,10 @@ async function onSaveQuota(q) {
     const minutes = Math.max(1, Math.min(1440, Number(q.editLimit) || 1))
     const proc = (q.editProcess || '').trim()
     if (!proc) {
-        window.alert('Process name is required (must match a running command name for pgrep -x -i).')
+        await window.api.system.showError({
+            title: 'LiFE Parental Control',
+            message: 'Process name is required (must match a running command name for pgrep -x -i).'
+        })
         return
     }
     quotaBusy.value = true
@@ -257,7 +235,7 @@ async function onSaveQuota(q) {
     })
     quotaBusy.value = false
     if (r?.error) {
-        window.alert(r.error)
+        await window.api.system.showError({ title: 'LiFE Parental Control', message: r.error })
         return
     }
     q.minutesPerDay = minutes
@@ -271,7 +249,7 @@ async function onRemoveQuota(appId) {
     const r = await window.api.quota.removeEntry(appId)
     quotaBusy.value = false
     if (r?.error) {
-        window.alert(r.error)
+        await window.api.system.showError({ title: 'LiFE Parental Control', message: r.error })
         return
     }
     await loadQuotas()

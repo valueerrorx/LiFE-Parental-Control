@@ -1,5 +1,7 @@
 import fs from 'fs'
 import path from 'path'
+import { desktopIconToDataUrl } from './desktopIconResolve.js'
+import { redeployQuotaFromDisk } from './quotaIpc.js'
 
 const DESKTOP_DIRS = [
     '/usr/share/applications',
@@ -9,6 +11,7 @@ const DESKTOP_DIRS = [
 // Desktop file overrides placed here (per-system, root-writable)
 const OVERRIDE_DIR = '/usr/local/share/applications'
 const CONFIG_FILE = 'blocked-apps.json'
+const APP_MONITOR_CATALOG = 'app-monitor-catalog.json'
 
 // Best-effort name for pgrep -x: flatpak/snap, shell -c, electron, *.AppImage stem, first real executable.
 function execLineToProcessName(execLine) {
@@ -155,6 +158,50 @@ function saveBlocked(configDir, list) {
     fs.writeFileSync(path.join(configDir, CONFIG_FILE), JSON.stringify(list, null, 2), 'utf8')
 }
 
+/** Desktop entries only (no icons); same discovery order as App Control. */
+export function readAllDesktopApps() {
+    const apps = []
+    const seen = new Set()
+    for (const dir of DESKTOP_DIRS) {
+        if (!fs.existsSync(dir)) continue
+        for (const file of fs.readdirSync(dir).filter(f => f.endsWith('.desktop'))) {
+            if (seen.has(file)) continue
+            seen.add(file)
+            const app = parseDesktopFile(path.join(dir, file))
+            if (!app) continue
+            apps.push({
+                id: file,
+                name: app.name,
+                exec: app.exec,
+                icon: app.icon,
+                filePath: app.filePath,
+                processName: app.processName
+            })
+        }
+    }
+    return apps.sort((a, b) => a.name.localeCompare(b.name))
+}
+
+export function writeAppMonitorCatalog(configDir, apps) {
+    const payload = {
+        updatedAt: new Date().toISOString(),
+        apps: apps
+            .filter(a => (a.processName || '').trim().length > 0)
+            .map(a => ({
+                appId: a.id,
+                appName: a.name,
+                processName: (a.processName || '').trim()
+            }))
+    }
+    fs.writeFileSync(path.join(configDir, APP_MONITOR_CATALOG), JSON.stringify(payload, null, 2), 'utf8')
+}
+
+/** Refresh catalog from disk and ensure cron script runs app-usage tally when quotas or catalog exist. */
+export function refreshAppMonitorCatalog(configDir) {
+    writeAppMonitorCatalog(configDir, readAllDesktopApps())
+    redeployQuotaFromDisk(configDir)
+}
+
 function applyDesktopOverride(configDir, appId, block) {
     fs.mkdirSync(OVERRIDE_DIR, { recursive: true })
     const overridePath = path.join(OVERRIDE_DIR, appId)
@@ -197,18 +244,29 @@ export function replaceBlockedDesktopIds(configDir, nextIds) {
 export function registerAppBlockerIpc(ipcMain, configDir) {
     ipcMain.handle('apps:list', () => {
         const blocked = new Set(readBlocked(configDir))
-        const apps = []
-        const seen = new Set()
-        for (const dir of DESKTOP_DIRS) {
-            if (!fs.existsSync(dir)) continue
-            for (const file of fs.readdirSync(dir).filter(f => f.endsWith('.desktop'))) {
-                if (seen.has(file)) continue
-                seen.add(file)
-                const app = parseDesktopFile(path.join(dir, file))
-                if (app) apps.push({ ...app, blocked: blocked.has(file) })
+        const base = readAllDesktopApps()
+        const apps = base.map((app) => {
+            const file = app.id
+            const row = {
+                id: file,
+                name: app.name,
+                exec: app.exec,
+                icon: app.icon,
+                filePath: app.filePath,
+                processName: app.processName,
+                blocked: blocked.has(file)
             }
-        }
-        return apps.sort((a, b) => a.name.localeCompare(b.name))
+            const stem = path.basename(file, '.desktop')
+            const iconDataUrl = desktopIconToDataUrl(app.icon, app.filePath, [
+                stem,
+                execLineToProcessName(app.exec)
+            ])
+            if (iconDataUrl) row.iconDataUrl = iconDataUrl
+            return row
+        })
+        writeAppMonitorCatalog(configDir, base)
+        redeployQuotaFromDisk(configDir)
+        return apps
     })
 
     ipcMain.handle('apps:setBlocked', (_, appId, block) => {

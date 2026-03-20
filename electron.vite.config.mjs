@@ -3,8 +3,18 @@ import vue from '@vitejs/plugin-vue'
 import { resolve } from 'path'
 
 export default defineConfig({
-    // src/main/index.js and src/preload/index.js are auto-detected by electron-vite
     main: {
+        build: {
+            rollupOptions: {
+                input: {
+                    index: resolve('src/main/index.js'),
+                    trayHelperMain: resolve('src/main/trayHelperMain.js')
+                },
+                output: {
+                    entryFileNames: '[name].js'
+                }
+            }
+        },
         resolve: {
             alias: {
                 '@shared': resolve('src/shared')

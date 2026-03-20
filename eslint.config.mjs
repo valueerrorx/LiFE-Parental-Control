@@ -17,7 +17,14 @@ export default [
         languageOptions: {
             globals: {
                 __dirname: 'readonly',
-                process: 'readonly'
+                process: 'readonly',
+                console: 'readonly',
+                Buffer: 'readonly',
+                fetch: 'readonly',
+                AbortController: 'readonly',
+                TextDecoder: 'readonly',
+                setTimeout: 'readonly',
+                clearTimeout: 'readonly'
             }
         }
     },
@@ -26,11 +33,14 @@ export default [
         languageOptions: {
             globals: {
                 window: 'readonly',
+                document: 'readonly',
                 CustomEvent: 'readonly',
                 alert: 'readonly',
                 confirm: 'readonly',
                 setTimeout: 'readonly',
-                clearTimeout: 'readonly'
+                clearTimeout: 'readonly',
+                setInterval: 'readonly',
+                clearInterval: 'readonly'
             }
         }
     }

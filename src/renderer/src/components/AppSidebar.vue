@@ -40,8 +40,8 @@
             </RouterLink>
             <RouterLink to="/process-whitelist" custom v-slot="{ navigate, isActive }">
                 <button class="nav-item-link" :class="{ active: isActive }" @click="navigate">
-                    <i class="bi bi-list-check" /> Process Whitelist
-                    <span v-if="whitelistActive" class="ms-auto badge-count badge-schedule" title="Process whitelist active">on</span>
+                    <i class="bi bi-list-check" /> Quota exemptions
+                    <span v-if="whitelistActive" class="ms-auto badge-count badge-schedule" title="Daily quota exemptions enabled">on</span>
                 </button>
             </RouterLink>
 
@@ -60,7 +60,7 @@
         </nav>
 
         <div class="pc-sidebar-footer d-flex align-items-center justify-content-between">
-            <span>Running as root</span>
+            <span :title="footerTitle">{{ footerLabel }}</span>
             <button class="nav-item-link p-1" style="width:auto;" @click="onExit" title="Exit">
                 <i class="bi bi-box-arrow-right" style="font-size:16px;color:rgba(255,255,255,0.6);" />
             </button>
@@ -73,15 +73,33 @@ import { computed } from 'vue'
 import { useAppStore } from '../stores/appStore.js'
 
 const store = useAppStore()
-const filterCount = computed(() => store.webFilterEntries.filter(e => e.enabled).length)
+const filterCount = computed(() => store.webFilterHostRuleCount)
 const blockedCount = computed(() => store.blockedApps.length)
 const quotaCount = computed(() => store.appQuotas.length)
 const screenTimeOn = computed(() => store.schedule?.enabled === true)
 const kioskActive = computed(() => store.kioskStatus?.active === true)
 const whitelistActive = computed(() => store.whitelistEnabled === true)
 
-function onExit() {
-    window.api.system.quit()
+const footerLabel = computed(() => {
+    if (store.runningAsRoot === true) return 'Running as root'
+    if (store.runningAsRoot === false) return 'Not root'
+    return '…'
+})
+const footerTitle = computed(() => {
+    if (store.runningAsRoot === false) {
+        return 'Elevated features need root — use packaged app with pkexec or npm run dev'
+    }
+    return undefined
+})
+
+async function onExit() {
+    const ok = await window.api.system.showConfirm({
+        title: 'Quit LiFE Parental Control',
+        message: 'Quit the application?',
+        okLabel: 'Quit',
+        cancelLabel: 'Cancel'
+    })
+    if (ok) await window.api.system.quit()
 }
 </script>
 

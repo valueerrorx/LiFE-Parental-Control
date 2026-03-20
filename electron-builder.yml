@@ -2,6 +2,10 @@ appId: "org.tuxfamily.life-kiosk"
 productName: "LiFE Parental Control"
 copyright: "Copyright © 2024 Thomas Michael Weissel"
 
+# Packaged Electron ignores NODE_OPTIONS (dev shells often set it); avoids startup warning and matches production expectations.
+electronFuses:
+  enableNodeOptionsEnvironmentVariable: false
+
 directories:
   output: "dist"
 
@@ -19,8 +23,15 @@ extraResources:
     filter: ["**/*.profile"]
   - from: "images"
     to: "images"
+  - from: "hagezi"
+    to: "hagezi"
+    filter: ["**/*.txt"]
+  - from: "packaging/polkit"
+    to: "polkit"
+    filter: ["**/*.policy", "**/*.rules"]
 
 linux:
+  executableName: life-parental-control
   target:
     - target: AppImage
       arch: [x64]
@@ -29,4 +40,8 @@ linux:
   category: System
   maintainer: "Thomas Michael Weissel"
   description: "Parental controls for KDE Plasma: kiosk lockdown, web filter, screen time, app blocking and daily app quotas."
-  icon: images/kiosk.png
+  icon: images/pc.png
+
+deb:
+  afterInstall: packaging/debian/postinst.sh
+  afterRemove: packaging/debian/postrm.sh

@@ -2,9 +2,10 @@ import fs from 'fs'
 import path from 'path'
 import { app, dialog } from 'electron'
 import { DEFAULT_SCHEDULE, persistSchedule } from './schedulesIpc.js'
-import { readWebFilterEntries, persistWebFilterEntries } from './webFilterIpc.js'
+import { readWebFilterMirror, persistWebFilterEntries } from './webFilterIpc.js'
 import { replaceBlockedDesktopIds } from './appBlockerIpc.js'
 import { readQuotaEntries, replaceQuotaEntries } from './quotaIpc.js'
+import { readProcessWhitelistConfig, replaceProcessWhitelistFromBackup } from './processWhitelistIpc.js'
 import { readPreferencesForBackup, mergePreferencesFromBackup, clearSessionLockPreference } from './settingsIpc.js'
 import { appendActivity } from './activityLog.js'
 
@@ -57,10 +58,11 @@ export function registerBackupIpc(ipcMain, configDir, getWindow) {
                 version: BUNDLE_VERSION,
                 exportedAt: new Date().toISOString(),
                 schedules: readScheduleFromDisk(configDir),
-                webFilter: { entries: readWebFilterEntries(configDir) },
+                webFilter: readWebFilterMirror(configDir),
                 blockedApps: readBlockedFromDisk(configDir),
                 lifeModes: readLifeModesFromDisk(configDir),
                 quotas: readQuotaEntries(configDir),
+                processWhitelist: readProcessWhitelistConfig(configDir),
                 preferences: readPreferencesForBackup(configDir)
             }
             fs.writeFileSync(filePath, JSON.stringify(bundle, null, 2), 'utf8')
@@ -91,13 +93,20 @@ export function registerBackupIpc(ipcMain, configDir, getWindow) {
                 persistSchedule(configDir, { ...DEFAULT_SCHEDULE, ...patch })
             }
             if (Object.hasOwn(raw, 'webFilter')) {
-                const rawEntries = raw.webFilter?.entries
+                const wf = raw.webFilter
+                const rawEntries = wf?.entries
                 const entries = Array.isArray(rawEntries)
                     ? rawEntries
                         .filter(e => e && typeof e.domain === 'string')
                         .map(e => ({ domain: e.domain, enabled: e.enabled !== false }))
                     : []
-                persistWebFilterEntries(configDir, entries)
+                const feedState = wf?.feedState != null && typeof wf.feedState === 'object' && !Array.isArray(wf.feedState)
+                    ? { ...wf.feedState }
+                    : {}
+                const listAllowlist = Object.hasOwn(wf || {}, 'listAllowlist') && Array.isArray(wf.listAllowlist)
+                    ? wf.listAllowlist
+                    : undefined
+                persistWebFilterEntries(configDir, entries, feedState, listAllowlist)
             }
             if (Object.hasOwn(raw, 'blockedApps')) {
                 const src = Array.isArray(raw.blockedApps) ? raw.blockedApps : []
@@ -123,6 +132,12 @@ export function registerBackupIpc(ipcMain, configDir, getWindow) {
             if (Object.hasOwn(raw, 'quotas')) {
                 const list = Array.isArray(raw.quotas) ? raw.quotas : []
                 replaceQuotaEntries(configDir, list)
+            }
+            if (Object.hasOwn(raw, 'processWhitelist')) {
+                const pw = raw.processWhitelist
+                if (pw != null && typeof pw === 'object' && !Array.isArray(pw)) {
+                    replaceProcessWhitelistFromBackup(configDir, pw)
+                }
             }
             if (Object.hasOwn(raw, 'preferences')) {
                 const p = raw.preferences

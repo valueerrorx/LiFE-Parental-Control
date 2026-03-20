@@ -9,10 +9,7 @@
                 <i class="bi bi-circle-fill" style="font-size:7px;" />
                 {{ schedule.enabled ? 'Active' : 'Disabled' }}
             </span>
-            <button type="button" class="btn-pc-outline" :disabled="saving || redeploying" @click="onRedeployCron">
-                <i class="bi bi-arrow-repeat me-1" />{{ redeploying ? 'Rewriting…' : 'Rewrite cron script' }}
-            </button>
-            <button class="btn-pc-primary" @click="onSave" :disabled="saving || redeploying">
+            <button class="btn-pc-primary" @click="onSave" :disabled="saving">
                 <i class="bi bi-floppy me-1" />{{ saving ? 'Saving…' : 'Save' }}
             </button>
         </div>
@@ -68,41 +65,38 @@
                     </div>
                     <!-- Today's usage progress -->
                     <div class="usage-bar-wrap">
+                        <p v-if="todayExtraAllowance > 0" class="text-muted small mb-1">
+                            Today’s allowance includes <strong>+{{ todayExtraAllowance }} min</strong> added by a parent (logged usage is unchanged).
+                        </p>
                         <div class="d-flex justify-content-between mb-1">
                             <span class="text-muted small">Today's usage</span>
                             <span class="small fw-semibold" :style="usageColor">
-                                {{ todayMinutes }}m / {{ schedule.dailyLimitMinutes }}m
+                                {{ todayMinutes }}m / {{ effectiveDailyLimit }}m
                             </span>
                         </div>
                         <div class="usage-bar-track">
                             <div class="usage-bar-fill" :style="{ width: usagePercent + '%', background: usageBarColor }" />
                         </div>
                     </div>
-                    <div class="mt-2 d-flex flex-wrap align-items-end gap-2">
-                        <button type="button" class="btn btn-sm btn-outline-secondary" :disabled="saving || redeploying" @click="onResetTodayUsage">
-                            <i class="bi bi-arrow-counterclockwise me-1" />Reset today's usage
-                        </button>
-                        <div class="d-flex flex-wrap align-items-end gap-2 ms-md-2">
-                            <div>
-                                <label class="form-label small text-muted mb-1">Parent password (Settings)</label>
-                                <input v-model="bonusPassword" type="password" class="pc-input" style="width:160px;" autocomplete="off" />
-                            </div>
-                            <div>
-                                <label class="form-label small text-muted mb-1">Bonus (min)</label>
-                                <select v-model.number="bonusMinutes" class="pc-input" style="width:90px;">
-                                    <option :value="5">5</option>
-                                    <option :value="15">15</option>
-                                    <option :value="30">30</option>
-                                    <option :value="60">60</option>
-                                </select>
-                            </div>
-                            <button type="button" class="btn btn-sm btn-outline-primary" :disabled="saving || redeploying" @click="onGrantBonus">
-                                +{{ bonusMinutes }} min bonus
+
+                    <div class="st-usage-actions">
+                        <div class="st-usage-section">
+                            <div class="st-usage-section-title">Reset counter</div>
+                            <p class="st-usage-hint">
+                                Start today’s tally over (removes today’s usage file). No password — use for mistakes or testing.
+                            </p>
+                            <button
+                                type="button"
+                                class="btn-pc-outline st-action-btn"
+                                :disabled="saving"
+                                @click="onResetTodayUsage"
+                            >
+                                <i class="bi bi-arrow-counterclockwise me-1" />Reset today’s usage
                             </button>
                         </div>
                     </div>
-                    <p class="text-muted small mt-2 mb-0">
-                        Bonus reduces today’s stored minutes (extra allowance until midnight). Requires a parent password (set in Settings).
+                    <p class="text-muted small mt-2 mb-0" style="max-width:52rem;">
+                        When the limit is reached, this app shows a dialog to add more time with the parent password (no separate bonus form here).
                     </p>
                 </div>
             </div>
@@ -144,6 +138,7 @@
                 <h6 class="mb-0">Recent screen time</h6>
                 <div class="d-flex align-items-center gap-2">
                     <select v-model.number="historyDays" class="pc-input" style="width:auto;padding:4px 8px;font-size:12px;" @change="refreshUsageData">
+                        <option :value="7">7 days</option>
                         <option :value="14">14 days</option>
                         <option :value="30">30 days</option>
                         <option :value="90">90 days</option>
@@ -154,10 +149,6 @@
                 </div>
             </div>
             <div class="pc-card-body">
-                <p class="text-muted small mb-2">
-                    Logged minutes from <code>usage-*.json</code>. While daily limit is on, the root cron adds one minute per run when
-                    <code>loginctl</code> shows a graphical session (<strong>active</strong> or <strong>online</strong>, excluding <strong>greeter</strong> / <strong>background</strong>).
-                </p>
                 <div v-if="usageHistory.length === 0" class="text-muted small">No history files in config dir yet.</div>
                 <div v-else class="d-flex flex-column gap-2">
                     <div v-for="row in usageHistory" :key="row.date" class="d-flex align-items-center gap-2 gap-md-3 flex-wrap">
@@ -189,17 +180,17 @@ const schedule = reactive({
     allowedHoursEnabled: false, allowedHoursStart: '07:00', allowedHoursEnd: '22:00',
     allowedDays: [1, 2, 3, 4, 5, 6, 7]
 })
-const saving      = ref(false)
-const redeploying = ref(false)
-const saveMsg     = ref('')
+const saving  = ref(false)
+const saveMsg = ref('')
 const saveError = ref(false)
 const todayMinutes = ref(0)
 const usageHistory = ref([])
-const historyDays = ref(14)
-const bonusPassword = ref('')
-const bonusMinutes = ref(30)
+const historyDays = ref(7)
+const todayExtraAllowance = ref(0)
 
-const usagePercent  = computed(() => Math.min(100, Math.round((todayMinutes.value / (schedule.dailyLimitMinutes || 120)) * 100)))
+const effectiveDailyLimit = computed(() => (schedule.dailyLimitMinutes || 120) + todayExtraAllowance.value)
+
+const usagePercent  = computed(() => Math.min(100, Math.round((todayMinutes.value / (effectiveDailyLimit.value || 1)) * 100)))
 const usageBarColor = computed(() => usagePercent.value >= 100 ? '#C62828' : usagePercent.value >= 80 ? '#E65100' : '#1565C0')
 const usageColor    = computed(() => ({ color: usageBarColor.value }))
 
@@ -220,7 +211,10 @@ async function refreshUsageData() {
         window.api.schedules.getUsage(),
         window.api.schedules.getUsageHistory(historyDays.value)
     ])
-    if (usage) todayMinutes.value = usage.minutes ?? 0
+    if (usage) {
+        todayMinutes.value = usage.minutes ?? 0
+        todayExtraAllowance.value = usage.extraAllowanceMinutes ?? 0
+    }
     usageHistory.value = hist.days ?? []
 }
 
@@ -257,23 +251,6 @@ function applyPreset(kind) {
     setTimeout(() => { saveMsg.value = '' }, 5000)
 }
 
-async function onGrantBonus() {
-    saving.value = true
-    const r = await window.api.schedules.grantBonusMinutes({ password: bonusPassword.value, minutes: bonusMinutes.value })
-    saving.value = false
-    if (r?.error) {
-        saveMsg.value = r.error
-        saveError.value = true
-    } else {
-        bonusPassword.value = ''
-        saveMsg.value = `Bonus applied: −${r.granted} min recorded (now ${r.minutes} min today).`
-        saveError.value = false
-        await refreshUsageData()
-        await appStore.loadSchedule()
-    }
-    setTimeout(() => { saveMsg.value = '' }, 5000)
-}
-
 async function onResetTodayUsage() {
     if (!window.confirm('Reset today\'s screen time counter to 0? Removes today\'s usage file; counting continues on the next cron run.')) return
     saving.value = true
@@ -290,19 +267,10 @@ async function onResetTodayUsage() {
     setTimeout(() => { saveMsg.value = '' }, 4000)
 }
 
-async function onRedeployCron() {
-    if (!window.confirm('Rewrite /usr/local/bin/life-parental-check and /etc/cron.d/life-parental from saved schedules.json? (Does not change limits in the form — use Save for that.)')) return
-    redeploying.value = true
-    const result = await window.api.schedules.redeploy()
-    redeploying.value = false
-    if (result?.error) { saveMsg.value = `Error: ${result.error}`; saveError.value = true }
-    else { saveMsg.value = 'Cron and check script rewritten from disk'; saveError.value = false }
-    setTimeout(() => { saveMsg.value = '' }, 5000)
-}
-
 async function onSave() {
     saving.value = true
-    const result = await window.api.schedules.save({ ...schedule })
+    // IPC cannot clone reactive `allowedDays` array; copy to a plain array.
+    const result = await window.api.schedules.save({ ...schedule, allowedDays: [...schedule.allowedDays] })
     saving.value = false
     if (result?.error) { saveMsg.value = `Error: ${result.error}`; saveError.value = true }
     else {
@@ -319,6 +287,33 @@ async function onSave() {
 .usage-bar-wrap {
     padding-top: 4px;
 }
+.st-usage-actions {
+    margin-top: 1.35rem;
+    padding-top: 1.35rem;
+    border-top: 1px solid var(--pc-border, #e0e0e0);
+}
+.st-usage-section-title {
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--pc-text-secondary, #616161);
+    margin-bottom: 0.35rem;
+}
+.st-usage-hint {
+    font-size: 12px;
+    line-height: 1.55;
+    color: var(--pc-text-secondary, #616161);
+    margin: 0 0 0.85rem;
+    max-width: 52rem;
+}
+.st-action-btn {
+    padding: 8px 18px;
+    font-size: 13.5px;
+    min-height: 38px;
+    box-sizing: border-box;
+}
+
 .usage-bar-track {
     height: 8px;
     background: #E0E0E0;

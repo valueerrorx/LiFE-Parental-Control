@@ -1,7 +1,7 @@
 <template>
     <Teleport to="body">
         <div v-if="state.visible" class="pc-modal-overlay" @mousedown.self="_cancel">
-            <div class="pc-modal">
+            <div class="pc-modal" :class="{ 'pc-modal-wide': state.wide }">
                 <div class="pc-modal-header">
                     <span class="fw-semibold">{{ state.title }}</span>
                     <button class="pc-modal-close" @click="_cancel">
@@ -23,8 +23,8 @@
                     </div>
                 </div>
                 <div class="pc-modal-footer">
-                    <button class="btn-pc-outline" @click="_cancel">{{ state.cancelLabel }}</button>
-                    <button class="btn-pc-primary" @click="_ok">{{ state.okLabel }}</button>
+                    <button v-if="!state.hideCancel" type="button" class="btn-pc-outline" @click="_cancel">{{ state.cancelLabel }}</button>
+                    <button type="button" class="btn-pc-primary" @click="_ok">{{ state.okLabel }}</button>
                 </div>
             </div>
         </div>
@@ -57,6 +57,9 @@ watch(() => state.visible, async (v) => {
     max-width: 92vw;
     box-shadow: 0 12px 40px rgba(0,0,0,0.2);
     overflow: hidden;
+}
+.pc-modal-wide {
+    width: 620px;
 }
 .pc-modal-header {
     display: flex; align-items: center; justify-content: space-between;

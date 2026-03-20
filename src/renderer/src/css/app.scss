@@ -30,6 +30,13 @@ html, body, #app {
     background: var(--pc-bg);
 }
 
+// Fills viewport and lets .pc-lockscreen flex-center immediately (avoids card stuck top-left before layout settles).
+#app:has(.pc-lockscreen) {
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+}
+
 // --- Sidebar ---
 .pc-sidebar {
     width: var(--sidebar-w);
@@ -111,6 +118,28 @@ html, body, #app {
         border-top: 1px solid rgba(255, 255, 255, 0.15);
         font-size: 11px;
         color: rgba(255, 255, 255, 0.45);
+    }
+}
+
+// Kiosk page — inner restriction nav uses <button.nav-item-link> on white card (not .pc-sidebar)
+.pc-kiosk-subnav .nav-item-link {
+    display: flex;
+    align-items: center;
+    border: none;
+    background: transparent;
+    box-shadow: none;
+    appearance: none;
+    -webkit-appearance: none;
+    cursor: pointer;
+    text-align: left;
+
+    &:focus {
+        outline: none;
+    }
+
+    &:focus-visible {
+        outline: 2px solid var(--pc-primary);
+        outline-offset: 2px;
     }
 }
 
@@ -253,10 +282,46 @@ html, body, #app {
         flex-shrink: 0;
         background: #E3F2FD;
         color: var(--pc-primary);
+
+        &.item-icon--photo {
+            background: #eceff1;
+            overflow: hidden;
+            border: 1px solid rgba(0, 0, 0, 0.06);
+        }
+
+        .item-icon-img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            display: block;
+        }
     }
 
     .item-name { font-weight: 500; font-size: 13.5px; }
     .item-sub  { font-size: 11.5px; color: var(--pc-text-secondary); }
+}
+
+// Denser rows (e.g. Web Filter domain / allow lists) without changing app-wide default list height.
+.pc-list-item.pc-list-item--compact {
+    padding: 6px 16px;
+    gap: 10px;
+
+    .item-icon {
+        width: 28px;
+        height: 28px;
+        border-radius: 6px;
+        font-size: 14px;
+    }
+
+    .item-name { font-size: 13px; font-weight: 500; }
+}
+
+// Web Filter: both list panes share one fixed height so the cards align visually.
+.pc-scroll-list {
+    height: 380px;
+    min-height: 0;
+    overflow-x: hidden;
+    overflow-y: auto;
 }
 
 // --- Inputs ---
@@ -277,6 +342,14 @@ html, body, #app {
     }
 }
 
+// Matches Bootstrap .btn-sm padding/font-size so table row controls align in height.
+.pc-input-sm {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.875rem;
+    line-height: 1.5;
+    border-radius: var(--bs-border-radius-sm, 0.25rem);
+}
+
 // --- Buttons ---
 .btn-pc-primary {
     background: var(--pc-primary);
@@ -288,9 +361,13 @@ html, body, #app {
     font-weight: 500;
     cursor: pointer;
     transition: background 0.15s;
+    appearance: none;
+    -webkit-appearance: none;
 
     &:hover { background: var(--pc-primary-dark); }
     &:disabled { opacity: 0.6; cursor: default; }
+    &:focus { outline: none; }
+    &:focus-visible { box-shadow: 0 0 0 3px rgba(21, 101, 192, 0.35); }
 }
 
 .btn-pc-outline {
@@ -303,9 +380,33 @@ html, body, #app {
     font-weight: 500;
     cursor: pointer;
     transition: background 0.15s;
+    appearance: none;
+    -webkit-appearance: none;
 
     &:hover { background: rgba(21,101,192,0.06); }
     &:disabled { opacity: 0.5; cursor: default; }
+    &:focus { outline: none; }
+    &:focus-visible { box-shadow: 0 0 0 3px rgba(21, 101, 192, 0.3); }
+}
+
+// HaGeZi quick-add row when that feed is enabled (green + checkmark in UI).
+.btn-pc-success-active {
+    background: var(--pc-success);
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    padding: 7px 16px;
+    font-size: 13.5px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.15s;
+    appearance: none;
+    -webkit-appearance: none;
+
+    &:hover { background: #1B5E20; color: #fff; }
+    &:disabled { opacity: 0.5; cursor: default; }
+    &:focus { outline: none; }
+    &:focus-visible { box-shadow: 0 0 0 3px rgba(46, 125, 50, 0.35); }
 }
 
 .btn-pc-danger {
@@ -317,9 +418,13 @@ html, body, #app {
     font-size: 13px;
     cursor: pointer;
     transition: background 0.15s;
+    appearance: none;
+    -webkit-appearance: none;
 
     &:hover { background: color.adjust(#C62828, $lightness: -8%); }
     &:disabled { opacity: 0.5; cursor: default; }
+    &:focus { outline: none; }
+    &:focus-visible { box-shadow: 0 0 0 3px rgba(198, 40, 40, 0.35); }
 }
 
 // --- Dashboard stat cards ---
@@ -332,6 +437,7 @@ html, body, #app {
     display: flex;
     flex-direction: column;
     gap: 8px;
+    min-height: 158px;
 
     .stat-icon {
         width: 48px;
@@ -344,16 +450,18 @@ html, body, #app {
     }
 
     .stat-label { font-size: 12px; font-weight: 600; color: var(--pc-text-secondary); text-transform: uppercase; letter-spacing: 0.5px; }
-    .stat-value { font-size: 26px; font-weight: 700; color: var(--pc-text); line-height: 1; }
-    .stat-sub   { font-size: 12px; color: var(--pc-text-secondary); }
+    .stat-value { font-size: 26px; font-weight: 700; color: var(--pc-text); line-height: 1; min-height: 1.1em; }
+    .stat-sub   { font-size: 12px; color: var(--pc-text-secondary); margin-top: auto; }
 }
 
 // --- Password lock screen ---
 .pc-lockscreen {
+    flex: 1;
+    min-height: 0;
+    width: 100%;
     display: flex;
     align-items: center;
     justify-content: center;
-    height: 100vh;
     background: var(--pc-bg);
 
     .lock-card {

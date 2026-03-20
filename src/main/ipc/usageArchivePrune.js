@@ -7,7 +7,8 @@ const RETENTION_DAYS = 120
 
 const FILE_RES = [
     /^usage-(\d{4}-\d{2}-\d{2})\.json$/,
-    /^quota-usage-(\d{4}-\d{2}-\d{2})\.json$/
+    /^quota-usage-(\d{4}-\d{2}-\d{2})\.json$/,
+    /^app-usage-(\d{4}-\d{2}-\d{2})\.json$/
 ]
 
 export function pruneUsageArchives(configDir) {
