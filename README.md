@@ -15,6 +15,10 @@ Desktop app for **KDE Plasma (Linux)**: parental controls via **Electron**, **Vu
 
 **Config:** `/etc/life-parental/` (app expects elevated rights when packaged; see main process).
 
+### Session restart (KDE)
+
+After writing kiosk restrictions to `/etc/xdg/kdeglobals`, the app triggers a Plasma session restart: `kquitapp6|5 ksmserver` first, then `qdbus` logout on each **active graphical** user’s session bus (`/run/user/<uid>/bus`), then the same DBus calls as root as a last resort. Single-seat desktop setups are the main target; exotic multi-seat setups may need a manual re-login.
+
 ## Development
 
 Requires **Node ≥ 22** and **npm ≥ 10**.
@@ -25,7 +29,7 @@ npm run lint
 npm run dev
 ```
 
-Enforcement features touch system paths; for local testing you may need root (see `package.json` script `dev:root`).
+Enforcement features touch system paths. For local dev with cron/scripts and `/etc` writes, use **`npm run dev:root`** (runs the Vite dev app under `sudo` with your user’s `XDG_RUNTIME_DIR` so the UI can start while policies still assume root).
 
 **Production build:**
 

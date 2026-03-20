@@ -4,15 +4,18 @@
 electron-vite, Vue3+Pinia, Bootstrap5, Sass; **not** Quasar (`claude.md` stack line updated). **Only** `src/main/`, `src/preload/`, `src/renderer/` — no duplicate Vue tree under `src/`. Do **not** set npm `"type":"module"` (breaks preload path: outputs `.mjs` vs main expecting `.js`).
 
 ## IPC surface
-`config:readFiles`; `profile:*`; `system:*` (incl. `system:getAppInfo`: name/version/packaged/electron/node); `webfilter:*` (incl. `webfilter:reapplyMirror` → `reapplyWebFilterFromMirror`: hosts from `webfilter.json`); `apps:*`; `quota:*` (incl. `quota:redeploy`); `schedules:*` (incl. `schedules:redeploy`); `lifeMode:*`; `backup:export|import`; `settings:*` (incl. `settings:pruneUsageArchives` → `{ ok, removed }`). **Usage log retention:** `usageArchivePrune.js` deletes `usage-*.json` / `quota-usage-*.json` when filename date is older than **120 days** (UTC); runs at app start, after schedule persist/redeploy + quota deploy, and manually from Settings **Maintenance**.
+`config:readFiles`; `profile:*`; `system:*` (incl. `system:getAppInfo`: name/version/packaged/electron/node); `webfilter:*` (incl. `webfilter:reapplyMirror` → `reapplyWebFilterFromMirror`: hosts from `webfilter.json`); `apps:*`; `quota:*` (incl. `quota:redeploy`); `schedules:*` (incl. `schedules:redeploy`); `lifeMode:*`; `backup:export|import`; `settings:*` (incl. `settings:pruneUsageArchives` → `{ ok, removed }`). **Usage log retention:** `usageArchivePrune.js` deletes `usage-*.json` / `quota-usage-*.json` when filename date is older than **120 days** (local calendar day, matches cron/Python); runs at app start, after schedule persist/redeploy + quota deploy, and manually from Settings **Maintenance**.
 
 ## KDE integration
-Kiosk: merges into `/etc/xdg/kdeglobals` — strips prior LiFE sections (`[KDE Action Restrictions][$i]` etc.) then appends new blocks; never wipes unrelated keys. Session restart: `kquitapp6 ksmserver` → `kquitapp5 ksmserver` → `qdbus(6)` from PATH or `/usr/lib{,64}/qt{5,6}/bin/qdbus` with `org.kde.KSMServer|ksmserver` /KSMServer logout. Status IPC reads same section headers (must match `kioskStore.buildPlasmaConfig`).
+Kiosk: merges into `/etc/xdg/kdeglobals` — strips prior LiFE sections (`[KDE Action Restrictions][$i]` etc.) then appends new blocks; never wipes unrelated keys. Session restart: `kquitapp6 ksmserver` → `kquitapp5 ksmserver` → for each **active x11/wayland** user from `loginctl`, `qdbus` as that uid with `DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/<uid>/bus` (KSMServer variants + qt bin paths) → last resort same qdbus as root (legacy). Status IPC reads same section headers (must match `kioskStore.buildPlasmaConfig`).
 
 ## Recent changes (2026-03-20)
-- **Session restart**: `restartKdeSession` tries `qdbus`/`qdbus6` plus `/usr/lib{,64}/qt{5,6}/bin/qdbus` with both KSMServer service names (PATH-less Plasma installs).
+- **Backup import**: if bundle has `lifeModes` key and value is not a plain object → remove `life-modes.json`; if object (incl. `{}`) → write. Key absent → leave existing file (older bundles / partial hand-edits).
+- **README**: Session restart behaviour (kquitapp → per-user session bus qdbus → root fallback); `dev:root` documented for sudo+Vite testing.
+- **Session restart**: after kquitapp, DBus logout as each **active graphical** user (`loginctl` + `id -u/g`, `DBUS_SESSION_BUS_ADDRESS=/run/user/<uid>/bus`), then qt bin path + KSMServer name matrix as **root** fallback.
 - **Settings**: Maintenance button **Usage logs (old)** → `settings:pruneUsageArchives`; `pruneUsageArchives` returns `{ removed }` for the toast.
-- **Usage archives**: `usageArchivePrune.js` removes `usage-YYYY-MM-DD.json` and `quota-usage-YYYY-MM-DD.json` older than 120d (filename date UTC); app start + schedule persist/redeploy + quota `deployScript` + Settings **Usage logs (old)**.
+- **Local calendar day**: `localCalendarDay.js` — `schedules:getUsage` / `quota:getUsage` / usage prune cutoff use same local `YYYY-MM-DD` as embedded Python (`date.today()`), not `toISOString()` UTC (fixes wrong “today” file near timezone midnight).
+- **Usage archives**: `usageArchivePrune.js` removes `usage-YYYY-MM-DD.json` and `quota-usage-YYYY-MM-DD.json` older than 120d (filename date); app start + schedule persist/redeploy + quota `deployScript` + Settings **Usage logs (old)**.
 - **Navigation**: `MainLayout` refresh on mount; App Control badges (blocked / quotas); Screen Time **on** when `schedule.enabled`; Dashboard only loads `lifeMode:list` (no duplicate protection IPC). Screen Time **Save** calls `refreshProtectionsState` so sidebar badges update immediately.
 - **Backup**: bundle includes `preferences` (session lock); import merges via `mergePreferencesFromBackup`; post-import syncs Session lock UI + `life-parental-lock-prefs`.
 - **Auto-lock**: `config.json` `lockIdleMinutes` (0 / 5 / 15 / 30 / 60), Settings **Session lock**; idle timer on unlock + `life-parental-lock-prefs` event to refresh without re-login. `App.vue` fixes first-run `passwordSet` after `setPassword`.
@@ -22,11 +25,10 @@ Kiosk: merges into `/etc/xdg/kdeglobals` — strips prior LiFE sections (`[KDE A
 - **Screen Time**: `schedules:redeploy` + Schedules page “Rewrite cron script” (`redeployScheduleCron` reads `schedules.json`, same `updateCron` as Save).
 - **Dashboard**: “App time limits (today)” card with usage vs limit bars; **quota:redeploy** + App Control button rewrites cron/script; quota IPC uses `readQuotaEntries` for safe list/mutate.
 - **Quota script**: `pgrep`/`pkill` use `-x -i` (exact comm, case-insensitive). Redeploy: change any quota in UI or re-save.
-- **Session restart**: DBus logout fallbacks after kquitapp for Plasma 5/6 service name variants (root may still use wrong session bus — kquitapp remains primary).
 - **Quota process names**: `execLineToProcessName` handles flatpak `--command=`, `flatpak run` (app id tail), `snap run`; App Control table edits process + optional override when adding.
 - **App quotas (UI + wiring)**: `registerQuotaIpc` in main; App Control “Daily time limits”; `apps:list` includes `processName` from .desktop `Exec`; backup export/import `quotas`; Dashboard shows count of day limits.
 - **After backup import**: `useAppStore().refreshProtectionsState()` from Settings. Example bundle: `examples/life-parental-backup-v1.example.json`.
-- **Settings backup**: `backup:export` / `backup:import` — JSON v1 with schedules, webFilter entries, blocked `.desktop` ids, `quotas`, optional `lifeModes`, optional `preferences` (`lockIdleMinutes` only, via `settingsIpc`). Excludes password + usage files.
+- **Settings backup**: `backup:export` / `backup:import` — JSON v1 with schedules, webFilter entries, blocked `.desktop` ids, `quotas`, `lifeModes` (key present: write object or unlink on null/non-object), optional `preferences` (`lockIdleMinutes` only, via `settingsIpc`). Excludes password + usage files.
 - **Allowed hours / cron**: Python check treats start-after-end as overnight window (e.g. 22:00–07:00); Schedules page note. Redeploy script: save Screen Time once while enforcement enabled (rewrites `/usr/local/bin/life-parental-check`).
 - **Custom life modes**: `/etc/life-parental/life-modes.json` defines extra keys (cannot override `school`/`leisure`). `DEFAULT_SCHEDULE` merge, category lists filtered to known quick-add names, desktop ids must end with `.desktop`. Dashboard loads dynamic buttons; Settings documents schema.
 - **`schedules:getUsageHistory`**: reads last N (default 14, max 90) `usage-YYYY-MM-DD.json` under config dir; Schedules page “Recent screen time” table + Refresh; bars scale to daily limit when enabled else to peak day.
@@ -59,5 +61,5 @@ Kiosk: merges into `/etc/xdg/kdeglobals` — strips prior LiFE sections (`[KDE A
 - **Dashboard "App time limits"** card: per-app usage bars sorted by ratio; `quotaSummaryRows` computed from `appStore.appQuotas`+`appQuotaUsage`.
 
 ## Open / TODO
-- DBus logout as root: wrong session bus when not matching logged-in user; kquitapp remains primary.
+- Session logout: multi-seat or stale loginctl edge cases; kquitapp remains preferred.
 - Quota: edge cases with wrapped binaries (manual process override in UI covers most cases).

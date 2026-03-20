@@ -9,8 +9,6 @@
     "main": "out/main/index.js",
     "scripts": {
         "dev": "electron-vite dev",
-
-        
         "build": "electron-vite build && electron-builder",
         "lint": "eslint src/main src/preload src/renderer",
         "dev:root": "sudo -E env XDG_RUNTIME_DIR=/run/user/$(id -u) npx electron-vite dev -- --no-sandbox"

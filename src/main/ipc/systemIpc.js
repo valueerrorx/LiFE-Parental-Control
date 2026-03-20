@@ -43,6 +43,30 @@ function summarizeKdeglobalsKiosk(text) {
     return { active: restrictionCount > 0, restrictionCount }
 }
 
+function listGraphicalUsers(cb) {
+    execFile('loginctl', ['list-sessions', '--no-legend'], { timeout: 5000 }, (err, stdout) => {
+        if (err || !stdout) return cb([])
+        const lines = stdout.trim().split('\n').filter(Boolean)
+        const users = new Set()
+        const step = (i) => {
+            if (i >= lines.length) return cb([...users])
+            const parts = lines[i].trim().split(/\s+/)
+            if (parts.length < 3) return step(i + 1)
+            const sid = parts[0]
+            const user = parts[2]
+            execFile('loginctl', ['show-session', sid, '-p', 'Type', '--value'], { timeout: 3000 }, (e1, tOut) => {
+                execFile('loginctl', ['show-session', sid, '-p', 'State', '--value'], { timeout: 3000 }, (e2, sOut) => {
+                    const t = String(tOut || '').trim()
+                    const s = String(sOut || '').trim()
+                    if ((t === 'x11' || t === 'wayland') && s === 'active') users.add(user)
+                    step(i + 1)
+                })
+            })
+        }
+        step(0)
+    })
+}
+
 function restartKdeSession() {
     const dbusBins = ['qdbus6', 'qdbus', '/usr/lib/qt6/bin/qdbus', '/usr/lib/qt5/bin/qdbus', '/usr/lib64/qt6/bin/qdbus', '/usr/lib64/qt5/bin/qdbus']
     const dbusServices = ['org.kde.KSMServer', 'org.kde.ksmserver']
@@ -50,7 +74,7 @@ function restartKdeSession() {
     for (const bin of dbusBins) {
         for (const svc of dbusServices) dbusAttempts.push([bin, svc])
     }
-    const runDbusChain = (idx) => {
+    const runDbusChain = idx => {
         if (idx >= dbusAttempts.length) return
         const [bin, svc] = dbusAttempts[idx]
         execFile(bin, [svc, '/KSMServer', 'logout', '0', '0', '1'], { timeout: 8000 }, err => {
@@ -58,11 +82,40 @@ function restartKdeSession() {
             runDbusChain(idx + 1)
         })
     }
+    const runAllDbusAsUser = (username, next) => {
+        execFile('id', ['-u', username], { timeout: 3000 }, (e1, uOut) => {
+            if (e1) return next()
+            const uid = Number(String(uOut).trim())
+            if (!Number.isFinite(uid)) return next()
+            execFile('id', ['-g', username], { timeout: 3000 }, (e2, gOut) => {
+                if (e2) return next()
+                const gid = Number(String(gOut).trim())
+                const tryBin = ai => {
+                    if (ai >= dbusAttempts.length) return next()
+                    const [bin, svc] = dbusAttempts[ai]
+                    execFile(bin, [svc, '/KSMServer', 'logout', '0', '0', '1'], {
+                        timeout: 8000,
+                        uid,
+                        gid,
+                        env: { ...process.env, DBUS_SESSION_BUS_ADDRESS: `unix:path=/run/user/${uid}/bus` }
+                    }, err => {
+                        if (!err) return
+                        tryBin(ai + 1)
+                    })
+                }
+                tryBin(0)
+            })
+        })
+    }
+    const tryUsersThenRoot = (users, i) => {
+        if (i >= users.length) return runDbusChain(0)
+        runAllDbusAsUser(users[i], () => tryUsersThenRoot(users, i + 1))
+    }
     execFile('kquitapp6', ['ksmserver'], { timeout: 8000 }, err => {
         if (!err) return
         execFile('kquitapp5', ['ksmserver'], { timeout: 8000 }, err2 => {
             if (!err2) return
-            runDbusChain(0)
+            listGraphicalUsers(users => tryUsersThenRoot(users, 0))
         })
     })
 }
