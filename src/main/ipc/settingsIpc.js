@@ -1,6 +1,7 @@
 import fs from 'fs'
 import path from 'path'
 import crypto from 'crypto'
+import { normalizedLockIdleMinutesOrUndefined } from '@shared/lockIdleMinutes.js'
 import { pruneUsageArchives } from './usageArchivePrune.js'
 
 const CONFIG_FILE = 'config.json'
@@ -19,23 +20,37 @@ function hashPassword(password, salt) {
     return crypto.createHash('sha256').update(password + salt).digest('hex')
 }
 
-const LOCK_IDLE_ALLOWED = new Set([0, 5, 15, 30, 60])
-
 export function readPreferencesForBackup(configDir) {
     const cfg = readConfig(configDir)
-    const m = Number(cfg.lockIdleMinutes)
-    if (!Number.isFinite(m) || !LOCK_IDLE_ALLOWED.has(m)) return {}
+    const m = normalizedLockIdleMinutesOrUndefined(cfg.lockIdleMinutes)
+    if (m === undefined) return {}
     return { lockIdleMinutes: m }
 }
 
 export function mergePreferencesFromBackup(configDir, prefs) {
-    if (!prefs || typeof prefs !== 'object') return
+    if (!prefs || typeof prefs !== 'object' || Array.isArray(prefs)) return
     const cfg = readConfig(configDir)
     const next = { ...cfg }
     if (prefs.lockIdleMinutes != null) {
-        const m = Number(prefs.lockIdleMinutes)
-        if (Number.isFinite(m) && LOCK_IDLE_ALLOWED.has(m)) next.lockIdleMinutes = m
+        const m = normalizedLockIdleMinutesOrUndefined(prefs.lockIdleMinutes)
+        if (m !== undefined) next.lockIdleMinutes = m
     }
+    saveConfig(configDir, next)
+}
+
+export function clearSessionLockPreference(configDir) {
+    const cfg = readConfig(configDir)
+    const next = { ...cfg }
+    delete next.lockIdleMinutes
+    saveConfig(configDir, next)
+}
+
+export function repairInvalidLockIdleInConfig(configDir) {
+    const cfg = readConfig(configDir)
+    if (!Object.hasOwn(cfg, 'lockIdleMinutes')) return
+    if (normalizedLockIdleMinutesOrUndefined(cfg.lockIdleMinutes) !== undefined) return
+    const next = { ...cfg }
+    delete next.lockIdleMinutes
     saveConfig(configDir, next)
 }
 
@@ -76,6 +91,11 @@ export function registerSettingsIpc(ipcMain, configDir) {
         const safe = { ...cfg }
         delete safe.passwordHash
         delete safe.salt
+        if (Object.hasOwn(safe, 'lockIdleMinutes')) {
+            const m = normalizedLockIdleMinutesOrUndefined(safe.lockIdleMinutes)
+            if (m !== undefined) safe.lockIdleMinutes = m
+            else delete safe.lockIdleMinutes
+        }
         return safe
     })
 
@@ -84,6 +104,11 @@ export function registerSettingsIpc(ipcMain, configDir) {
         const incoming = { ...data }
         delete incoming.passwordHash
         delete incoming.salt
+        if (Object.hasOwn(incoming, 'lockIdleMinutes')) {
+            const m = normalizedLockIdleMinutesOrUndefined(incoming.lockIdleMinutes)
+            if (m !== undefined) incoming.lockIdleMinutes = m
+            else delete incoming.lockIdleMinutes
+        }
         saveConfig(configDir, { ...cfg, ...incoming })
     })
 

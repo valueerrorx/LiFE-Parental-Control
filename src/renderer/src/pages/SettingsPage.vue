@@ -38,11 +38,9 @@
                         </p>
                         <label class="form-label small text-muted">Auto-lock after idle</label>
                         <select v-model.number="sessionPrefs.lockIdleMinutes" class="pc-input mb-3" style="max-width:220px;">
-                            <option :value="0">Off</option>
-                            <option :value="5">5 minutes</option>
-                            <option :value="15">15 minutes</option>
-                            <option :value="30">30 minutes</option>
-                            <option :value="60">60 minutes</option>
+                            <option v-for="opt in LOCK_IDLE_OPTIONS" :key="opt.value" :value="opt.value">
+                                {{ opt.label }}
+                            </option>
                         </select>
                         <p v-if="sessionPrefsMsg" class="small mb-2" :class="sessionPrefsError ? 'text-danger' : 'text-success'">{{ sessionPrefsMsg }}</p>
                         <button type="button" class="btn-pc-outline" @click="onSaveSessionPrefs">Save</button>
@@ -53,7 +51,7 @@
                     <div class="pc-card-header"><h6><i class="bi bi-archive me-2" />Backup &amp; restore</h6></div>
                     <div class="pc-card-body">
                         <p class="text-muted small mb-3">
-                            Export or import a JSON bundle: only <strong>top-level keys present</strong> in the file are applied; omitted keys leave the system unchanged. For <code>webFilter</code>, <code>blockedApps</code>, and <code>quotas</code>, a missing <code>entries</code> array or a non-array value clears that section (same as <code>[]</code>). Screen time, web filter (<code>/etc/hosts</code> + mirror), blocked <code>.desktop</code> ids, app quotas (<code>quota.json</code> + cron), life modes (<code>lifeModes: null</code> removes <code>life-modes.json</code>), session lock (<code>lockIdleMinutes</code>). Password and usage history are <strong>not</strong> included.
+                            Export or import a JSON bundle: only <strong>top-level keys present</strong> in the file are applied; omitted keys leave the system unchanged. For <code>webFilter</code>, <code>blockedApps</code>, and <code>quotas</code>, a missing <code>entries</code> array or a non-array value clears that section (same as <code>[]</code>). <code>preferences</code> non-object (e.g. <code>null</code>) removes <code>lockIdleMinutes</code> from config (app default applies). Screen time, web filter, blocked apps, quotas, life modes, session lock. Password and usage history are <strong>not</strong> included.
                         </p>
                         <div class="d-flex flex-wrap gap-2">
                             <button type="button" class="btn-pc-outline" :disabled="backupBusy" @click="onBackupExport">
@@ -160,6 +158,7 @@
 
 <script setup>
 import { reactive, ref, onMounted } from 'vue'
+import { normalizedLockIdleMinutesOrUndefined, LOCK_IDLE_OPTIONS } from '@shared/lockIdleMinutes.js'
 import { useAppStore } from '../stores/appStore.js'
 
 const appStore = useAppStore()
@@ -181,16 +180,13 @@ const maintError = ref(false)
 onMounted(async () => {
     appInfo.value = await window.api.system.getAppInfo()
     const cfg = await window.api.settings.getConfig()
-    const m = Number(cfg.lockIdleMinutes)
-    sessionPrefs.lockIdleMinutes = Number.isFinite(m) && m >= 0 && [0, 5, 15, 30, 60].includes(m)
-        ? m
-        : 15
+    sessionPrefs.lockIdleMinutes = normalizedLockIdleMinutesOrUndefined(cfg.lockIdleMinutes) ?? 15
 })
 
 async function onSaveSessionPrefs() {
     sessionPrefsMsg.value = ''
-    const minutes = Math.max(0, Math.min(120, Number(sessionPrefs.lockIdleMinutes) || 0))
-    sessionPrefs.lockIdleMinutes = [0, 5, 15, 30, 60].includes(minutes) ? minutes : 15
+    const minutes = Number(sessionPrefs.lockIdleMinutes)
+    sessionPrefs.lockIdleMinutes = normalizedLockIdleMinutesOrUndefined(minutes) ?? 15
     try {
         await window.api.settings.saveConfig({ lockIdleMinutes: sessionPrefs.lockIdleMinutes })
         sessionPrefsMsg.value = 'Saved. Applies to the next unlock or immediately if already unlocked.'
@@ -313,10 +309,7 @@ async function onBackupImport() {
     } else {
         await appStore.refreshProtectionsState()
         const cfg = await window.api.settings.getConfig()
-        const m = Number(cfg.lockIdleMinutes)
-        sessionPrefs.lockIdleMinutes = Number.isFinite(m) && m >= 0 && [0, 5, 15, 30, 60].includes(m)
-            ? m
-            : sessionPrefs.lockIdleMinutes
+        sessionPrefs.lockIdleMinutes = normalizedLockIdleMinutesOrUndefined(cfg.lockIdleMinutes) ?? sessionPrefs.lockIdleMinutes
         window.dispatchEvent(new CustomEvent('life-parental-lock-prefs'))
         backupMsg.value = 'Import completed. Protection state refreshed (open Dashboard to reload family profile buttons).'
         backupError.value = false

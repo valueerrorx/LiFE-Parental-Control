@@ -10,7 +10,7 @@ const DESKTOP_DIRS = [
 const OVERRIDE_DIR = '/usr/local/share/applications'
 const CONFIG_FILE = 'blocked-apps.json'
 
-// Best-effort name for pgrep -x: flatpak --command=, flatpak run APP_ID, snap run, then first real executable.
+// Best-effort name for pgrep -x: flatpak/snap, shell -c, electron, *.AppImage stem, first real executable.
 function execLineToProcessName(execLine) {
     if (!execLine || typeof execLine !== 'string') return ''
     const raw = execLine.trim().split(/\s+/).map(t => t.replace(/^['"]|['"]$/g, ''))
@@ -79,6 +79,37 @@ function execLineToProcessName(execLine) {
             return app
         }
         break
+    }
+
+    // Unwrap shell -c "…" / sh -c … so pgrep targets the real binary, not sh/bash.
+    for (let j = 0; j < tokens.length - 1; j++) {
+        const base = tokens[j].includes('/') ? path.basename(tokens[j]) : tokens[j]
+        const sh = base.toLowerCase()
+        if ((sh === 'sh' || sh === 'bash' || sh === 'dash' || sh === 'zsh') && tokens[j + 1] === '-c') {
+            const inner = tokens.slice(j + 2).join(' ').replace(/^['"]|['"]$/g, '')
+            return inner ? (execLineToProcessName(inner) || '') : ''
+        }
+    }
+
+    // Electron launcher: skip flags (e.g. --no-sandbox) then use the app path/script for the real comm/name.
+    for (let j = 0; j < tokens.length; j++) {
+        const base = tokens[j].includes('/') ? path.basename(tokens[j]) : tokens[j]
+        if (base.toLowerCase() !== 'electron') continue
+        let k = j + 1
+        while (k < tokens.length && tokens[k].startsWith('-')) k++
+        if (k < tokens.length) {
+            const nested = execLineToProcessName(tokens.slice(k).join(' '))
+            if (nested) return nested
+        }
+        break
+    }
+
+    // AppImage path: stem often matches the sandboxed comm better than the runtime wrapper chain.
+    for (const t of tokens) {
+        if (!/\.appimage$/i.test(t)) continue
+        const file = t.includes('/') ? path.basename(t) : t
+        const stem = file.replace(/\.appimage$/i, '')
+        if (stem) return stem
     }
 
     for (let p = 0; p < tokens.length; p++) {

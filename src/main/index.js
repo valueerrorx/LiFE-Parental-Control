@@ -8,7 +8,7 @@ import { registerSystemIpc } from './ipc/systemIpc.js'
 import { registerWebFilterIpc } from './ipc/webFilterIpc.js'
 import { registerAppBlockerIpc } from './ipc/appBlockerIpc.js'
 import { registerSchedulesIpc } from './ipc/schedulesIpc.js'
-import { registerSettingsIpc } from './ipc/settingsIpc.js'
+import { registerSettingsIpc, repairInvalidLockIdleInConfig } from './ipc/settingsIpc.js'
 import { registerLifeModeIpc } from './ipc/lifeModeIpc.js'
 import { registerBackupIpc } from './ipc/backupIpc.js'
 import { registerQuotaIpc } from './ipc/quotaIpc.js'
@@ -46,6 +46,11 @@ app.whenReady().then(() => {
 
     mkdirSync(profilesDir, { recursive: true })
     mkdirSync(APP_CONFIG_DIR, { recursive: true })
+    try {
+        repairInvalidLockIdleInConfig(APP_CONFIG_DIR)
+    } catch {
+        // best-effort
+    }
     try {
         pruneUsageArchives(APP_CONFIG_DIR)
     } catch {

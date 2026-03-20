@@ -58,7 +58,9 @@ function listGraphicalUsers(cb) {
                 execFile('loginctl', ['show-session', sid, '-p', 'State', '--value'], { timeout: 3000 }, (e2, sOut) => {
                     const t = String(tOut || '').trim()
                     const s = String(sOut || '').trim()
-                    if ((t === 'x11' || t === 'wayland') && s === 'active') users.add(user)
+                    // Only one session is typically active; other X11/Wayland seats often report online.
+                    const live = s === 'active' || s === 'online'
+                    if ((t === 'x11' || t === 'wayland') && live) users.add(user)
                     step(i + 1)
                 })
             })
@@ -99,7 +101,7 @@ function restartKdeSession() {
                         gid,
                         env: { ...process.env, DBUS_SESSION_BUS_ADDRESS: `unix:path=/run/user/${uid}/bus` }
                     }, err => {
-                        if (!err) return
+                        if (!err) return next()
                         tryBin(ai + 1)
                     })
                 }

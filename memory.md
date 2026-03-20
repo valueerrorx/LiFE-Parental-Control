@@ -7,9 +7,15 @@ electron-vite, Vue3+Pinia, Bootstrap5, Sass; **not** Quasar (`claude.md` stack l
 `config:readFiles`; `profile:*`; `system:*` (incl. `system:getAppInfo`: name/version/packaged/electron/node); `webfilter:*` (incl. `webfilter:reapplyMirror` → `reapplyWebFilterFromMirror`: hosts from `webfilter.json`); `apps:*`; `quota:*` (incl. `quota:redeploy`); `schedules:*` (incl. `schedules:redeploy`); `lifeMode:*`; `backup:export|import`; `settings:*` (incl. `settings:getConfig` sanitizes `lockIdleMinutes`; main start `repairInvalidLockIdleInConfig` writes disk cleanup; `settings:pruneUsageArchives` → `{ ok, removed }`). **Usage log retention:** `usageArchivePrune.js` deletes `usage-*.json` / `quota-usage-*.json` when filename date is older than **120 days** (local calendar day, matches cron/Python); runs at app start, after schedule persist/redeploy + quota deploy, and manually from Settings **Maintenance**.
 
 ## KDE integration
-Kiosk: merges into `/etc/xdg/kdeglobals` — strips prior LiFE sections (`[KDE Action Restrictions][$i]` etc.) then appends new blocks; never wipes unrelated keys. Session restart: `kquitapp6 ksmserver` → `kquitapp5 ksmserver` → for each **active x11/wayland** user from `loginctl`, `qdbus` as that uid with `DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/<uid>/bus` (KSMServer variants + qt bin paths) → last resort same qdbus as root (legacy). Status IPC reads same section headers (must match `kioskStore.buildPlasmaConfig`).
+Kiosk: merges into `/etc/xdg/kdeglobals` — strips prior LiFE sections (`[KDE Action Restrictions][$i]` etc.) then appends new blocks; never wipes unrelated keys. Session restart: `kquitapp6 ksmserver` → `kquitapp5 ksmserver` → for each **x11/wayland user** (`loginctl` state active or online), `qdbus` as that uid with `DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/<uid>/bus` (KSMServer variants + qt bin paths) → last resort same qdbus as root (legacy). Status IPC reads same section headers (must match `kioskStore.buildPlasmaConfig`).
 
 ## Recent changes (2026-03-20)
+- **README**: session restart documents **active|online** `loginctl` graphical sessions and per-user `qdbus` attempts.
+- **`execLineToProcessName`**: token path ending `.AppImage` → basename without extension (best-effort quota name).
+- **`eslint.config.mjs`**: flat config as explicit ESM (removed `eslint.config.js`) — drops Node `MODULE_TYPELESS_PACKAGE_JSON` reparse warning without adding `"type":"module"` to `package.json`.
+- **`execLineToProcessName`**: `electron` + flags → first app arg (recurse); `sh|bash|dash|zsh -c` inner (recurse); flatpak/snap unchanged — better default `processName` for quota/App Control.
+- **Graphical session detection**: `loginctl` filter uses `State` **active** or **online** for `Type` x11/wayland (`systemIpc` list for session restart; Python in `schedulesIpc` + `quotaIpc` cron scripts). Root: only one foreground session is `active`; other seats stay `online`.
+- **`systemIpc` `restartKdeSession`**: after successful per-user `qdbus` KSMServer logout, call `next()` so **all** active graphical users get a logout attempt (multi-seat); previously stopped after first success.
 - **`src/shared/lockIdleMinutes.js`**: `normalizedLockIdleMinutesOrUndefined` + `isLockIdleMinutesAllowed` (internal); consumers: `settingsIpc`, `App.vue`, `SettingsPage` (`LOCK_IDLE_OPTIONS` for `<select>`); Settings load/import pass raw `cfg.lockIdleMinutes` (normalizer does `Number()`).
 - **`repairInvalidLockIdleInConfig`**: on app start, drops invalid `lockIdleMinutes` from `config.json`. **`settings:getConfig`** sanitizes IPC payload.
 - **`src/shared/lockIdleMinutes.js`**: allowlist + **`LOCK_IDLE_OPTIONS`** (value/label) for Settings session-lock `<select>`; `settingsIpc`, `App.vue`, `SettingsPage`; `@shared`; `eslint` includes `src/shared`.
@@ -67,12 +73,6 @@ Kiosk: merges into `/etc/xdg/kdeglobals` — strips prior LiFE sections (`[KDE A
 - **`pgrep`/`pkill` `-x -i`**: case-insensitive exact comm matching in quota enforcement script.
 - **Dashboard "App time limits"** card: per-app usage bars sorted by ratio; `quotaSummaryRows` computed from `appStore.appQuotas`+`appQuotaUsage`.
 
-## Recent changes (2026-03-20 final)
-- **Web Filter search**: `filteredEntries` computed by domain substring; header shows `N / total` when searching; empty-search state.
-- **Web Filter UX**: `onClearAll` requires confirmation + resets search; `onAdd` shows saveMsg when domain already in list (instead of silent no-op).
-- **`@shared/lockIdleMinutes.js`**: added `normalizedLockIdleMinutesOrUndefined(raw)` helper; used in `settingsIpc.js` and `SettingsPage.vue`.
-- **Schedules history range**: day selector (14 / 30 / 90) in "Recent screen time" card header; `historyDays` ref drives `getUsageHistory(historyDays)` on refresh.
-
 ## Open / TODO
-- Session logout: multi-seat or stale loginctl edge cases; kquitapp remains preferred.
-- Quota: edge cases with wrapped binaries (manual process override in UI covers most cases).
+- Session logout: rare stale `loginctl` rows; kquitapp remains preferred. **Multi-seat:** per-user `qdbus` chains after success; graphical sessions include `active` and `online`.
+- Quota: remaining wrappers (AppImage `AppRun` comm mismatch, `steam` game subprocesses); UI process override when needed.

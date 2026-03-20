@@ -1,5 +1,5 @@
 appId: "org.tuxfamily.life-kiosk"
-productName: "LiFE Kiosk"
+productName: "LiFE Parental Control"
 copyright: "Copyright © 2024 Thomas Michael Weissel"
 
 directories:
@@ -28,5 +28,5 @@ linux:
       arch: [x64]
   category: System
   maintainer: "Thomas Michael Weissel"
-  description: "KDE Plasma kiosk configuration tool"
+  description: "Parental controls for KDE Plasma: kiosk lockdown, web filter, screen time, app blocking and daily app quotas."
   icon: images/kiosk.png

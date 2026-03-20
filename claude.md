@@ -33,3 +33,4 @@ Claude must maintain a file named `memory.md` in the project root to store persi
 - Deliver copy-pasteable, working code.
 - Provide only the necessary functions or lines unless the full file is requested.
 - Use modern JS standards (ES2022+).
+- **Verification:** run `npm run check` (lint + compile) before treating a change as done; release artifacts use `npm run build`. Update `memory.md` after substantive changes.

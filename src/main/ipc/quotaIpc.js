@@ -70,7 +70,7 @@ def get_active_users():
             sid, user = parts[0], parts[2]
             t  = subprocess.run(['loginctl', 'show-session', sid, '-p', 'Type',  '--value'], capture_output=True, text=True, timeout=3, check=False).stdout.strip()
             st = subprocess.run(['loginctl', 'show-session', sid, '-p', 'State', '--value'], capture_output=True, text=True, timeout=3, check=False).stdout.strip()
-            if t in ('x11', 'wayland') and st == 'active':
+            if t in ('x11', 'wayland') and st in ('active', 'online'):
                 users.append(user)
     except Exception:
         pass

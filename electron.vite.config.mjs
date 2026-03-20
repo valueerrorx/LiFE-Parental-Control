@@ -5,6 +5,11 @@ import { resolve } from 'path'
 export default defineConfig({
     // src/main/index.js and src/preload/index.js are auto-detected by electron-vite
     main: {
+        resolve: {
+            alias: {
+                '@shared': resolve('src/shared')
+            }
+        },
         plugins: [externalizeDepsPlugin()]
     },
     preload: {
@@ -14,6 +19,7 @@ export default defineConfig({
         plugins: [vue()],
         resolve: {
             alias: {
+                '@shared': resolve('src/shared'),
                 '@': resolve('src/renderer/src'),
                 composables: resolve('src/renderer/src/composables'),
                 components: resolve('src/renderer/src/components'),

@@ -43,6 +43,7 @@
 
 <script setup>
 import { ref, onMounted, onUnmounted, watch } from 'vue'
+import { normalizedLockIdleMinutesOrUndefined } from '@shared/lockIdleMinutes.js'
 
 const unlocked = ref(false)
 const passwordSet = ref(false)
@@ -55,10 +56,10 @@ const lockIdleMs = ref(0)
 let idleTimer = null
 
 function idleMsFromConfig(cfg) {
-    const m = Number(cfg?.lockIdleMinutes)
-    if (!Number.isFinite(m) || m < 0) return 15 * 60 * 1000
+    const m = normalizedLockIdleMinutesOrUndefined(cfg?.lockIdleMinutes)
+    if (m === undefined) return 15 * 60 * 1000
     if (m === 0) return 0
-    return Math.min(120, m) * 60 * 1000
+    return m * 60 * 1000
 }
 
 function clearIdleLockTimer() {

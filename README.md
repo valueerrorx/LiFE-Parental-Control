@@ -17,7 +17,7 @@ Desktop app for **KDE Plasma (Linux)**: parental controls via **Electron**, **Vu
 
 ### Session restart (KDE)
 
-After writing kiosk restrictions to `/etc/xdg/kdeglobals`, the app triggers a Plasma session restart: `kquitapp6|5 ksmserver` first, then `qdbus` logout on each **active graphical** user’s session bus (`/run/user/<uid>/bus`), then the same DBus calls as root as a last resort. Single-seat desktop setups are the main target; exotic multi-seat setups may need a manual re-login.
+After writing kiosk restrictions to `/etc/xdg/kdeglobals`, the app triggers a Plasma session restart: `kquitapp6|5 ksmserver` first, then `qdbus` logout on **each** graphical user found via `loginctl` (**x11** / **wayland**, session state **active** or **online**) on that user’s session bus (`/run/user/<uid>/bus`), then the same DBus calls as root as a last resort. Typical single-seat setups work out of the box; edge cases may still need a manual re-login.
 
 ## Development
 
@@ -25,7 +25,7 @@ Requires **Node ≥ 22** and **npm ≥ 10**.
 
 ```bash
 npm install
-npm run lint
+npm run check   # lint + compile (out/; no AppImage/deb, no dev server)
 npm run dev
 ```
 
@@ -36,6 +36,12 @@ Enforcement features touch system paths. For local dev with cron/scripts and `/e
 ```bash
 npm run build
 ```
+
+### Backup (import / export)
+
+Settings in the app export **version 1** JSON (no password, no usage history). A minimal valid shape is in **`examples/life-parental-backup-v1.example.json`**. On import, only **top-level keys present** in the file are applied; omitted keys leave the existing system config untouched.
+
+**CI:** `.github/workflows/ci.yml` runs **`npm run check`** on every **pull request** and on **push to `main` or `master`**. **Dependabot** (`.github/dependabot.yml`) proposes monthly npm and GitHub Actions updates.
 
 Authoring conventions and stack notes: root **`claude.md`** and **`memory.md`**.
 

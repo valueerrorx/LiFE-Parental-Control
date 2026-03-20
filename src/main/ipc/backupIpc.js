@@ -5,7 +5,7 @@ import { DEFAULT_SCHEDULE, persistSchedule } from './schedulesIpc.js'
 import { readWebFilterEntries, persistWebFilterEntries } from './webFilterIpc.js'
 import { replaceBlockedDesktopIds } from './appBlockerIpc.js'
 import { readQuotaEntries, replaceQuotaEntries } from './quotaIpc.js'
-import { readPreferencesForBackup, mergePreferencesFromBackup } from './settingsIpc.js'
+import { readPreferencesForBackup, mergePreferencesFromBackup, clearSessionLockPreference } from './settingsIpc.js'
 
 // Single-file bundle: no password hash, no usage history, no /etc/hosts aside from apply step below.
 const BUNDLE_VERSION = 1
@@ -122,8 +122,10 @@ export function registerBackupIpc(ipcMain, configDir, getWindow) {
                 const list = Array.isArray(raw.quotas) ? raw.quotas : []
                 replaceQuotaEntries(configDir, list)
             }
-            if (raw.preferences != null && typeof raw.preferences === 'object' && !Array.isArray(raw.preferences)) {
-                mergePreferencesFromBackup(configDir, raw.preferences)
+            if (Object.hasOwn(raw, 'preferences')) {
+                const p = raw.preferences
+                if (p != null && typeof p === 'object' && !Array.isArray(p)) mergePreferencesFromBackup(configDir, p)
+                else clearSessionLockPreference(configDir)
             }
             return { ok: true }
         } catch (e) {
