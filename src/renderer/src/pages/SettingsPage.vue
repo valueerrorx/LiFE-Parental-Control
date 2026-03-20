@@ -53,7 +53,7 @@
                     <div class="pc-card-header"><h6><i class="bi bi-archive me-2" />Backup &amp; restore</h6></div>
                     <div class="pc-card-body">
                         <p class="text-muted small mb-3">
-                            Export or import a JSON bundle: screen time, web filter list (also writes <code>/etc/hosts</code> marker block on import), blocked <code>.desktop</code> ids, per-app daily limits (<code>quota.json</code> + cron), custom life modes (<code>lifeModes: null</code> in the file removes <code>life-modes.json</code> on import), session lock preference (<code>lockIdleMinutes</code>). Password and usage history are <strong>not</strong> included.
+                            Export or import a JSON bundle: only <strong>top-level keys present</strong> in the file are applied; omitted keys leave the system unchanged. For <code>webFilter</code>, <code>blockedApps</code>, and <code>quotas</code>, a missing <code>entries</code> array or a non-array value clears that section (same as <code>[]</code>). Screen time, web filter (<code>/etc/hosts</code> + mirror), blocked <code>.desktop</code> ids, app quotas (<code>quota.json</code> + cron), life modes (<code>lifeModes: null</code> removes <code>life-modes.json</code>), session lock (<code>lockIdleMinutes</code>). Password and usage history are <strong>not</strong> included.
                         </p>
                         <div class="d-flex flex-wrap gap-2">
                             <button type="button" class="btn-pc-outline" :disabled="backupBusy" @click="onBackupExport">
@@ -301,7 +301,7 @@ async function onBackupExport() {
 async function onBackupImport() {
     backupMsg.value = ''
     if (!window.confirm(
-        'Overwrite schedules, web filter (/etc/hosts + mirror), blocked apps, app quotas (cron script), life-modes.json, and session lock preference on this system from the selected file?'
+        'Import from the selected backup? Only top-level sections present in the file are applied (/etc/hosts + mirror when webFilter is included; cron when schedules/quotas change). Omitted sections are left unchanged.'
     )) return
     backupBusy.value = true
     const r = await window.api.backup.import()

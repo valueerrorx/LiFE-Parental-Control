@@ -10,7 +10,7 @@ electron-vite, Vue3+Pinia, Bootstrap5, Sass; **not** Quasar (`claude.md` stack l
 Kiosk: merges into `/etc/xdg/kdeglobals` — strips prior LiFE sections (`[KDE Action Restrictions][$i]` etc.) then appends new blocks; never wipes unrelated keys. Session restart: `kquitapp6 ksmserver` → `kquitapp5 ksmserver` → for each **active x11/wayland** user from `loginctl`, `qdbus` as that uid with `DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/<uid>/bus` (KSMServer variants + qt bin paths) → last resort same qdbus as root (legacy). Status IPC reads same section headers (must match `kioskStore.buildPlasmaConfig`).
 
 ## Recent changes (2026-03-20)
-- **Backup import**: if bundle has `lifeModes` key and value is not a plain object → remove `life-modes.json`; if object (incl. `{}`) → write. Key absent → leave existing file (older bundles / partial hand-edits).
+- **Backup import**: `Object.hasOwn` on `schedules`, `webFilter`, `blockedApps`, `quotas`, `lifeModes` — absent key → leave disk; `webFilter`/`blockedApps`/`quotas` bad/missing arrays → clear; `schedules` non-object → defaults; `lifeModes` non-object → unlink `life-modes.json`.
 - **README**: Session restart behaviour (kquitapp → per-user session bus qdbus → root fallback); `dev:root` documented for sudo+Vite testing.
 - **Session restart**: after kquitapp, DBus logout as each **active graphical** user (`loginctl` + `id -u/g`, `DBUS_SESSION_BUS_ADDRESS=/run/user/<uid>/bus`), then qt bin path + KSMServer name matrix as **root** fallback.
 - **Settings**: Maintenance button **Usage logs (old)** → `settings:pruneUsageArchives`; `pruneUsageArchives` returns `{ removed }` for the toast.
@@ -28,7 +28,7 @@ Kiosk: merges into `/etc/xdg/kdeglobals` — strips prior LiFE sections (`[KDE A
 - **Quota process names**: `execLineToProcessName` handles flatpak `--command=`, `flatpak run` (app id tail), `snap run`; App Control table edits process + optional override when adding.
 - **App quotas (UI + wiring)**: `registerQuotaIpc` in main; App Control “Daily time limits”; `apps:list` includes `processName` from .desktop `Exec`; backup export/import `quotas`; Dashboard shows count of day limits.
 - **After backup import**: `useAppStore().refreshProtectionsState()` from Settings. Example bundle: `examples/life-parental-backup-v1.example.json`.
-- **Settings backup**: `backup:export` / `backup:import` — JSON v1 with schedules, webFilter entries, blocked `.desktop` ids, `quotas`, `lifeModes` (key present: write object or unlink on null/non-object), optional `preferences` (`lockIdleMinutes` only, via `settingsIpc`). Excludes password + usage files.
+- **Settings backup**: `backup:export` / `backup:import` — JSON v1; import applies only keys present in file (partial bundles). Excludes password + usage files.
 - **Allowed hours / cron**: Python check treats start-after-end as overnight window (e.g. 22:00–07:00); Schedules page note. Redeploy script: save Screen Time once while enforcement enabled (rewrites `/usr/local/bin/life-parental-check`).
 - **Custom life modes**: `/etc/life-parental/life-modes.json` defines extra keys (cannot override `school`/`leisure`). `DEFAULT_SCHEDULE` merge, category lists filtered to known quick-add names, desktop ids must end with `.desktop`. Dashboard loads dynamic buttons; Settings documents schema.
 - **`schedules:getUsageHistory`**: reads last N (default 14, max 90) `usage-YYYY-MM-DD.json` under config dir; Schedules page “Recent screen time” table + Refresh; bars scale to daily limit when enabled else to peak day.

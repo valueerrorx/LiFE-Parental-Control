@@ -82,17 +82,24 @@ export function registerBackupIpc(ipcMain, configDir, getWindow) {
             if (raw == null || typeof raw !== 'object') return { error: 'Invalid file' }
             if (raw.version !== BUNDLE_VERSION) return { error: `Unsupported backup version (expected ${BUNDLE_VERSION})` }
 
-            if (raw.schedules && typeof raw.schedules === 'object') {
-                persistSchedule(configDir, { ...DEFAULT_SCHEDULE, ...raw.schedules })
+            if (Object.hasOwn(raw, 'schedules')) {
+                const patch = raw.schedules != null && typeof raw.schedules === 'object' && !Array.isArray(raw.schedules)
+                    ? raw.schedules
+                    : {}
+                persistSchedule(configDir, { ...DEFAULT_SCHEDULE, ...patch })
             }
-            if (raw.webFilter?.entries && Array.isArray(raw.webFilter.entries)) {
-                const entries = raw.webFilter.entries
-                    .filter(e => e && typeof e.domain === 'string')
-                    .map(e => ({ domain: e.domain, enabled: e.enabled !== false }))
+            if (Object.hasOwn(raw, 'webFilter')) {
+                const rawEntries = raw.webFilter?.entries
+                const entries = Array.isArray(rawEntries)
+                    ? rawEntries
+                        .filter(e => e && typeof e.domain === 'string')
+                        .map(e => ({ domain: e.domain, enabled: e.enabled !== false }))
+                    : []
                 persistWebFilterEntries(configDir, entries)
             }
-            if (Array.isArray(raw.blockedApps)) {
-                const ids = raw.blockedApps
+            if (Object.hasOwn(raw, 'blockedApps')) {
+                const src = Array.isArray(raw.blockedApps) ? raw.blockedApps : []
+                const ids = src
                     .map(x => (typeof x === 'string' ? x : x?.id))
                     .filter(id => typeof id === 'string' && id.endsWith('.desktop'))
                 replaceBlockedDesktopIds(configDir, ids)
@@ -111,7 +118,10 @@ export function registerBackupIpc(ipcMain, configDir, getWindow) {
                     }
                 }
             }
-            if (Array.isArray(raw.quotas)) replaceQuotaEntries(configDir, raw.quotas)
+            if (Object.hasOwn(raw, 'quotas')) {
+                const list = Array.isArray(raw.quotas) ? raw.quotas : []
+                replaceQuotaEntries(configDir, list)
+            }
             if (raw.preferences != null && typeof raw.preferences === 'object' && !Array.isArray(raw.preferences)) {
                 mergePreferencesFromBackup(configDir, raw.preferences)
             }
