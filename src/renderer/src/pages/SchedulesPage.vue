@@ -116,9 +116,16 @@
         <div class="pc-card mb-3">
             <div class="pc-card-header d-flex align-items-center justify-content-between">
                 <h6 class="mb-0">Recent screen time</h6>
-                <button type="button" class="btn btn-sm btn-outline-secondary" @click="refreshUsageData">
-                    Refresh
-                </button>
+                <div class="d-flex align-items-center gap-2">
+                    <select v-model.number="historyDays" class="pc-input" style="width:auto;padding:4px 8px;font-size:12px;" @change="refreshUsageData">
+                        <option :value="14">14 days</option>
+                        <option :value="30">30 days</option>
+                        <option :value="90">90 days</option>
+                    </select>
+                    <button type="button" class="btn btn-sm btn-outline-secondary" @click="refreshUsageData">
+                        Refresh
+                    </button>
+                </div>
             </div>
             <div class="pc-card-body">
                 <p class="text-muted small mb-2">
@@ -161,6 +168,7 @@ const saveMsg     = ref('')
 const saveError = ref(false)
 const todayMinutes = ref(0)
 const usageHistory = ref([])
+const historyDays = ref(14)
 
 const usagePercent  = computed(() => Math.min(100, Math.round((todayMinutes.value / (schedule.dailyLimitMinutes || 120)) * 100)))
 const usageBarColor = computed(() => usagePercent.value >= 100 ? '#C62828' : usagePercent.value >= 80 ? '#E65100' : '#1565C0')
@@ -181,7 +189,7 @@ function historyBarStyle(row) {
 async function refreshUsageData() {
     const [usage, hist] = await Promise.all([
         window.api.schedules.getUsage(),
-        window.api.schedules.getUsageHistory(14)
+        window.api.schedules.getUsageHistory(historyDays.value)
     ])
     if (usage) todayMinutes.value = usage.minutes ?? 0
     usageHistory.value = hist.days ?? []
