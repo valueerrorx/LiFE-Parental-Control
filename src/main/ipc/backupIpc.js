@@ -5,6 +5,7 @@ import { DEFAULT_SCHEDULE, persistSchedule } from './schedulesIpc.js'
 import { readWebFilterEntries, persistWebFilterEntries } from './webFilterIpc.js'
 import { replaceBlockedDesktopIds } from './appBlockerIpc.js'
 import { readQuotaEntries, replaceQuotaEntries } from './quotaIpc.js'
+import { readPreferencesForBackup, mergePreferencesFromBackup } from './settingsIpc.js'
 
 // Single-file bundle: no password hash, no usage history, no /etc/hosts aside from apply step below.
 const BUNDLE_VERSION = 1
@@ -58,7 +59,8 @@ export function registerBackupIpc(ipcMain, configDir, getWindow) {
                 webFilter: { entries: readWebFilterEntries(configDir) },
                 blockedApps: readBlockedFromDisk(configDir),
                 lifeModes: readLifeModesFromDisk(configDir),
-                quotas: readQuotaEntries(configDir)
+                quotas: readQuotaEntries(configDir),
+                preferences: readPreferencesForBackup(configDir)
             }
             fs.writeFileSync(filePath, JSON.stringify(bundle, null, 2), 'utf8')
             return { ok: true, path: filePath }
@@ -100,6 +102,9 @@ export function registerBackupIpc(ipcMain, configDir, getWindow) {
                 fs.writeFileSync(path.join(configDir, LIFE_MODES_FILE), JSON.stringify(raw.lifeModes, null, 2), 'utf8')
             }
             if (Array.isArray(raw.quotas)) replaceQuotaEntries(configDir, raw.quotas)
+            if (raw.preferences != null && typeof raw.preferences === 'object' && !Array.isArray(raw.preferences)) {
+                mergePreferencesFromBackup(configDir, raw.preferences)
+            }
             return { ok: true }
         } catch (e) {
             return { error: e.message }

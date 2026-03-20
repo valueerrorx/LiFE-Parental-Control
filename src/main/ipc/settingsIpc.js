@@ -18,6 +18,26 @@ function hashPassword(password, salt) {
     return crypto.createHash('sha256').update(password + salt).digest('hex')
 }
 
+const LOCK_IDLE_ALLOWED = new Set([0, 5, 15, 30, 60])
+
+export function readPreferencesForBackup(configDir) {
+    const cfg = readConfig(configDir)
+    const m = Number(cfg.lockIdleMinutes)
+    if (!Number.isFinite(m) || !LOCK_IDLE_ALLOWED.has(m)) return {}
+    return { lockIdleMinutes: m }
+}
+
+export function mergePreferencesFromBackup(configDir, prefs) {
+    if (!prefs || typeof prefs !== 'object') return
+    const cfg = readConfig(configDir)
+    const next = { ...cfg }
+    if (prefs.lockIdleMinutes != null) {
+        const m = Number(prefs.lockIdleMinutes)
+        if (Number.isFinite(m) && LOCK_IDLE_ALLOWED.has(m)) next.lockIdleMinutes = m
+    }
+    saveConfig(configDir, next)
+}
+
 export function registerSettingsIpc(ipcMain, configDir) {
     ipcMain.handle('settings:isPasswordSet', () => {
         const cfg = readConfig(configDir)

@@ -26,12 +26,16 @@
             <RouterLink to="/apps" custom v-slot="{ navigate, isActive }">
                 <button class="nav-item-link" :class="{ active: isActive }" @click="navigate">
                     <i class="bi bi-app-indicator" /> App Control
-                    <span v-if="blockedCount > 0" class="ms-auto badge-count">{{ blockedCount }}</span>
+                    <span v-if="blockedCount > 0 || quotaCount > 0" class="ms-auto d-flex align-items-center gap-1">
+                        <span v-if="blockedCount > 0" class="badge-count" title="Blocked apps">{{ blockedCount }}</span>
+                        <span v-if="quotaCount > 0" class="badge-count badge-quota" title="Daily app time limits">{{ quotaCount }}</span>
+                    </span>
                 </button>
             </RouterLink>
             <RouterLink to="/schedules" custom v-slot="{ navigate, isActive }">
                 <button class="nav-item-link" :class="{ active: isActive }" @click="navigate">
                     <i class="bi bi-clock-history" /> Screen Time
+                    <span v-if="screenTimeOn" class="ms-auto badge-count badge-schedule" title="Screen time enforcement enabled">on</span>
                 </button>
             </RouterLink>
 
@@ -64,6 +68,8 @@ import { useAppStore } from '../stores/appStore.js'
 const store = useAppStore()
 const filterCount = computed(() => store.webFilterEntries.filter(e => e.enabled).length)
 const blockedCount = computed(() => store.blockedApps.length)
+const quotaCount = computed(() => store.appQuotas.length)
+const screenTimeOn = computed(() => store.schedule?.enabled === true)
 
 function onExit() {
     window.api.system.quit()
@@ -80,5 +86,15 @@ function onExit() {
     padding: 1px 7px;
     min-width: 20px;
     text-align: center;
+}
+.badge-quota {
+    background: rgba(129, 199, 132, 0.45);
+}
+.badge-schedule {
+    background: rgba(100, 181, 246, 0.5);
+    font-weight: 600;
+    text-transform: uppercase;
+    font-size: 9px;
+    letter-spacing: 0.02em;
 }
 </style>

@@ -219,13 +219,6 @@ onMounted(async () => {
         lifeModeKeys.value = lm.modes
         lifeModeLabels.value = lm.labels ?? {}
     }
-    await Promise.all([
-        store.loadWebFilter(),
-        store.loadBlockedApps(),
-        store.loadSchedule(),
-        store.loadKioskStatus(),
-        store.loadAppQuotas()
-    ])
 })
 
 async function onApplyLifeMode(key) {

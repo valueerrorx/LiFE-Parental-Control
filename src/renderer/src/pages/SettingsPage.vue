@@ -53,7 +53,7 @@
                     <div class="pc-card-header"><h6><i class="bi bi-archive me-2" />Backup &amp; restore</h6></div>
                     <div class="pc-card-body">
                         <p class="text-muted small mb-3">
-                            Export or import a JSON bundle: screen time, web filter list (also writes <code>/etc/hosts</code> marker block on import), blocked <code>.desktop</code> ids, per-app daily limits (<code>quota.json</code> + cron), custom life modes. Password and usage history are <strong>not</strong> included.
+                            Export or import a JSON bundle: screen time, web filter list (also writes <code>/etc/hosts</code> marker block on import), blocked <code>.desktop</code> ids, per-app daily limits (<code>quota.json</code> + cron), custom life modes, session lock preference (<code>lockIdleMinutes</code>). Password and usage history are <strong>not</strong> included.
                         </p>
                         <div class="d-flex flex-wrap gap-2">
                             <button type="button" class="btn-pc-outline" :disabled="backupBusy" @click="onBackupExport">
@@ -280,7 +280,7 @@ async function onBackupExport() {
 async function onBackupImport() {
     backupMsg.value = ''
     if (!window.confirm(
-        'Overwrite schedules, web filter (/etc/hosts + mirror), blocked apps, app quotas (cron script), and life-modes.json on this system from the selected file?'
+        'Overwrite schedules, web filter (/etc/hosts + mirror), blocked apps, app quotas (cron script), life-modes.json, and session lock preference on this system from the selected file?'
     )) return
     backupBusy.value = true
     const r = await window.api.backup.import()
@@ -291,6 +291,12 @@ async function onBackupImport() {
         backupError.value = true
     } else {
         await appStore.refreshProtectionsState()
+        const cfg = await window.api.settings.getConfig()
+        const m = Number(cfg.lockIdleMinutes)
+        sessionPrefs.lockIdleMinutes = Number.isFinite(m) && m >= 0 && [0, 5, 15, 30, 60].includes(m)
+            ? m
+            : sessionPrefs.lockIdleMinutes
+        window.dispatchEvent(new CustomEvent('life-parental-lock-prefs'))
         backupMsg.value = 'Import completed. Protection state refreshed (open Dashboard to reload family profile buttons).'
         backupError.value = false
     }

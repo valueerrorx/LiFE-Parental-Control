@@ -17,5 +17,8 @@
     },
     "blockedApps": [],
     "quotas": [],
-    "lifeModes": {}
+    "lifeModes": {},
+    "preferences": {
+        "lockIdleMinutes": 15
+    }
 }
