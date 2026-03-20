@@ -97,9 +97,19 @@ export function registerBackupIpc(ipcMain, configDir, getWindow) {
                     .filter(id => typeof id === 'string' && id.endsWith('.desktop'))
                 replaceBlockedDesktopIds(configDir, ids)
             }
-            if (raw.lifeModes != null && typeof raw.lifeModes === 'object' && !Array.isArray(raw.lifeModes)) {
+            if (Object.hasOwn(raw, 'lifeModes')) {
                 fs.mkdirSync(configDir, { recursive: true })
-                fs.writeFileSync(path.join(configDir, LIFE_MODES_FILE), JSON.stringify(raw.lifeModes, null, 2), 'utf8')
+                const lmPath = path.join(configDir, LIFE_MODES_FILE)
+                const lm = raw.lifeModes
+                if (lm != null && typeof lm === 'object' && !Array.isArray(lm)) {
+                    fs.writeFileSync(lmPath, JSON.stringify(lm, null, 2), 'utf8')
+                } else {
+                    try {
+                        fs.unlinkSync(lmPath)
+                    } catch {
+                        // missing file or unreadable
+                    }
+                }
             }
             if (Array.isArray(raw.quotas)) replaceQuotaEntries(configDir, raw.quotas)
             if (raw.preferences != null && typeof raw.preferences === 'object' && !Array.isArray(raw.preferences)) {

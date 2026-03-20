@@ -53,7 +53,7 @@
                     <div class="pc-card-header"><h6><i class="bi bi-archive me-2" />Backup &amp; restore</h6></div>
                     <div class="pc-card-body">
                         <p class="text-muted small mb-3">
-                            Export or import a JSON bundle: screen time, web filter list (also writes <code>/etc/hosts</code> marker block on import), blocked <code>.desktop</code> ids, per-app daily limits (<code>quota.json</code> + cron), custom life modes, session lock preference (<code>lockIdleMinutes</code>). Password and usage history are <strong>not</strong> included.
+                            Export or import a JSON bundle: screen time, web filter list (also writes <code>/etc/hosts</code> marker block on import), blocked <code>.desktop</code> ids, per-app daily limits (<code>quota.json</code> + cron), custom life modes (<code>lifeModes: null</code> in the file removes <code>life-modes.json</code> on import), session lock preference (<code>lockIdleMinutes</code>). Password and usage history are <strong>not</strong> included.
                         </p>
                         <div class="d-flex flex-wrap gap-2">
                             <button type="button" class="btn-pc-outline" :disabled="backupBusy" @click="onBackupExport">
