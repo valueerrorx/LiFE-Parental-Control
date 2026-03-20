@@ -4,6 +4,7 @@ import { WEB_FILTER_CATEGORIES } from './webFilterCategories.js'
 import { DEFAULT_SCHEDULE, persistSchedule } from './schedulesIpc.js'
 import { readWebFilterEntries, persistWebFilterEntries } from './webFilterIpc.js'
 import { replaceBlockedDesktopIds } from './appBlockerIpc.js'
+import { appendActivity } from './activityLog.js'
 
 const LIFE_MODES_FILE = 'life-modes.json'
 const RESERVED_KEYS = new Set(['school', 'leisure'])
@@ -140,6 +141,10 @@ export function registerLifeModeIpc(ipcMain, configDir) {
             replaceBlockedDesktopIds(configDir, mode.blockedDesktopIds ?? [])
         } catch (e) {
             errs.push(`apps: ${e.message}`)
+        }
+        if (!errs.length) {
+            const label = BUILTIN_LABELS[modeKey] ?? mode.label ?? modeKey
+            appendActivity(configDir, { action: 'life_mode_apply', modeKey, label })
         }
         return errs.length ? { error: errs.join(' — ') } : { ok: true }
     })

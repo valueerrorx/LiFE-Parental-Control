@@ -10,6 +10,7 @@ electron-vite, Vue3+Pinia, Bootstrap5, Sass; **not** Quasar (`claude.md` stack l
 Kiosk: merges into `/etc/xdg/kdeglobals` — strips prior LiFE sections (`[KDE Action Restrictions][$i]` etc.) then appends new blocks; never wipes unrelated keys. Session restart: `kquitapp6 ksmserver` → `kquitapp5 ksmserver` → for each **x11/wayland** session (`loginctl` state active or online, **not** `Class=greeter|background`), user from `list-sessions`, `qdbus` as that uid with `DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/<uid>/bus` (KSMServer variants + qt bin paths) → last resort same qdbus as root (legacy). Status IPC reads same section headers (must match `kioskStore.buildPlasmaConfig`).
 
 ## Recent changes (2026-03-20)
+- **Activity log**: **`lifeMode:apply`** success → `life_mode_apply` (mode key + label); Dashboard label.
 - **Activity log**: also on **backup import/export** (basename only) and **process whitelist** save/redeploy; Dashboard labels extended.
 - **Activity log**: `activityLog.js` + `activityIpc` (`activity:list`); append on screen-time bonus/reset and quota reset; Dashboard **Recent activity** card + refresh; `claude.md` Features updated (duplicate `quota:resetTodayUsage` handler removed).
 - **Screen-time bonus (`claude.md`)**: `schedules:grantBonusMinutes` + `checkParentPassword` in `settingsIpc`; Schedules page +30 min after parent password (reduces stored `usage-*` minutes); preload `grantBonusMinutes`.

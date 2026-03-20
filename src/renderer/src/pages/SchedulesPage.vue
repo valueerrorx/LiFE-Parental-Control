@@ -87,13 +87,22 @@
                                 <label class="form-label small text-muted mb-1">Parent password (Settings)</label>
                                 <input v-model="bonusPassword" type="password" class="pc-input" style="width:160px;" autocomplete="off" />
                             </div>
+                            <div>
+                                <label class="form-label small text-muted mb-1">Bonus (min)</label>
+                                <select v-model.number="bonusMinutes" class="pc-input" style="width:90px;">
+                                    <option :value="5">5</option>
+                                    <option :value="15">15</option>
+                                    <option :value="30">30</option>
+                                    <option :value="60">60</option>
+                                </select>
+                            </div>
                             <button type="button" class="btn btn-sm btn-outline-primary" :disabled="saving || redeploying" @click="onGrantBonus">
-                                +30 min bonus
+                                +{{ bonusMinutes }} min bonus
                             </button>
                         </div>
                     </div>
                     <p class="text-muted small mt-2 mb-0">
-                        Bonus reduces today’s stored minutes (extra allowance until midnight). Default 30; requires a parent password.
+                        Bonus reduces today’s stored minutes (extra allowance until midnight). Requires a parent password (set in Settings).
                     </p>
                 </div>
             </div>
@@ -188,6 +197,7 @@ const todayMinutes = ref(0)
 const usageHistory = ref([])
 const historyDays = ref(14)
 const bonusPassword = ref('')
+const bonusMinutes = ref(30)
 
 const usagePercent  = computed(() => Math.min(100, Math.round((todayMinutes.value / (schedule.dailyLimitMinutes || 120)) * 100)))
 const usageBarColor = computed(() => usagePercent.value >= 100 ? '#C62828' : usagePercent.value >= 80 ? '#E65100' : '#1565C0')
@@ -249,7 +259,7 @@ function applyPreset(kind) {
 
 async function onGrantBonus() {
     saving.value = true
-    const r = await window.api.schedules.grantBonusMinutes({ password: bonusPassword.value, minutes: 30 })
+    const r = await window.api.schedules.grantBonusMinutes({ password: bonusPassword.value, minutes: bonusMinutes.value })
     saving.value = false
     if (r?.error) {
         saveMsg.value = r.error

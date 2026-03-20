@@ -70,7 +70,7 @@
                     <div class="pc-card-body">
                         <p class="text-muted small mb-3">
                             Re-deploy cron jobs from JSON on disk (after app updates) — same as <strong>Screen Time</strong> /
-                            <strong>App Control</strong> “Rewrite”. <strong>Web filter</strong> rewrites the LiFE
+                            <strong>App Control</strong> / <strong>Process Whitelist</strong> “Rewrite”. <strong>Web filter</strong> rewrites the LiFE
                             <code>/etc/hosts</code> block from <code>webfilter.json</code> (e.g. hosts edited by hand).
                             <strong>Usage logs</strong> removes <code>usage-*</code> and <code>quota-usage-*</code> JSON older than 120 days (same rule as automatic cleanup).
                         </p>
@@ -83,6 +83,9 @@
                             </button>
                             <button type="button" class="btn-pc-outline" :disabled="maintBusy" @click="onReapplyWebHosts">
                                 <i class="bi bi-arrow-repeat me-1" />Web filter hosts
+                            </button>
+                            <button type="button" class="btn-pc-outline" :disabled="maintBusy" @click="onRedeployKillCron">
+                                <i class="bi bi-arrow-repeat me-1" />Process whitelist
                             </button>
                             <button type="button" class="btn-pc-outline" :disabled="maintBusy" @click="onPruneUsageArchives">
                                 <i class="bi bi-trash me-1" />Usage logs (old)
@@ -242,6 +245,21 @@ async function onRedeployQuotaCron() {
         maintError.value = true
     } else {
         maintMsg.value = 'App quota cron and script updated.'
+        maintError.value = false
+    }
+}
+
+async function onRedeployKillCron() {
+    if (!window.confirm('Rewrite /usr/local/bin/life-parental-kill and /etc/cron.d/life-parental-kill from process-whitelist.json?')) return
+    maintBusy.value = true
+    maintMsg.value = ''
+    const r = await window.api.processWhitelist.redeploy()
+    maintBusy.value = false
+    if (r?.error) {
+        maintMsg.value = r.error
+        maintError.value = true
+    } else {
+        maintMsg.value = 'Process whitelist kill script and cron updated.'
         maintError.value = false
     }
 }

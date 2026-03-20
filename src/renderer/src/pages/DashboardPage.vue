@@ -265,6 +265,8 @@ function activityLabel(e) {
         return `Process whitelist saved (on: ${e.enabled ? 'yes' : 'no'}, ${e.allowedIds ?? 0} apps, ${e.killNames ?? 0} kill names)`
     case 'process_whitelist_redeploy':
         return 'Process whitelist: cron/script rewritten from disk'
+    case 'life_mode_apply':
+        return `Family profile applied: ${e.label ?? e.modeKey ?? '?'}`
     default:
         return typeof e.action === 'string' ? e.action : JSON.stringify(e)
     }

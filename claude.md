@@ -4,7 +4,7 @@
 ## 🎯 Core Objectives
 Development of a modern parental control suite for KDE/Plasma on Linux.
 Modules: KDE Kiosk System, Web-Filtering, Time-Tracking, App-Blocking (Total & Quota-based), School/Leisure Profiles.
-Features: process allowlist (see `processWhitelistIpc.js`); **bonus time** — +30 min screen time per parent password (Screen Time); **activity log** — `activity-log.json` + Dashboard “Recent activity” (screen/quota resets & bonuses).
+Features: process allowlist (see `processWhitelistIpc.js`); **bonus time** — +30 min screen time per parent password (Screen Time); **activity log** — `activity-log.json` + Dashboard “Recent activity” (screen/quota resets, bonuses, family profile apply).
 
 ## 🛠 Tech Stack & Standards
 - **Runtime:** Node.js / Electron (Latest ESM, no `require`, use `import`).
