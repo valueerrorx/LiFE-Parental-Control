@@ -1,34 +1,40 @@
-# life-kiosk
+# LiFE Parental Control (`life-kiosk`)
 
-A simple KIOSK tool for KDE Plasma 5
+Desktop app for **KDE Plasma (Linux)**: parental controls via **Electron**, **Vue 3**, **Pinia**, and **Bootstrap 5**. Kiosk restrictions use `.kiosk` profile snippets merged into `/etc/xdg/kdeglobals`.
 
-This application is written in Python, PyQt5.
+## Modules
 
-The applications allows to lock down plasma desktop, filemanagmenet and other important settings.
+| Area | What it does |
+|------|----------------|
+| **KDE kiosk** | Lockdown sections in `kdeglobals` (actions, URLs, control modules); session restart after apply |
+| **Web filter** | `webfilter.json` + `/etc/hosts` marker block; category presets |
+| **Screen time** | `schedules.json`; root cron → `/usr/local/bin/life-parental-check` (limits, allowed hours, overnight windows) |
+| **App blocking** | `.desktop` overrides under `/usr/local/share/applications/` |
+| **App quotas** | `quota.json`; cron → `/usr/local/bin/life-parental-quota` (`pgrep` / `pkill` per process name) |
+| **Profiles** | School / Leisure + optional `life-modes.json`; backup/export JSON bundle |
 
-State:  Alpha (UI is working but NONE of the restrictions have been tested)
+**Config:** `/etc/life-parental/` (app expects elevated rights when packaged; see main process).
 
-The .kiosk files contain all the available action restrictions, url restrictions, control module restrictions.
-The UI autogenerates itself by reading those config files. Therefore this application should be very easy to maintain.
+## Development
 
+Requires **Node ≥ 22** and **npm ≥ 10**.
 
-Example:
+```bash
+npm install
+npm run lint
+npm run dev
+```
 
-* [Action-1]
-* Type=action restriction
-* Key=action/kwin_rmb
-* Name=Disable Window Manager context menu (Alt-F3)
-* Description=The Window Manager context menu is normally shown when Alt-F3 is pressed or when the menu button on the window frame is pressed
+Enforcement features touch system paths; for local testing you may need root (see `package.json` script `dev:root`).
 
+**Production build:**
 
-Installation:
-Just download the repository as zip file, extract and run kiosk.py
+```bash
+npm run build
+```
 
-Please test and report bugs and feature requests here on github (new issue)
-None of the restriction keys are tested yet. I will check most of them eventually.
+Authoring conventions and stack notes: root **`claude.md`** and **`memory.md`**.
 
+## Legacy
 
-![Image of life-kiosk](http://life-edu.eu/images/life-kiosk2.gif)
-
-
-
+The historical **Python / PyQt** prototype and `kiosk.py` workflow are **not** this app; the UI is the Vue renderer under `src/renderer/`.

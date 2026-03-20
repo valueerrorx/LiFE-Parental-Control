@@ -10,6 +10,7 @@ electron-vite, Vue3+Pinia, Bootstrap5, Sass; **not** Quasar (`claude.md` stack l
 Kiosk: merges into `/etc/xdg/kdeglobals` — strips prior LiFE sections (`[KDE Action Restrictions][$i]` etc.) then appends new blocks; never wipes unrelated keys. Session restart: `kquitapp6 ksmserver` → `kquitapp5 ksmserver` → `qdbus(6) org.kde.KSMServer|ksmserver /KSMServer logout 0 0 1`. Status IPC reads same section headers (must match `kioskStore.buildPlasmaConfig`).
 
 ## Recent changes (2026-03-20)
+- **Backup**: bundle includes `preferences` (session lock); import merges via `mergePreferencesFromBackup`; post-import syncs Session lock UI + `life-parental-lock-prefs`.
 - **Auto-lock**: `config.json` `lockIdleMinutes` (0 / 5 / 15 / 30 / 60), Settings **Session lock**; idle timer on unlock + `life-parental-lock-prefs` event to refresh without re-login. `App.vue` fixes first-run `passwordSet` after `setPassword`.
 - **About**: `system:getAppInfo` + Settings shows version, Electron/Node, dev vs packaged.
 - **Web filter**: `webfilter:reapplyMirror` / `reapplyWebFilterFromMirror`; Settings **Maintenance** + Web Filter **Sync from disk**.
@@ -21,7 +22,7 @@ Kiosk: merges into `/etc/xdg/kdeglobals` — strips prior LiFE sections (`[KDE A
 - **Quota process names**: `execLineToProcessName` handles flatpak `--command=`, `flatpak run` (app id tail), `snap run`; App Control table edits process + optional override when adding.
 - **App quotas (UI + wiring)**: `registerQuotaIpc` in main; App Control “Daily time limits”; `apps:list` includes `processName` from .desktop `Exec`; backup export/import `quotas`; Dashboard shows count of day limits.
 - **After backup import**: `useAppStore().refreshProtectionsState()` from Settings. Example bundle: `examples/life-parental-backup-v1.example.json`.
-- **Settings backup**: `backup:export` / `backup:import` — JSON v1 with schedules, webFilter entries (import runs `persistWebFilterEntries`), blocked `.desktop` ids, `quotas`, optional `lifeModes`. Excludes password + usage files.
+- **Settings backup**: `backup:export` / `backup:import` — JSON v1 with schedules, webFilter entries, blocked `.desktop` ids, `quotas`, optional `lifeModes`, optional `preferences` (`lockIdleMinutes` only, via `settingsIpc`). Excludes password + usage files.
 - **Allowed hours / cron**: Python check treats start-after-end as overnight window (e.g. 22:00–07:00); Schedules page note. Redeploy script: save Screen Time once while enforcement enabled (rewrites `/usr/local/bin/life-parental-check`).
 - **Custom life modes**: `/etc/life-parental/life-modes.json` defines extra keys (cannot override `school`/`leisure`). `DEFAULT_SCHEDULE` merge, category lists filtered to known quick-add names, desktop ids must end with `.desktop`. Dashboard loads dynamic buttons; Settings documents schema.
 - **`schedules:getUsageHistory`**: reads last N (default 14, max 90) `usage-YYYY-MM-DD.json` under config dir; Schedules page “Recent screen time” table + Refresh; bars scale to daily limit when enabled else to peak day.
@@ -44,6 +45,16 @@ Kiosk: merges into `/etc/xdg/kdeglobals` — strips prior LiFE sections (`[KDE A
 - **Dashboard**: Screen Time card shows `{used}m / {limit}m`; KDE Kiosk card shows restriction count.
 - Dashboard: real KDE Kiosk stats via `getKioskStatus`; `usageLabel` formula live.
 
+## Recent changes (2026-03-20 continued)
+- **Idle-timeout auto-lock**: `App.vue` resets timer on pointer/wheel/keydown; `lockIdleMinutes` in `settings:getConfig` (0=off, default 15); SettingsPage "Session lock" card; `life-parental-lock-prefs` CustomEvent for hot-reload.
+- **Maintenance panel** (Settings): one-click redeploy buttons for schedule cron, quota cron, web filter hosts mirror.
+- **`system:getAppInfo`**: returns name/version/packaged/electron/node; Settings About shows live version + "(dev)" badge.
+- **`webfilter:reapplyMirror`** IPC + `reapplyWebFilterFromMirror` export: rewrites `/etc/hosts` block from `webfilter.json`.
+- **`quota:redeploy`** + **`schedules:redeploy`** IPC: redeploy cron scripts from JSON on disk; buttons in App Control, Schedules, Settings.
+- **`pgrep`/`pkill` `-x -i`**: case-insensitive exact comm matching in quota enforcement script.
+- **Dashboard "App time limits"** card: per-app usage bars sorted by ratio; `quotaSummaryRows` computed from `appStore.appQuotas`+`appQuotaUsage`.
+
 ## Open / TODO
-- Quota: wrapped binaries / subprocess comm names; manual process field in UI.
-- DBus logout as root: may need user session address for full reliability; kquitapp usually sufficient on target machines.
+- Old usage files (`usage-YYYY-MM-DD.json`, `quota-usage-YYYY-MM-DD.json`) accumulate — no automatic cleanup.
+- DBus logout as root: kquitapp fallbacks; on some Plasma 5 distros may need `qdbus` path variant.
+- Quota: edge cases with wrapped binaries (manual process override in UI covers most cases).
