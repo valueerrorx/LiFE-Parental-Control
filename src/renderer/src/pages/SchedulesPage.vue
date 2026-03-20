@@ -146,7 +146,9 @@
 
 <script setup>
 import { ref, reactive, computed, onMounted } from 'vue'
+import { useAppStore } from '../stores/appStore.js'
 
+const appStore = useAppStore()
 const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 const schedule = reactive({
     enabled: false, dailyLimitEnabled: false, dailyLimitMinutes: 120,
@@ -236,6 +238,7 @@ async function onSave() {
     else {
         saveMsg.value = 'Screen time settings saved'
         saveError.value = false
+        void appStore.refreshProtectionsState()
         await refreshUsageData()
     }
     setTimeout(() => { saveMsg.value = '' }, 4000)
