@@ -59,11 +59,16 @@
             </RouterLink>
         </nav>
 
-        <div class="pc-sidebar-footer d-flex align-items-center justify-content-between">
-            <span :title="footerTitle">{{ footerLabel }}</span>
-            <button class="nav-item-link p-1" style="width:auto;" @click="onExit" title="Exit">
-                <i class="bi bi-box-arrow-right" style="font-size:16px;color:rgba(255,255,255,0.6);" />
+        <div class="pc-sidebar-footer d-flex flex-column gap-2">
+            <button type="button" class="nav-item-link sidebar-footer-app-log py-2" @click="openApplicationLog">
+                <i class="bi bi-journal-text" /> Application log
             </button>
+            <div class="d-flex align-items-center justify-content-between">
+                <span :title="footerTitle">{{ footerLabel }}</span>
+                <button class="nav-item-link p-1" style="width:auto;" @click="onExit" title="Exit">
+                    <i class="bi bi-box-arrow-right" style="font-size:16px;color:rgba(255,255,255,0.6);" />
+                </button>
+            </div>
         </div>
     </aside>
 </template>
@@ -71,8 +76,10 @@
 <script setup>
 import { computed } from 'vue'
 import { useAppStore } from '../stores/appStore.js'
+import { useApplicationLogModal } from '../composables/useApplicationLogModal.js'
 
 const store = useAppStore()
+const { openApplicationLog } = useApplicationLogModal()
 const filterCount = computed(() => store.webFilterHostRuleCount)
 const blockedCount = computed(() => store.blockedApps.length)
 const quotaCount = computed(() => store.appQuotas.length)
@@ -123,5 +130,8 @@ async function onExit() {
     text-transform: uppercase;
     font-size: 9px;
     letter-spacing: 0.02em;
+}
+.sidebar-footer-app-log {
+    font-size: 12.5px;
 }
 </style>

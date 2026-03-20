@@ -95,8 +95,8 @@
                             Re-deploy cron jobs from JSON on disk if a script or cron file was removed or edited outside the app
                             (<strong>Save</strong> on Screen Time / App quotas / Quota exemptions already redeploys). Packaged installs also
                             <strong>auto-redeploy</strong> screen-time and quota cron on first root start after an <strong>app version</strong> bump (see Dashboard
-                            <em>Recent activity</em>: <code>embedded_enforcement_redeploy</code>). <strong>Web filter</strong> is the same as
-                            <strong>Restore from saved rules</strong> on the Web Filter page (rebuilds the hosts block from <code>webfilter.json</code>).
+                            <em>Recent activity</em>: <code>embedded_enforcement_redeploy</code>). <strong>Web filter restore</strong> rebuilds the
+                            <code>/etc/hosts</code> block from <code>webfilter.json</code> (same as <strong>Apply Changes</strong> when the file already matches the UI; use if hosts was edited outside the app).
                             <strong>Usage logs</strong> removes <code>usage-*</code>, <code>quota-usage-*</code>, and <code>app-usage-*</code> JSON older than 120 days (same rule as automatic cleanup).
                         </p>
                         <div class="d-flex flex-wrap gap-2">
@@ -409,7 +409,7 @@ async function onPruneUsageArchives() {
 
 async function onReapplyWebHosts() {
     if (!window.confirm(
-        'Restore web filter: replace the hosts-file block with /etc/life-parental/webfilter.json? (same as Web Filter → Restore from saved rules.)'
+        'Restore web filter: rebuild the /etc/hosts block from /etc/life-parental/webfilter.json?'
     )) return
     maintBusy.value = true
     maintMsg.value = ''

@@ -15,7 +15,13 @@ Desktop app for **KDE Plasma (Linux)**: parental controls via **Electron**, **Vu
 | **App quotas** | `quota.json`; cron → `/usr/local/bin/life-parental-quota` (`pgrep` / `pkill` per process name); per-app tally in `quota-usage-YYYY-MM-DD.json` (reset **today** from **App Control**). The same cron increments **`app-usage-YYYY-MM-DD.json`** for every app in **`app-monitor-catalog.json`** (built from the same `.desktop` list as **App Control**; refreshed at app start and when you open **App Control**) so the Dashboard donut can show the **top 10** most-used catalog apps. Warnings (~5 / ~2 / final minute) and kills are issued by that script via `notify-send` and `kdialog` (not the Electron window). Optional **Quota exemptions** (`process-whitelist.json`): listed apps are **not** stopped when their daily quota is reached. |
 | **Profiles** | School / Leisure + optional `life-modes.json`; backup/export JSON bundle |
 
-**Config:** `/etc/life-parental/` (app expects elevated rights when packaged; see main process). Optional **`activity-log.json`** records parental actions (ring buffer); open it from the Dashboard via **Application log**, not part of backup export.
+### Family profiles (Dashboard)
+
+Built-in **School** / **Leisure** buttons plus any **custom modes** from **`/etc/life-parental/life-modes.json`** (see **Settings**). Applying a mode updates schedules, web filter, and blocked apps as defined in that file.
+
+The **Include KDE kiosk** checkbox (below the profile buttons) is optional: when enabled, applying a profile also **merges** the current **KDE Kiosk** tab profile into `/etc/xdg/kdeglobals`, or on **Leisure** **removes** LiFE kiosk sections there. Either action **restarts the graphical session** so the lockdown takes effect.
+
+**Config:** `/etc/life-parental/` (app expects elevated rights when packaged; see main process). Optional **`activity-log.json`** records parental actions (ring buffer); open it from the sidebar (**Application log**, bottom left), not part of backup export.
 
 ### Screen time: logged minutes
 
@@ -35,7 +41,7 @@ Counting only applies when the same **`loginctl`** rules as **Screen Time** appl
 
 ### Quota exemptions
 
-Settings are stored in **`/etc/life-parental/process-whitelist.json`**. The app quota cron (**`/usr/local/bin/life-parental-quota`**) reads this file each run. For apps with a daily limit, if the limit is reached and the app is **not** exempt, it is stopped like before; exempt apps keep running. **Save** in the app updates the file and re-deploys the quota script (and removes any legacy **`life-parental-kill`** cron from older versions).
+Settings are stored in **`/etc/life-parental/process-whitelist.json`**. The app quota cron (**`/usr/local/bin/life-parental-quota`**) reads this file each run. For apps with a daily limit, if the limit is reached and the app is **not** exempt, it is stopped like before; exempt apps keep running. **Apply Changes** on the Quota exemptions page updates the file and re-deploys the quota script (and removes any legacy **`life-parental-kill`** cron from older versions).
 
 ### Web filter: custom domains, HaGeZi lists, and `/etc/hosts`
 
@@ -60,7 +66,7 @@ Settings are stored in **`/etc/life-parental/process-whitelist.json`**. The app 
 
 **Quick Add Categories:** **Domain packs** (e.g. Video Streaming, Gaming) add curated hostnames to **custom domains** in the UI. **HaGeZi lists** merge the full blocklist for each enabled topic into the LiFE block in **`/etc/hosts`** (bundled snapshots). **Update lists** (next to *HaGeZi lists* in the sidebar card) hits the same CDN refresh as app startup, then reapplies the mirror to `hosts`.
 
-**Restore from saved rules** reads **`webfilter.json` only**, rebuilds the hosts block, and refreshes the UI (drops unsaved UI-only edits). If `/etc/hosts` is unreadable, the Web Filter page still loads from `webfilter.json` and shows a warning.
+If **`/etc/hosts`** is unreadable, the Web Filter page still loads from **`webfilter.json`** and shows a warning. To rebuild the hosts block from disk without changing the saved JSON (e.g. manual hosts edits), use **Settings → Maintenance → Web filter restore**.
 
 **Limits:** Large lists inflate `/etc/hosts`; DNS / DoH bypass or another resolver can still evade host-based blocking—see e.g. [school DNS discussion (linuxmuster.net)](https://ask.linuxmuster.net/t/wie-dns-server-einstellungen-fuer-kinderschutz-aendern/12089/2) for network-level ideas.
 

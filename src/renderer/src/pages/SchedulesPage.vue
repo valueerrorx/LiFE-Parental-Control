@@ -10,7 +10,7 @@
                 {{ schedule.enabled ? 'Active' : 'Disabled' }}
             </span>
             <button class="btn-pc-primary" @click="onSave" :disabled="saving">
-                <i class="bi bi-floppy me-1" />{{ saving ? 'Saving…' : 'Save' }}
+                <i class="bi bi-floppy me-1" />{{ saving ? 'Saving…' : 'Apply Changes' }}
             </button>
         </div>
     </div>
@@ -33,7 +33,7 @@
         <div class="pc-card mb-3">
             <div class="pc-card-header"><h6>Profile presets</h6></div>
             <div class="pc-card-body">
-                <p class="text-muted mb-2" style="font-size:12px;">School / Leisure templates (Screen Time only). Adjust and click <strong>Save</strong>.</p>
+                <p class="text-muted mb-2" style="font-size:12px;">School / Leisure templates (Screen Time only). Adjust and click <strong>Apply Changes</strong>.</p>
                 <div class="d-flex flex-wrap gap-2">
                     <button type="button" class="btn-pc-outline" @click="applyPreset('school')">
                         <i class="bi bi-mortarboard me-1" />School week
@@ -246,7 +246,7 @@ function applyPreset(kind) {
             allowedDays: [1, 2, 3, 4, 5, 6, 7]
         })
     }
-    saveMsg.value = 'Preset applied — click Save to apply on the system'
+    saveMsg.value = 'Preset applied — click Apply Changes to apply on the system'
     saveError.value = false
     setTimeout(() => { saveMsg.value = '' }, 5000)
 }
@@ -274,7 +274,7 @@ async function onSave() {
     saving.value = false
     if (result?.error) { saveMsg.value = `Error: ${result.error}`; saveError.value = true }
     else {
-        saveMsg.value = 'Screen time settings saved'
+        saveMsg.value = 'Screen time settings applied'
         saveError.value = false
         void appStore.refreshProtectionsState()
         await refreshUsageData()

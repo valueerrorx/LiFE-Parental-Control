@@ -10,7 +10,7 @@
                 {{ config.enabled ? 'Active' : 'Disabled' }}
             </span>
             <button class="btn-pc-primary" :disabled="saving" @click="onSave">
-                <i class="bi bi-floppy me-1" />{{ saving ? 'Saving…' : 'Save' }}
+                <i class="bi bi-floppy me-1" />{{ saving ? 'Saving…' : 'Apply Changes' }}
             </button>
         </div>
     </div>
@@ -179,7 +179,7 @@ async function onSave() {
         saveError.value = r.error
     } else {
         await store.loadProcessWhitelist()
-        saveMsg.value = 'Quota exemptions saved; quota script updated.'
+        saveMsg.value = 'Quota exemptions applied; quota script updated.'
         setTimeout(() => { saveMsg.value = '' }, 4000)
     }
 }

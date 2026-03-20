@@ -9,6 +9,15 @@
                 <i class="bi bi-circle-fill" style="font-size:7px;" />
                 {{ blockedCount }} blocked
             </span>
+            <button
+                type="button"
+                class="btn-pc-primary"
+                :disabled="quotaBusy || quotas.length === 0"
+                title="Apply all quota limits and process names in the table below"
+                @click="onApplyAllQuotas"
+            >
+                <i class="bi bi-floppy me-1" />{{ quotaBusy ? 'Saving…' : 'Apply Changes' }}
+            </button>
         </div>
     </div>
 
@@ -83,9 +92,6 @@
                                 </td>
                                 <td>{{ store.appQuotaUsage[q.appId] ?? 0 }} min</td>
                                 <td class="text-nowrap">
-                                    <button type="button" class="btn btn-sm btn-outline-secondary me-1" :disabled="quotaBusy" @click="onSaveQuota(q)">
-                                        Save
-                                    </button>
                                     <button type="button" class="btn btn-sm btn-outline-danger" :disabled="quotaBusy" @click="onRemoveQuota(q.appId)">
                                         Remove
                                     </button>
@@ -216,32 +222,37 @@ async function onAddQuota() {
     addProcessOverride.value = ''
 }
 
-async function onSaveQuota(q) {
-    const minutes = Math.max(1, Math.min(1440, Number(q.editLimit) || 1))
-    const proc = (q.editProcess || '').trim()
-    if (!proc) {
-        await window.api.system.showError({
-            title: 'LiFE Parental Control',
-            message: 'Process name is required (must match a running command name for pgrep -x -i).'
-        })
-        return
-    }
+async function onApplyAllQuotas() {
+    if (!quotas.value.length) return
     quotaBusy.value = true
-    const r = await window.api.quota.setEntry({
-        appId: q.appId,
-        appName: q.appName,
-        processName: proc,
-        minutesPerDay: minutes
-    })
-    quotaBusy.value = false
-    if (r?.error) {
-        await window.api.system.showError({ title: 'LiFE Parental Control', message: r.error })
-        return
+    for (const q of quotas.value) {
+        const minutes = Math.max(1, Math.min(1440, Number(q.editLimit) || 1))
+        const proc = (q.editProcess || '').trim()
+        if (!proc) {
+            quotaBusy.value = false
+            await window.api.system.showError({
+                title: 'LiFE Parental Control',
+                message: 'Process name is required for each row (must match a running command name for pgrep -x -i).'
+            })
+            return
+        }
+        const r = await window.api.quota.setEntry({
+            appId: q.appId,
+            appName: q.appName,
+            processName: proc,
+            minutesPerDay: minutes
+        })
+        if (r?.error) {
+            quotaBusy.value = false
+            await window.api.system.showError({ title: 'LiFE Parental Control', message: r.error })
+            return
+        }
+        q.minutesPerDay = minutes
+        q.processName = proc
     }
-    q.minutesPerDay = minutes
-    q.processName = proc
     await loadQuotas()
     await store.loadAppQuotas()
+    quotaBusy.value = false
 }
 
 async function onRemoveQuota(appId) {

@@ -20,7 +20,7 @@ Kiosk: merges into `/etc/xdg/kdeglobals` — strips prior LiFE sections (`[KDE A
 - **Polkit JS rule**: `50-org.tuxfamily.life-kiosk.rules` matches **`pkexec` command_line** if it contains **`life-parental-control`** OR **`life parental control`** (case-insensitive) so default **AppImage** product-name paths work; README Polkit + Troubleshooting rows updated.
 - **`claude.md` Environment**: documents packaged **pkexec** relaunch + stderr log prefix (matches `index.js` + README).
 - **Packaged relaunch**: `pkexec` spawn **`error`** → `console.error('[LiFE Parental Control] pkexec relaunch failed:', …)`; README **Troubleshooting** row for instant exit / missing polkit. **`eslint.config.mjs`**: `console` in main/preload globals.
-- **Copy**: Page toggle **Enable quota exemptions**; **Save** toast mentions quota script updated; repair: Settings **Maintenance** → **Quota exemptions** (`processWhitelist:redeploy`).
+- **Copy**: Page toggle **Enable quota exemptions**; **Apply Changes** toast mentions quota script updated; repair: Settings **Maintenance** → **Quota exemptions** (`processWhitelist:redeploy`).
 - **UI copy**: **Quota exemptions** end-to-end (page title, Dashboard activity labels, Settings maint. toast, save message); route/file `process-whitelist` unchanged.
 - **Sidebar**: **`runningAsRoot`** from `refreshProtectionsState` (`getAppInfo` parallel); footer shows **Not root** / **…** + tooltip when not root. Nav **Quota exemptions** (was Process Whitelist label); Settings Maintenance **Quota exemptions** + blurb wording.
 - **Docs**: README dev/Packaged paragraph → **About / Running as**; **`claude.md`** Features → `runningAsRoot`; **`memory.md`** “continued” `system:getAppInfo` bullet synced with IPC.
@@ -71,14 +71,14 @@ Kiosk: merges into `/etc/xdg/kdeglobals` — strips prior LiFE sections (`[KDE A
 - **Settings**: Maintenance button **Usage logs (old)** → `settings:pruneUsageArchives`; `pruneUsageArchives` returns `{ removed }` for the toast.
 - **Local calendar day**: `localCalendarDay.js` — `schedules:getUsage` / `quota:getUsage` / usage prune cutoff use same local `YYYY-MM-DD` as embedded Python (`date.today()`), not `toISOString()` UTC (fixes wrong “today” file near timezone midnight).
 - **Usage archives**: `usageArchivePrune.js` removes `usage-YYYY-MM-DD.json` and `quota-usage-YYYY-MM-DD.json` older than 120d (filename date); app start + schedule persist/redeploy + quota `deployScript` + Settings **Usage logs (old)**.
-- **Navigation**: `MainLayout` refresh on mount; App Control badges (blocked / quotas); Screen Time **on** when `schedule.enabled`; Dashboard only loads `lifeMode:list` (no duplicate protection IPC). Screen Time **Save** calls `refreshProtectionsState` so sidebar badges update immediately.
+- **Navigation**: `MainLayout` refresh on mount; App Control badges (blocked / quotas); Screen Time **on** when `schedule.enabled`; Dashboard only loads `lifeMode:list` (no duplicate protection IPC). Screen Time **Apply Changes** calls `refreshProtectionsState` so sidebar badges update immediately.
 - **Backup**: bundle includes `preferences`; import merges allowed `lockIdleMinutes` via `mergePreferencesFromBackup`, or `clearSessionLockPreference` when key present but value not an object; post-import `life-parental-lock-prefs`.
 - **Auto-lock**: `config.json` `lockIdleMinutes` (0 / 5 / 15 / 30 / 60), Settings **Session lock**; idle timer on unlock + `life-parental-lock-prefs` event to refresh without re-login. `App.vue` fixes first-run `passwordSet` after `setPassword`.
 - **About**: `system:getAppInfo` + Settings shows version, Electron/Node, dev vs packaged.
-- **Web filter**: `webfilter:reapplyMirror` / `reapplyWebFilterFromMirror`; Settings **Maintenance** + Web Filter **Restore from saved rules**.
+- **Web filter**: `webfilter:reapplyMirror` / `reapplyWebFilterFromMirror`; Settings **Maintenance → Web filter restore** only (same hosts rebuild as Apply when JSON matches UI).
 - **README.md**: aligned with Electron/Vue app (obsolete Python/PyQt text removed). **Settings**: “Cron scripts” maintenance card (schedule + quota redeploy).
-- **Screen Time**: `schedules:redeploy` still available from Settings **Maintenance** / IPC; **Save** on Screen Time runs `persistSchedule` → `updateCron` (same deploy as redeploy).
-- **Dashboard**: “App time limits (today)” card with usage vs limit bars; quota **Save**/add/remove runs `deployScript`; **quota:redeploy** from Settings if scripts need repair.
+- **Screen Time**: `schedules:redeploy` still available from Settings **Maintenance** / IPC; **Apply Changes** on Screen Time runs `persistSchedule` → `updateCron` (same deploy as redeploy).
+- **Dashboard**: “App time limits (today)” card with usage vs limit bars; quota **Apply Changes**/add/remove runs `deployScript`; **quota:redeploy** from Settings if scripts need repair.
 - **Quota script**: `pgrep`/`pkill` use `-x -i` (exact comm, case-insensitive). Redeploy: change any quota in UI or re-save.
 - **Quota process names**: `execLineToProcessName` handles flatpak `--command=`, `flatpak run` (app id tail), `snap run`; App Control table edits process + optional override when adding.
 - **App quotas (UI + wiring)**: `registerQuotaIpc` in main; App Control “Daily time limits for individual apps”; `apps:list` includes `processName` from .desktop `Exec`; backup export/import `quotas`; Dashboard shows count of day limits.
@@ -96,7 +96,7 @@ Kiosk: merges into `/etc/xdg/kdeglobals` — strips prior LiFE sections (`[KDE A
 - **Removed** dead `src-electron/` tree (electron-vite uses `src/main/` only).
 - **Web filter**: `webfilter.json` mirror; hosts-unreadable fallback; Web Filter page warning.
 - **App blocker**: safe unblock, legacy JSON ids normalized.
-- **Schedules page**: School week / Leisure form presets (Save still required there); Dashboard profiles apply system-wide immediately.
+- **Schedules page**: School week / Leisure form presets (Apply Changes still required there); Dashboard profiles apply system-wide immediately.
 
 ## Earlier (2026-03-20)
 - **Daily limit enforcement** implemented in check script: Python3 detects active X11/Wayland sessions via `loginctl show-session -p Type/State`, increments `usage-YYYY-MM-DD.json` (+1/min), locks via `loginctl lock-sessions` when >= limit. Notify via `DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/{uid}/bus`.

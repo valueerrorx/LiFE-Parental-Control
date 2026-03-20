@@ -130,9 +130,6 @@
                     <button type="button" class="btn btn-sm btn-outline-secondary" @click="refreshScreenCharts">
                         Refresh
                     </button>
-                    <button type="button" class="btn btn-sm btn-outline-secondary" @click="openApplicationLog">
-                        <i class="bi bi-journal-text me-1" />Application log
-                    </button>
                     <RouterLink to="/schedules" class="btn btn-sm btn-outline-primary">
                         Rules
                     </RouterLink>
@@ -144,14 +141,14 @@
                         <div class="donut-with-legend d-flex flex-column flex-md-row align-items-start justify-content-start">
                             <ul
                                 v-if="donutLegend.length"
-                                class="donut-legend list-unstyled small mb-0 order-2 order-md-1 flex-shrink-0"
+                                class="donut-legend list-unstyled small mb-0 order-2 order-md-1 flex-shrink-0 d-flex flex-column gap-1"
                             >
                                 <li
                                     v-for="(row, idx) in donutLegend"
                                     :key="row.name + idx"
-                                    class="d-flex align-items-baseline gap-2 mb-1"
+                                    class="donut-legend-row d-flex align-items-center gap-2"
                                 >
-                                    <span class="donut-swatch mt-1" :style="{ background: row.color }" />
+                                    <span class="donut-swatch" :style="{ background: row.color }" />
                                     <span class="donut-legend-name text-truncate flex-grow-1" :title="row.name">{{ row.name }}</span>
                                     <span class="text-muted text-nowrap">{{ row.value }}m</span>
                                 </li>
@@ -170,7 +167,7 @@
                                 </div>
                             </div>
                         </div>
-                        <p v-if="donutModel.overlap" class="small text-warning mt-2 mb-0">
+                        <p v-if="donutModel.overlap" class="small donut-overlap-hint mt-2 mb-0">
                             Tracked app minutes can exceed session minutes when several catalog apps run at the same time.
                         </p>
                     </div>
@@ -215,24 +212,22 @@
             <div class="pc-card-header">
                 <h6>Family profiles</h6>
             </div>
-            <div class="pc-card-body d-flex flex-wrap gap-2 align-items-start">
-                <p class="text-muted w-100 mb-0" style="font-size:12px;">
-                    Built-in School / Leisure plus optional custom modes from <code>/etc/life-parental/life-modes.json</code> (see Settings).
-                    Optional KDE kiosk merge (or clear on Leisure) restarts the session.
-                </p>
-                <label class="d-flex align-items-center gap-2 w-100 mb-1" style="cursor:pointer;font-size:13px;">
+            <div class="pc-card-body d-flex flex-column gap-3 align-items-stretch">
+                <div class="d-flex flex-wrap gap-2">
+                    <template v-for="key in lifeModeKeys" :key="key">
+                        <button
+                            :class="key === 'school' ? 'btn-pc-primary' : 'btn-pc-outline'"
+                            :disabled="modeBusy"
+                            @click="onApplyLifeMode(key)"
+                        >
+                            <i class="bi me-2" :class="lifeModeIcon(key)" />{{ lifeModeLabels[key] || key }}
+                        </button>
+                    </template>
+                </div>
+                <label class="d-flex align-items-center gap-2 mb-0" style="cursor:pointer;font-size:13px;">
                     <input v-model="profileIncludeKiosk" type="checkbox" class="m-0" />
                     <span>Include KDE kiosk (merge current profile, or clear on Leisure)</span>
                 </label>
-                <template v-for="key in lifeModeKeys" :key="key">
-                    <button
-                        :class="key === 'school' ? 'btn-pc-primary' : 'btn-pc-outline'"
-                        :disabled="modeBusy"
-                        @click="onApplyLifeMode(key)"
-                    >
-                        <i class="bi me-2" :class="lifeModeIcon(key)" />{{ lifeModeLabels[key] || key }}
-                    </button>
-                </template>
             </div>
         </div>
     </div>
@@ -257,7 +252,7 @@ const WEEK_BAR_FULL_MINUTES = 12 * 60
 
 const store = useAppStore()
 const kioskStore = useKioskStore()
-const { confirm, inform } = useModal()
+const { confirm } = useModal()
 const modeBusy = ref(false)
 const profileIncludeKiosk = ref(false)
 const lifeModeKeys = ref(['school', 'leisure'])
@@ -381,75 +376,6 @@ function lifeModeIcon(key) {
     return 'bi-sliders'
 }
 
-function escapeHtml(s) {
-    return String(s)
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-}
-
-function formatActivityTime(iso) {
-    try {
-        return new Date(iso).toLocaleString()
-    } catch {
-        return iso || '—'
-    }
-}
-
-function activityLabel(e) {
-    switch (e.action) {
-    case 'screen_time_bonus':
-        return e.extraAllowanceAfter != null
-            ? `Screen time: +${e.granted ?? '?'} min extra allowance (total +${e.extraAllowanceAfter} min today)`
-            : `Screen time bonus (legacy): −${e.granted ?? '?'} min recorded (now ${e.minutesAfter ?? '--'} min today)`
-    case 'screen_time_reset_today':
-        return "Screen time: today's usage file cleared"
-    case 'quota_reset_today':
-        return "App quotas: today's usage file cleared"
-    case 'backup_export':
-        return `Settings backup exported (${e.file || 'file'})`
-    case 'backup_import':
-        return `Settings backup imported (${e.file || 'file'})`
-    case 'process_whitelist_save':
-        return `Quota exemptions saved (on: ${e.enabled ? 'yes' : 'no'}, ${e.allowedIds ?? 0} exempt apps)`
-    case 'process_whitelist_redeploy':
-        return 'Quota exemptions: quota script re-deployed from disk'
-    case 'life_mode_apply':
-        return `Family profile applied: ${e.label ?? e.modeKey ?? '?'}`
-    case 'kiosk_apply':
-        return 'KDE kiosk rules written to /etc/xdg/kdeglobals (session restart triggered)'
-    case 'kiosk_strip':
-        return 'LiFE kiosk sections removed from kdeglobals (session restart triggered)'
-    case 'autostart_enabled':
-        return e.reason === 'first_password'
-            ? 'Startup: autostart enabled after first password (system login)'
-            : 'Startup: autostart enabled (/etc/xdg/autostart)'
-    case 'autostart_disabled':
-        return 'Startup: autostart disabled (desktop file removed)'
-    case 'parent_password_set':
-        return 'Parent password was set'
-    case 'parent_password_changed':
-        return 'Parent password was changed'
-    case 'schedule_cron_redeploy':
-        return 'Screen time: enforcement cron/script rewritten from schedules.json'
-    case 'quota_cron_redeploy':
-        return 'App quotas: enforcement cron/script rewritten from disk'
-    case 'embedded_enforcement_redeploy':
-        return `Packaged app upgrade: screen-time + quota cron scripts redeployed (v${e.version ?? '?'}${e.previous ? `, was v${e.previous}` : ''})`
-    case 'webfilter_reapply_mirror':
-        return 'Web filter: /etc/hosts block rebuilt from webfilter.json mirror'
-    case 'usage_archives_pruned':
-        return `Old usage archive files removed (${e.removed ?? 0} files)`
-    case 'protections_stop_all':
-        return 'Danger zone: all protections stopped (screen time, quotas, blocks, web filter, exemptions; kiosk removed if active)'
-    case 'usage_history_wiped_all':
-        return `Danger zone: all usage/quota daily logs deleted (${e.removed ?? 0} files)`
-    default:
-        return typeof e.action === 'string' ? e.action : JSON.stringify(e)
-    }
-}
-
 async function loadWeekUsage() {
     const r = await window.api.schedules.getUsageHistory(14)
     const days = Array.isArray(r?.days) ? r.days : []
@@ -475,20 +401,6 @@ async function loadWeekUsage() {
 
 async function refreshScreenCharts() {
     await Promise.all([store.loadSchedule(), store.loadAppQuotas(), loadWeekUsage()])
-}
-
-async function openApplicationLog() {
-    const r = await window.api.activity.list(200)
-    const entries = Array.isArray(r?.entries) ? r.entries : []
-    const rows = entries.length
-        ? entries.map((e) => {
-            const t = escapeHtml(formatActivityTime(e.t))
-            const label = escapeHtml(activityLabel(e))
-            return `<li class="mb-2 pb-2 border-bottom border-light"><div class="text-muted" style="font-size:11px;">${t}</div><div>${label}</div></li>`
-        }).join('')
-        : '<li class="text-muted">No entries yet.</li>'
-    const html = `<p class="text-muted small mb-2">Parental action log (newest first). File: <code>/etc/life-parental/activity-log.json</code> (last 400 events kept).</p><ul class="list-unstyled mb-0 small" style="max-height:50vh;overflow-y:auto;">${rows}</ul>`
-    await inform('Application log', html, { wide: true })
 }
 
 onMounted(async () => {
@@ -546,6 +458,9 @@ async function onApplyLifeMode(key) {
 </script>
 
 <style scoped>
+.donut-overlap-hint {
+    color: #b0bec5;
+}
 .donut-with-legend {
     width: 100%;
     gap: 1.25rem;
@@ -558,15 +473,20 @@ async function onApplyLifeMode(key) {
 .donut-legend {
     width: 100%;
     max-width: 220px;
-    max-height: 200px;
+    /* Exactly 10 rows (DONUT_TOP_APPS): 10×row + 9×gap; scroll only if 11th slice (e.g. Other session time). */
+    max-height: calc(10 * 1.375rem + 9 * 0.25rem);
     overflow-y: auto;
     padding-right: 2px;
     -webkit-overflow-scrolling: touch;
 }
+.donut-legend-row {
+    min-height: 1.375rem;
+    flex-shrink: 0;
+}
 @media (max-width: 767.98px) {
     .donut-legend {
         max-width: none;
-        max-height: 7.5rem;
+        max-height: calc(10 * 1.375rem + 9 * 0.25rem);
     }
 }
 .donut-legend-name {

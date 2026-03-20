@@ -9,15 +9,6 @@
                 <i class="bi bi-circle-fill" style="font-size:7px;" />
                 {{ activeRuleCount > 0 ? `${activeRuleCount} /etc/hosts rules` : 'No active rules' }}
             </span>
-            <button
-                type="button"
-                class="btn-pc-outline"
-                title="Rarely needed: see README — reloads from webfilter.json and overwrites the hosts block"
-                @click="onReapplyFromMirror"
-                :disabled="saving"
-            >
-                <i class="bi bi-arrow-counterclockwise me-1" />Restore from saved rules
-            </button>
             <button class="btn-pc-primary" @click="onSave" :disabled="saving">
                 <i class="bi bi-floppy me-1" />{{ saving ? 'Saving…' : 'Apply Changes' }}
             </button>
@@ -309,27 +300,6 @@ async function onQuickCategory(cat) {
         saveError.value = false
     }
     setTimeout(() => { saveMsg.value = '' }, 4000)
-}
-
-async function onReapplyFromMirror() {
-    if (!window.confirm(
-        'Replace the current list and the hosts-file block with whatever is stored in webfilter.json? '
-            + 'Unsaved edits in this window will be lost.'
-    )) return
-    saving.value = true
-    saveMsg.value = ''
-    const r = await window.api.webFilter.reapplyMirror()
-    saving.value = false
-    if (r?.error) {
-        saveMsg.value = `Error: ${r.error}`
-        saveError.value = true
-    } else {
-        await store.loadWebFilter()
-        saveMsg.value = 'Restored from webfilter.json — list and hosts block updated'
-        saveError.value = false
-        hostsBackupWarning.value = ''
-    }
-    setTimeout(() => { saveMsg.value = '' }, 5000)
 }
 
 async function onSave() {
