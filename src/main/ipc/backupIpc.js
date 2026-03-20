@@ -6,6 +6,7 @@ import { readWebFilterEntries, persistWebFilterEntries } from './webFilterIpc.js
 import { replaceBlockedDesktopIds } from './appBlockerIpc.js'
 import { readQuotaEntries, replaceQuotaEntries } from './quotaIpc.js'
 import { readPreferencesForBackup, mergePreferencesFromBackup, clearSessionLockPreference } from './settingsIpc.js'
+import { appendActivity } from './activityLog.js'
 
 // Single-file bundle: no password hash, no usage history, no /etc/hosts aside from apply step below.
 const BUNDLE_VERSION = 1
@@ -63,6 +64,7 @@ export function registerBackupIpc(ipcMain, configDir, getWindow) {
                 preferences: readPreferencesForBackup(configDir)
             }
             fs.writeFileSync(filePath, JSON.stringify(bundle, null, 2), 'utf8')
+            appendActivity(configDir, { action: 'backup_export', file: path.basename(filePath) })
             return { ok: true, path: filePath }
         } catch (e) {
             return { error: e.message }
@@ -127,6 +129,7 @@ export function registerBackupIpc(ipcMain, configDir, getWindow) {
                 if (p != null && typeof p === 'object' && !Array.isArray(p)) mergePreferencesFromBackup(configDir, p)
                 else clearSessionLockPreference(configDir)
             }
+            appendActivity(configDir, { action: 'backup_import', file: path.basename(filePaths[0]) })
             return { ok: true }
         } catch (e) {
             return { error: e.message }

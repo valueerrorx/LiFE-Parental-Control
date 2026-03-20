@@ -1,6 +1,7 @@
 import fs from 'fs'
 import path from 'path'
 import { execFile } from 'child_process'
+import { appendActivity } from './activityLog.js'
 
 const WHITELIST_FILE = 'process-whitelist.json'
 const KILL_SCRIPT    = '/usr/local/bin/life-parental-kill'
@@ -124,6 +125,12 @@ export function registerProcessWhitelistIpc(ipcMain, configDir) {
             const config = { enabled, allowedIds, killProcessNames }
             saveConfig(configDir, config)
             deployScript(configDir, config)
+            appendActivity(configDir, {
+                action: 'process_whitelist_save',
+                enabled: config.enabled,
+                allowedIds: config.allowedIds.length,
+                killNames: config.killProcessNames.length
+            })
             return { ok: true }
         } catch (e) {
             return { error: e.message }
@@ -134,6 +141,7 @@ export function registerProcessWhitelistIpc(ipcMain, configDir) {
         try {
             const config = readConfig(configDir)
             deployScript(configDir, config)
+            appendActivity(configDir, { action: 'process_whitelist_redeploy' })
             return { ok: true }
         } catch (e) {
             return { error: e.message }
