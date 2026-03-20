@@ -4,13 +4,15 @@
 electron-vite, Vue3+Pinia, Bootstrap5, Sass; **not** Quasar (`claude.md` stack line updated). **Only** `src/main/`, `src/preload/`, `src/renderer/` — no duplicate Vue tree under `src/`. Do **not** set npm `"type":"module"` (breaks preload path: outputs `.mjs` vs main expecting `.js`).
 
 ## IPC surface
-`config:readFiles`; `profile:*`; `system:*` (incl. `system:getAppInfo`: name/version/packaged/electron/node); `webfilter:*` (incl. `webfilter:reapplyMirror` → `reapplyWebFilterFromMirror`: hosts from `webfilter.json`); `apps:*`; `quota:*` (incl. `quota:redeploy`); `schedules:*` (incl. `schedules:redeploy`); `lifeMode:*`; `backup:export|import`; `settings:*`. **Usage log retention:** main+`usageArchivePrune.js` deletes `usage-*.json` / `quota-usage-*.json` when filename date is older than **120 days** (UTC); runs at app start and after schedule persist/redeploy + quota deploy.
+`config:readFiles`; `profile:*`; `system:*` (incl. `system:getAppInfo`: name/version/packaged/electron/node); `webfilter:*` (incl. `webfilter:reapplyMirror` → `reapplyWebFilterFromMirror`: hosts from `webfilter.json`); `apps:*`; `quota:*` (incl. `quota:redeploy`); `schedules:*` (incl. `schedules:redeploy`); `lifeMode:*`; `backup:export|import`; `settings:*` (incl. `settings:pruneUsageArchives` → `{ ok, removed }`). **Usage log retention:** `usageArchivePrune.js` deletes `usage-*.json` / `quota-usage-*.json` when filename date is older than **120 days** (UTC); runs at app start, after schedule persist/redeploy + quota deploy, and manually from Settings **Maintenance**.
 
 ## KDE integration
-Kiosk: merges into `/etc/xdg/kdeglobals` — strips prior LiFE sections (`[KDE Action Restrictions][$i]` etc.) then appends new blocks; never wipes unrelated keys. Session restart: `kquitapp6 ksmserver` → `kquitapp5 ksmserver` → `qdbus(6) org.kde.KSMServer|ksmserver /KSMServer logout 0 0 1`. Status IPC reads same section headers (must match `kioskStore.buildPlasmaConfig`).
+Kiosk: merges into `/etc/xdg/kdeglobals` — strips prior LiFE sections (`[KDE Action Restrictions][$i]` etc.) then appends new blocks; never wipes unrelated keys. Session restart: `kquitapp6 ksmserver` → `kquitapp5 ksmserver` → `qdbus(6)` from PATH or `/usr/lib{,64}/qt{5,6}/bin/qdbus` with `org.kde.KSMServer|ksmserver` /KSMServer logout. Status IPC reads same section headers (must match `kioskStore.buildPlasmaConfig`).
 
 ## Recent changes (2026-03-20)
-- **Usage archives**: `usageArchivePrune.js` removes `usage-YYYY-MM-DD.json` and `quota-usage-YYYY-MM-DD.json` older than 120d (filename date UTC); app start + schedule persist/redeploy + quota `deployScript`.
+- **Session restart**: `restartKdeSession` tries `qdbus`/`qdbus6` plus `/usr/lib{,64}/qt{5,6}/bin/qdbus` with both KSMServer service names (PATH-less Plasma installs).
+- **Settings**: Maintenance button **Usage logs (old)** → `settings:pruneUsageArchives`; `pruneUsageArchives` returns `{ removed }` for the toast.
+- **Usage archives**: `usageArchivePrune.js` removes `usage-YYYY-MM-DD.json` and `quota-usage-YYYY-MM-DD.json` older than 120d (filename date UTC); app start + schedule persist/redeploy + quota `deployScript` + Settings **Usage logs (old)**.
 - **Navigation**: `MainLayout` refresh on mount; App Control badges (blocked / quotas); Screen Time **on** when `schedule.enabled`; Dashboard only loads `lifeMode:list` (no duplicate protection IPC). Screen Time **Save** calls `refreshProtectionsState` so sidebar badges update immediately.
 - **Backup**: bundle includes `preferences` (session lock); import merges via `mergePreferencesFromBackup`; post-import syncs Session lock UI + `life-parental-lock-prefs`.
 - **Auto-lock**: `config.json` `lockIdleMinutes` (0 / 5 / 15 / 30 / 60), Settings **Session lock**; idle timer on unlock + `life-parental-lock-prefs` event to refresh without re-login. `App.vue` fixes first-run `passwordSet` after `setPassword`.
@@ -57,5 +59,5 @@ Kiosk: merges into `/etc/xdg/kdeglobals` — strips prior LiFE sections (`[KDE A
 - **Dashboard "App time limits"** card: per-app usage bars sorted by ratio; `quotaSummaryRows` computed from `appStore.appQuotas`+`appQuotaUsage`.
 
 ## Open / TODO
-- DBus logout as root: kquitapp fallbacks; on some Plasma 5 distros may need `qdbus` path variant.
+- DBus logout as root: wrong session bus when not matching logged-in user; kquitapp remains primary.
 - Quota: edge cases with wrapped binaries (manual process override in UI covers most cases).
