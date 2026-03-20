@@ -88,28 +88,26 @@ export function registerSettingsIpc(ipcMain, configDir) {
 
     ipcMain.handle('settings:getConfig', () => {
         const cfg = readConfig(configDir)
-        const safe = { ...cfg }
-        delete safe.passwordHash
-        delete safe.salt
-        if (Object.hasOwn(safe, 'lockIdleMinutes')) {
-            const m = normalizedLockIdleMinutesOrUndefined(safe.lockIdleMinutes)
+        // Never spread full cfg into IPC — only prefs the renderer understands (password lives in cfg too).
+        const safe = {}
+        if (Object.hasOwn(cfg, 'lockIdleMinutes')) {
+            const m = normalizedLockIdleMinutesOrUndefined(cfg.lockIdleMinutes)
             if (m !== undefined) safe.lockIdleMinutes = m
-            else delete safe.lockIdleMinutes
         }
         return safe
     })
 
     ipcMain.handle('settings:saveConfig', (_, data) => {
         const cfg = readConfig(configDir)
-        const incoming = { ...data }
-        delete incoming.passwordHash
-        delete incoming.salt
-        if (Object.hasOwn(incoming, 'lockIdleMinutes')) {
-            const m = normalizedLockIdleMinutesOrUndefined(incoming.lockIdleMinutes)
-            if (m !== undefined) incoming.lockIdleMinutes = m
-            else delete incoming.lockIdleMinutes
+        if (!data || typeof data !== 'object' || Array.isArray(data)) return
+        const next = { ...cfg }
+        // Only merge known preference keys so stray renderer/IPC fields cannot pollute config.json.
+        if (Object.hasOwn(data, 'lockIdleMinutes')) {
+            const m = normalizedLockIdleMinutesOrUndefined(data.lockIdleMinutes)
+            if (m !== undefined) next.lockIdleMinutes = m
+            else delete next.lockIdleMinutes
         }
-        saveConfig(configDir, { ...cfg, ...incoming })
+        saveConfig(configDir, next)
     })
 
     ipcMain.handle('settings:pruneUsageArchives', () => {

@@ -105,6 +105,11 @@
                 <RouterLink to="/apps" class="small text-decoration-none">App Control</RouterLink>
             </div>
             <div class="pc-card-body pt-2">
+                <p class="text-muted small mb-3">
+                    Bars use today’s quota usage file; enforcement on the device matches the process name from
+                    <RouterLink to="/apps" class="text-decoration-none">App Control</RouterLink>
+                    (<code>pgrep -x -i</code>).
+                </p>
                 <div v-for="row in quotaSummaryRows" :key="row.appId" class="mb-3">
                     <div class="d-flex justify-content-between align-items-baseline small mb-1">
                         <span>{{ row.appName }}</span>
