@@ -1,0 +1,21 @@
+{
+    "version": 1,
+    "exportedAt": "2026-03-20T12:00:00.000Z",
+    "schedules": {
+        "enabled": true,
+        "dailyLimitEnabled": true,
+        "dailyLimitMinutes": 120,
+        "allowedHoursEnabled": true,
+        "allowedHoursStart": "09:00",
+        "allowedHoursEnd": "21:00",
+        "allowedDays": [1, 2, 3, 4, 5, 6, 7]
+    },
+    "webFilter": {
+        "entries": [
+            { "domain": "example.com", "enabled": true }
+        ]
+    },
+    "blockedApps": [],
+    "quotas": [],
+    "lifeModes": {}
+}

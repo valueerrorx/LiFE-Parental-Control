@@ -19,7 +19,8 @@ contextBridge.exposeInMainWorld('api', {
     webFilter: {
         getList: () => ipcRenderer.invoke('webfilter:getList'),
         setList: (entries) => ipcRenderer.invoke('webfilter:setList', entries),
-        addCategory: (name) => ipcRenderer.invoke('webfilter:addCategory', name)
+        addCategory: (name) => ipcRenderer.invoke('webfilter:addCategory', name),
+        reapplyMirror: () => ipcRenderer.invoke('webfilter:reapplyMirror')
     },
     apps: {
         list: () => ipcRenderer.invoke('apps:list'),
@@ -29,11 +30,24 @@ contextBridge.exposeInMainWorld('api', {
     schedules: {
         get: () => ipcRenderer.invoke('schedules:get'),
         getUsage: () => ipcRenderer.invoke('schedules:getUsage'),
-        save: (schedule) => ipcRenderer.invoke('schedules:save', schedule)
+        getUsageHistory: (maxDays) => ipcRenderer.invoke('schedules:getUsageHistory', maxDays),
+        save: (schedule) => ipcRenderer.invoke('schedules:save', schedule),
+        redeploy: () => ipcRenderer.invoke('schedules:redeploy')
     },
     lifeMode: {
         list: () => ipcRenderer.invoke('lifeMode:list'),
         apply: (modeKey) => ipcRenderer.invoke('lifeMode:apply', modeKey)
+    },
+    quota: {
+        getList: () => ipcRenderer.invoke('quota:getList'),
+        getUsage: () => ipcRenderer.invoke('quota:getUsage'),
+        setEntry: (entry) => ipcRenderer.invoke('quota:setEntry', entry),
+        removeEntry: (appId) => ipcRenderer.invoke('quota:removeEntry', appId),
+        redeploy: () => ipcRenderer.invoke('quota:redeploy')
+    },
+    backup: {
+        export: () => ipcRenderer.invoke('backup:export'),
+        import: () => ipcRenderer.invoke('backup:import')
     },
     settings: {
         isPasswordSet: () => ipcRenderer.invoke('settings:isPasswordSet'),

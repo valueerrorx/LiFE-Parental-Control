@@ -1,0 +1,381 @@
+// LiFE Parental Control — Material-inspired flat design on top of Bootstrap
+@use "sass:color";
+
+// --- Color tokens ---
+:root {
+    --pc-primary:       #1565C0;
+    --pc-primary-dark:  #0D47A1;
+    --pc-primary-light: #1976D2;
+    --pc-surface:       #FFFFFF;
+    --pc-bg:            #F0F4F9;
+    --pc-border:        #E0E0E0;
+    --pc-text:          #212121;
+    --pc-text-secondary:#616161;
+    --pc-success:       #2E7D32;
+    --pc-warning:       #E65100;
+    --pc-danger:        #C62828;
+    --pc-card-shadow:   0 2px 8px rgba(0, 0, 0, 0.10);
+    --sidebar-w:        240px;
+}
+
+// --- Base ---
+* { box-sizing: border-box; }
+
+html, body, #app {
+    height: 100%;
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    font-size: 14px;
+    color: var(--pc-text);
+    background: var(--pc-bg);
+}
+
+// --- Sidebar ---
+.pc-sidebar {
+    width: var(--sidebar-w);
+    min-width: var(--sidebar-w);
+    background: var(--pc-primary);
+    color: rgba(255, 255, 255, 0.9);
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    position: sticky;
+    top: 0;
+
+    .pc-sidebar-brand {
+        padding: 18px 20px 14px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+
+        .brand-icon {
+            font-size: 28px;
+            color: #fff;
+        }
+        .brand-name {
+            font-size: 15px;
+            font-weight: 700;
+            color: #fff;
+            letter-spacing: 0.3px;
+        }
+        .brand-sub {
+            font-size: 11px;
+            color: rgba(255, 255, 255, 0.6);
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+        }
+    }
+
+    nav {
+        padding: 8px 0;
+        flex: 1;
+        overflow-y: auto;
+    }
+
+    .nav-section-label {
+        font-size: 10px;
+        font-weight: 700;
+        letter-spacing: 1px;
+        text-transform: uppercase;
+        color: rgba(255, 255, 255, 0.45);
+        padding: 12px 20px 4px;
+    }
+
+    .nav-item-link {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 10px 20px;
+        color: rgba(255, 255, 255, 0.82);
+        text-decoration: none;
+        font-size: 13.5px;
+        border-radius: 0;
+        transition: background 0.15s;
+        cursor: pointer;
+        border: none;
+        background: none;
+        width: 100%;
+        text-align: left;
+
+        i { font-size: 18px; }
+
+        &:hover { background: rgba(255, 255, 255, 0.1); color: #fff; }
+        &.active {
+            background: rgba(255, 255, 255, 0.18);
+            color: #fff;
+            font-weight: 600;
+            border-left: 3px solid #fff;
+        }
+    }
+
+    .pc-sidebar-footer {
+        padding: 12px 20px;
+        border-top: 1px solid rgba(255, 255, 255, 0.15);
+        font-size: 11px;
+        color: rgba(255, 255, 255, 0.45);
+    }
+}
+
+// --- Main layout ---
+.pc-layout {
+    display: flex;
+    height: 100vh;
+    overflow: hidden;
+}
+
+.pc-main {
+    flex: 1;
+    overflow-y: auto;
+    background: var(--pc-bg);
+}
+
+.pc-page-header {
+    padding: 24px 28px 16px;
+    border-bottom: 1px solid var(--pc-border);
+    background: var(--pc-surface);
+
+    h1 {
+        font-size: 22px;
+        font-weight: 700;
+        color: var(--pc-text);
+        margin: 0;
+    }
+    p {
+        font-size: 13px;
+        color: var(--pc-text-secondary);
+        margin: 4px 0 0;
+    }
+}
+
+.pc-content {
+    padding: 24px 28px;
+}
+
+// --- Cards ---
+.pc-card {
+    background: var(--pc-surface);
+    border-radius: 8px;
+    box-shadow: var(--pc-card-shadow);
+    border: 1px solid var(--pc-border);
+    overflow: hidden;
+
+    .pc-card-header {
+        padding: 16px 20px;
+        border-bottom: 1px solid var(--pc-border);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        background: var(--pc-surface);
+
+        h6 {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--pc-text);
+            margin: 0;
+        }
+    }
+
+    .pc-card-body {
+        padding: 16px 20px;
+    }
+}
+
+// --- Status badge ---
+.status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 3px 10px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+
+    &.active   { background: #E8F5E9; color: var(--pc-success); }
+    &.inactive { background: #FAFAFA; color: var(--pc-text-secondary); border: 1px solid var(--pc-border); }
+    &.warning  { background: #FFF3E0; color: var(--pc-warning); }
+}
+
+// --- Toggle switch (custom, flat) ---
+.pc-toggle {
+    position: relative;
+    width: 44px;
+    height: 24px;
+    flex-shrink: 0;
+
+    input { display: none; }
+
+    .slider {
+        position: absolute;
+        inset: 0;
+        background: #BDBDBD;
+        border-radius: 12px;
+        cursor: pointer;
+        transition: background 0.2s;
+
+        &::before {
+            content: '';
+            position: absolute;
+            width: 18px;
+            height: 18px;
+            left: 3px;
+            top: 3px;
+            background: #fff;
+            border-radius: 50%;
+            transition: transform 0.2s;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+        }
+    }
+
+    input:checked ~ .slider {
+        background: var(--pc-primary);
+        &::before { transform: translateX(20px); }
+    }
+}
+
+// --- List rows ---
+.pc-list-item {
+    display: flex;
+    align-items: center;
+    padding: 10px 20px;
+    border-bottom: 1px solid #F5F5F5;
+    gap: 12px;
+
+    &:last-child { border-bottom: none; }
+    &:hover { background: #FAFAFA; }
+
+    .item-icon {
+        width: 36px;
+        height: 36px;
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 18px;
+        flex-shrink: 0;
+        background: #E3F2FD;
+        color: var(--pc-primary);
+    }
+
+    .item-name { font-weight: 500; font-size: 13.5px; }
+    .item-sub  { font-size: 11.5px; color: var(--pc-text-secondary); }
+}
+
+// --- Inputs ---
+.pc-input {
+    border: 1px solid var(--pc-border);
+    border-radius: 6px;
+    padding: 7px 12px;
+    font-size: 13.5px;
+    color: var(--pc-text);
+    background: #fff;
+    width: 100%;
+    transition: border-color 0.15s;
+
+    &:focus {
+        outline: none;
+        border-color: var(--pc-primary);
+        box-shadow: 0 0 0 3px rgba(21,101,192,0.12);
+    }
+}
+
+// --- Buttons ---
+.btn-pc-primary {
+    background: var(--pc-primary);
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    padding: 8px 18px;
+    font-size: 13.5px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.15s;
+
+    &:hover { background: var(--pc-primary-dark); }
+    &:disabled { opacity: 0.6; cursor: default; }
+}
+
+.btn-pc-outline {
+    background: transparent;
+    color: var(--pc-primary);
+    border: 1px solid var(--pc-primary);
+    border-radius: 6px;
+    padding: 7px 16px;
+    font-size: 13.5px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.15s;
+
+    &:hover { background: rgba(21,101,192,0.06); }
+}
+
+.btn-pc-danger {
+    background: var(--pc-danger);
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    padding: 7px 14px;
+    font-size: 13px;
+    cursor: pointer;
+    transition: background 0.15s;
+
+    &:hover { background: color.adjust(#C62828, $lightness: -8%); }
+}
+
+// --- Dashboard stat cards ---
+.stat-card {
+    background: var(--pc-surface);
+    border-radius: 10px;
+    padding: 20px 22px;
+    box-shadow: var(--pc-card-shadow);
+    border: 1px solid var(--pc-border);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+
+    .stat-icon {
+        width: 48px;
+        height: 48px;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 24px;
+    }
+
+    .stat-label { font-size: 12px; font-weight: 600; color: var(--pc-text-secondary); text-transform: uppercase; letter-spacing: 0.5px; }
+    .stat-value { font-size: 26px; font-weight: 700; color: var(--pc-text); line-height: 1; }
+    .stat-sub   { font-size: 12px; color: var(--pc-text-secondary); }
+}
+
+// --- Password lock screen ---
+.pc-lockscreen {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100vh;
+    background: var(--pc-bg);
+
+    .lock-card {
+        background: var(--pc-surface);
+        border-radius: 16px;
+        box-shadow: 0 8px 32px rgba(0,0,0,0.15);
+        padding: 48px 40px 40px;
+        width: 380px;
+        text-align: center;
+
+        .lock-icon {
+            width: 72px;
+            height: 72px;
+            border-radius: 50%;
+            background: #E3F2FD;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 20px;
+            font-size: 32px;
+            color: var(--pc-primary);
+        }
+
+        h2 { font-size: 20px; font-weight: 700; margin-bottom: 6px; }
+        p  { font-size: 13.5px; color: var(--pc-text-secondary); margin-bottom: 24px; }
+    }
+}

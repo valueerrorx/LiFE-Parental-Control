@@ -9,6 +9,9 @@
                 <i class="bi bi-circle-fill" style="font-size:7px;" />
                 {{ activeCount > 0 ? `${activeCount} active rules` : 'No active rules' }}
             </span>
+            <button type="button" class="btn-pc-outline" @click="onReapplyFromMirror" :disabled="saving">
+                <i class="bi bi-arrow-counterclockwise me-1" />Sync from disk
+            </button>
             <button class="btn-pc-primary" @click="onSave" :disabled="saving">
                 <i class="bi bi-floppy me-1" />{{ saving ? 'Saving…' : 'Apply Changes' }}
             </button>
@@ -85,8 +88,9 @@
                 <div class="pc-card mt-3">
                     <div class="pc-card-header"><h6>Info</h6></div>
                     <div class="pc-card-body text-muted" style="font-size:12px; line-height:1.7;">
-                        Rules are written to <code>/etc/hosts</code>. DNS cache is flushed automatically on apply.
-                        Blocked domains redirect to <code>0.0.0.0</code>.
+                        Rules are written to <code>/etc/hosts</code> and mirrored in <code>webfilter.json</code>.
+                        <strong>Sync from disk</strong> reloads the in-app list from mirror and rewrites the hosts block (drops unsaved edits).
+                        DNS cache is flushed on apply. Blocked domains use <code>0.0.0.0</code>.
                     </div>
                 </div>
             </div>
@@ -148,6 +152,24 @@ async function onAddCategory(cat) {
     if (result?.error) { saveMsg.value = `Error: ${result.error}`; saveError.value = true }
     else { saveMsg.value = `Added ${result?.added ?? 0} new domains from "${cat}"`; saveError.value = false }
     setTimeout(() => { saveMsg.value = '' }, 4000)
+}
+
+async function onReapplyFromMirror() {
+    if (!window.confirm('Reload rules from webfilter.json and rewrite /etc/hosts? Unsaved changes in this page will be lost.')) return
+    saving.value = true
+    saveMsg.value = ''
+    const r = await window.api.webFilter.reapplyMirror()
+    saving.value = false
+    if (r?.error) {
+        saveMsg.value = `Error: ${r.error}`
+        saveError.value = true
+    } else {
+        await store.loadWebFilter()
+        saveMsg.value = 'Hosts block synced from webfilter.json — list reloaded'
+        saveError.value = false
+        hostsBackupWarning.value = ''
+    }
+    setTimeout(() => { saveMsg.value = '' }, 5000)
 }
 
 async function onSave() {

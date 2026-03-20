@@ -1,0 +1,32 @@
+appId: "org.tuxfamily.life-kiosk"
+productName: "LiFE Kiosk"
+copyright: "Copyright © 2024 Thomas Michael Weissel"
+
+directories:
+  output: "dist"
+
+# electron-vite compiles everything into out/; only that + package.json need to be packaged
+files:
+  - out/**/*
+  - package.json
+
+extraResources:
+  - from: "kiosk"
+    to: "kiosk"
+    filter: ["**/*.kiosk"]
+  - from: "profiles"
+    to: "profiles"
+    filter: ["**/*.profile"]
+  - from: "images"
+    to: "images"
+
+linux:
+  target:
+    - target: AppImage
+      arch: [x64]
+    - target: deb
+      arch: [x64]
+  category: System
+  maintainer: "Thomas Michael Weissel"
+  description: "KDE Plasma kiosk configuration tool"
+  icon: images/kiosk.png

@@ -119,6 +119,13 @@ export function registerWebFilterIpc(ipcMain, configDir) {
             return { error: e.message }
         }
     })
+
+    ipcMain.handle('webfilter:reapplyMirror', () => {
+        try {
+            reapplyWebFilterFromMirror(configDir)
+            return { ok: true }
+        } catch (e) { return { error: e.message } }
+    })
 }
 
 export function readWebFilterEntries(configDir) {
@@ -133,4 +140,8 @@ export function persistWebFilterEntries(configDir, entries) {
     writeHostsSection(entries)
     writeMirror(configDir, entries)
     flushDns()
+}
+
+export function reapplyWebFilterFromMirror(configDir) {
+    persistWebFilterEntries(configDir, readMirror(configDir))
 }

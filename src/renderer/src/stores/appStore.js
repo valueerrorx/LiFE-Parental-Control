@@ -7,6 +7,8 @@ export const useAppStore = defineStore('app', () => {
     const schedule = ref(null)
     const todayUsageMinutes = ref(0)
     const kioskStatus = ref({ active: false, restrictionCount: 0, ok: true })
+    const appQuotas = ref([])
+    const appQuotaUsage = ref({})
     const statusMessage = ref('')
 
     const webFilterEnabled = computed(() => webFilterEntries.value.some(e => e.enabled))
@@ -43,18 +45,30 @@ export const useAppStore = defineStore('app', () => {
         return result
     }
 
+    async function loadAppQuotas() {
+        const [list, usage] = await Promise.all([
+            window.api.quota.getList(),
+            window.api.quota.getUsage()
+        ])
+        appQuotas.value = Array.isArray(list) ? list : []
+        appQuotaUsage.value = usage && typeof usage === 'object' ? usage : {}
+    }
+
     async function applyLifeMode(modeKey) {
         return window.api.lifeMode.apply(modeKey)
     }
 
     async function refreshProtectionsState() {
-        await Promise.all([loadWebFilter(), loadBlockedApps(), loadSchedule(), loadKioskStatus()])
+        await Promise.all([
+            loadWebFilter(), loadBlockedApps(), loadSchedule(), loadKioskStatus(), loadAppQuotas()
+        ])
     }
 
     return {
-        webFilterEntries, blockedApps, schedule, todayUsageMinutes, kioskStatus, statusMessage,
+        webFilterEntries, blockedApps, schedule, todayUsageMinutes, kioskStatus,
+        appQuotas, appQuotaUsage, statusMessage,
         webFilterEnabled,
-        loadWebFilter, saveWebFilter, loadBlockedApps, loadSchedule, loadKioskStatus,
+        loadWebFilter, saveWebFilter, loadBlockedApps, loadSchedule, loadKioskStatus, loadAppQuotas,
         applyLifeMode, refreshProtectionsState
     }
 })

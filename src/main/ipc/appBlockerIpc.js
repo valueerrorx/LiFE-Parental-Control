@@ -10,6 +10,86 @@ const DESKTOP_DIRS = [
 const OVERRIDE_DIR = '/usr/local/share/applications'
 const CONFIG_FILE = 'blocked-apps.json'
 
+// Best-effort name for pgrep -x: flatpak --command=, flatpak run APP_ID, snap run, then first real executable.
+function execLineToProcessName(execLine) {
+    if (!execLine || typeof execLine !== 'string') return ''
+    const raw = execLine.trim().split(/\s+/).map(t => t.replace(/^['"]|['"]$/g, ''))
+    const skipLead = new Set(['env', 'dbus-run-session', 'gdbus'])
+    let i = 0
+    while (i < raw.length) {
+        const t = raw[i]
+        if (skipLead.has(t.toLowerCase())) {
+            i++
+            continue
+        }
+        if (/^[A-Za-z_][A-Za-z0-9_]*=/.test(t)) {
+            i++
+            continue
+        }
+        break
+    }
+    const tokens = raw.slice(i)
+    if (!tokens.length) return ''
+
+    for (let j = 0; j < tokens.length; j++) {
+        if (tokens[j].startsWith('--command=')) {
+            const v = tokens[j].slice('--command='.length)
+            if (v) return v.includes('/') ? (path.basename(v) || v) : v
+        }
+        if (tokens[j] === '--command' && j + 1 < tokens.length) {
+            const v = tokens[j + 1]
+            return v.includes('/') ? (path.basename(v) || v) : v
+        }
+    }
+
+    for (let j = 0; j < tokens.length - 2; j++) {
+        const base = tokens[j].includes('/') ? path.basename(tokens[j]) : tokens[j]
+        if (base === 'snap' && tokens[j + 1] === 'run') {
+            const v = tokens[j + 2]
+            if (v && !v.startsWith('-')) return v.includes('/') ? (path.basename(v) || v) : v
+        }
+    }
+
+    const flatpakArgPair = new Set(['--arch', '--branch', '--share', '--socket', '--device', '--filesystem', '--env',
+        '--own-name', '--talk-name', '--system-talk-name', '--persist', '--add-policy', '--remove-policy'])
+    for (let j = 0; j < tokens.length - 1; j++) {
+        const base = tokens[j].includes('/') ? path.basename(tokens[j]) : tokens[j]
+        if (base !== 'flatpak' || tokens[j + 1] !== 'run') continue
+        let k = j + 2
+        while (k < tokens.length && tokens[k].startsWith('-')) {
+            const t = tokens[k]
+            if (t.startsWith('--command=') || t === '--command') break
+            if (t.includes('=')) {
+                k++
+                continue
+            }
+            if (flatpakArgPair.has(t) && k + 1 < tokens.length) {
+                k += 2
+                continue
+            }
+            k++
+        }
+        if (k < tokens.length && !tokens[k].startsWith('-')) {
+            const app = tokens[k]
+            if (app.includes('/')) return path.basename(app) || app
+            if (app.includes('.')) {
+                const tail = app.slice(app.lastIndexOf('.') + 1)
+                return tail || app
+            }
+            return app
+        }
+        break
+    }
+
+    for (let p = 0; p < tokens.length; p++) {
+        const t = tokens[p]
+        if (/^[A-Za-z_][A-Za-z0-9_]*=/.test(t)) continue
+        if (t.includes('/')) return path.basename(t) || t
+        return t
+    }
+    return ''
+}
+
 function parseDesktopFile(filePath) {
     try {
         const content = fs.readFileSync(filePath, 'utf8')
@@ -23,7 +103,7 @@ function parseDesktopFile(filePath) {
         const noDisplay = get('NoDisplay').toLowerCase() === 'true'
         const hidden = get('Hidden').toLowerCase() === 'true'
         if (!name || !exec || noDisplay || hidden) return null
-        return { id: path.basename(filePath), name, exec, icon, filePath }
+        return { id: path.basename(filePath), name, exec, icon, filePath, processName: execLineToProcessName(exec) }
     } catch { return null }
 }
 

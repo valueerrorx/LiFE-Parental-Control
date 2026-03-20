@@ -9,7 +9,10 @@
                 <i class="bi bi-circle-fill" style="font-size:7px;" />
                 {{ schedule.enabled ? 'Active' : 'Disabled' }}
             </span>
-            <button class="btn-pc-primary" @click="onSave" :disabled="saving">
+            <button type="button" class="btn-pc-outline" :disabled="saving || redeploying" @click="onRedeployCron">
+                <i class="bi bi-arrow-repeat me-1" />{{ redeploying ? 'Rewriting…' : 'Rewrite cron script' }}
+            </button>
+            <button class="btn-pc-primary" @click="onSave" :disabled="saving || redeploying">
                 <i class="bi bi-floppy me-1" />{{ saving ? 'Saving…' : 'Save' }}
             </button>
         </div>
@@ -94,6 +97,9 @@
                         <label class="text-muted small" style="white-space:nowrap;">To:</label>
                         <input v-model="schedule.allowedHoursEnd" type="time" class="pc-input" style="width:130px;" />
                     </div>
+                    <p class="text-muted small mb-3 mb-md-2">
+                        If <strong>From</strong> is later than <strong>To</strong> (e.g. 22:00–07:00), the allowed window spans midnight.
+                    </p>
                     <div>
                         <label class="text-muted small d-block mb-2">Active on days:</label>
                         <div class="d-flex gap-2 flex-wrap">
@@ -102,6 +108,30 @@
                                 <span>{{ day }}</span>
                             </label>
                         </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="pc-card mb-3">
+            <div class="pc-card-header d-flex align-items-center justify-content-between">
+                <h6 class="mb-0">Recent screen time</h6>
+                <button type="button" class="btn btn-sm btn-outline-secondary" @click="refreshUsageData">
+                    Refresh
+                </button>
+            </div>
+            <div class="pc-card-body">
+                <p class="text-muted small mb-2">
+                    Logged minutes from <code>usage-*.json</code> (cron increments while a graphical session is active and daily limit is enabled).
+                </p>
+                <div v-if="usageHistory.length === 0" class="text-muted small">No history files in config dir yet.</div>
+                <div v-else class="d-flex flex-column gap-2">
+                    <div v-for="row in usageHistory" :key="row.date" class="d-flex align-items-center gap-2 gap-md-3 flex-wrap">
+                        <span style="min-width:92px;font-size:12px;" class="text-muted">{{ row.date }}</span>
+                        <div class="flex-grow-1 usage-bar-track" style="min-width:120px;height:10px;">
+                            <div class="usage-bar-fill" :style="historyBarStyle(row)" />
+                        </div>
+                        <span style="min-width:40px;font-size:12px;text-align:right;">{{ row.minutes }}m</span>
                     </div>
                 </div>
             </div>
@@ -123,19 +153,42 @@ const schedule = reactive({
     allowedHoursEnabled: false, allowedHoursStart: '07:00', allowedHoursEnd: '22:00',
     allowedDays: [1, 2, 3, 4, 5, 6, 7]
 })
-const saving    = ref(false)
-const saveMsg   = ref('')
+const saving      = ref(false)
+const redeploying = ref(false)
+const saveMsg     = ref('')
 const saveError = ref(false)
 const todayMinutes = ref(0)
+const usageHistory = ref([])
 
 const usagePercent  = computed(() => Math.min(100, Math.round((todayMinutes.value / (schedule.dailyLimitMinutes || 120)) * 100)))
 const usageBarColor = computed(() => usagePercent.value >= 100 ? '#C62828' : usagePercent.value >= 80 ? '#E65100' : '#1565C0')
 const usageColor    = computed(() => ({ color: usageBarColor.value }))
 
-onMounted(async () => {
-    const [saved, usage] = await Promise.all([window.api.schedules.get(), window.api.schedules.getUsage()])
-    if (saved) Object.assign(schedule, saved)
+function historyBarStyle(row) {
+    const limit = schedule.dailyLimitEnabled ? (schedule.dailyLimitMinutes || 120) : 0
+    if (limit > 0) {
+        const pct = Math.min(100, Math.round((row.minutes / limit) * 100))
+        const bg = pct >= 100 ? '#C62828' : pct >= 80 ? '#E65100' : '#1565C0'
+        return { width: `${pct}%`, background: bg }
+    }
+    const peak = Math.max(...usageHistory.value.map(d => d.minutes), 1)
+    const pct = Math.min(100, Math.round((row.minutes / peak) * 100))
+    return { width: `${pct}%`, background: '#1565C0' }
+}
+
+async function refreshUsageData() {
+    const [usage, hist] = await Promise.all([
+        window.api.schedules.getUsage(),
+        window.api.schedules.getUsageHistory(14)
+    ])
     if (usage) todayMinutes.value = usage.minutes ?? 0
+    usageHistory.value = hist.days ?? []
+}
+
+onMounted(async () => {
+    const saved = await window.api.schedules.get()
+    if (saved) Object.assign(schedule, saved)
+    await refreshUsageData()
 })
 
 function applyPreset(kind) {
@@ -165,12 +218,26 @@ function applyPreset(kind) {
     setTimeout(() => { saveMsg.value = '' }, 5000)
 }
 
+async function onRedeployCron() {
+    if (!window.confirm('Rewrite /usr/local/bin/life-parental-check and /etc/cron.d/life-parental from saved schedules.json? (Does not change limits in the form — use Save for that.)')) return
+    redeploying.value = true
+    const result = await window.api.schedules.redeploy()
+    redeploying.value = false
+    if (result?.error) { saveMsg.value = `Error: ${result.error}`; saveError.value = true }
+    else { saveMsg.value = 'Cron and check script rewritten from disk'; saveError.value = false }
+    setTimeout(() => { saveMsg.value = '' }, 5000)
+}
+
 async function onSave() {
     saving.value = true
     const result = await window.api.schedules.save({ ...schedule })
     saving.value = false
     if (result?.error) { saveMsg.value = `Error: ${result.error}`; saveError.value = true }
-    else { saveMsg.value = 'Screen time settings saved'; saveError.value = false }
+    else {
+        saveMsg.value = 'Screen time settings saved'
+        saveError.value = false
+        await refreshUsageData()
+    }
     setTimeout(() => { saveMsg.value = '' }, 4000)
 }
 </script>

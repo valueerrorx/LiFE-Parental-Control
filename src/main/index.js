@@ -10,6 +10,8 @@ import { registerAppBlockerIpc } from './ipc/appBlockerIpc.js'
 import { registerSchedulesIpc } from './ipc/schedulesIpc.js'
 import { registerSettingsIpc } from './ipc/settingsIpc.js'
 import { registerLifeModeIpc } from './ipc/lifeModeIpc.js'
+import { registerBackupIpc } from './ipc/backupIpc.js'
+import { registerQuotaIpc } from './ipc/quotaIpc.js'
 
 // __dirname = out/main/ after electron-vite compilation
 
@@ -52,6 +54,8 @@ app.whenReady().then(() => {
     registerSchedulesIpc(ipcMain, APP_CONFIG_DIR)
     registerSettingsIpc(ipcMain, APP_CONFIG_DIR)
     registerLifeModeIpc(ipcMain, APP_CONFIG_DIR)
+    registerQuotaIpc(ipcMain, APP_CONFIG_DIR)
+    registerBackupIpc(ipcMain, APP_CONFIG_DIR, () => mainWindow)
 
     Menu.setApplicationMenu(null)
 

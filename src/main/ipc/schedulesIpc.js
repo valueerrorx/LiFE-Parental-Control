@@ -7,7 +7,7 @@ const CRON_MARKER = '# LiFE Parental Control'
 const CHECK_SCRIPT = '/usr/local/bin/life-parental-check'
 const CRON_FILE = '/etc/cron.d/life-parental'
 
-const DEFAULT_SCHEDULE = {
+export const DEFAULT_SCHEDULE = {
     enabled: false,
     dailyLimitEnabled: false,
     dailyLimitMinutes: 120,
@@ -30,6 +30,25 @@ function readUsage(configDir) {
     } catch {
         return { date: today, minutes: 0 }
     }
+}
+
+function readUsageHistory(configDir, maxDays) {
+    const re = /^usage-(\d{4}-\d{2}-\d{2})\.json$/
+    const entries = []
+    for (const name of fs.readdirSync(configDir)) {
+        const m = name.match(re)
+        if (!m) continue
+        const dateStr = m[1]
+        try {
+            const data = JSON.parse(fs.readFileSync(path.join(configDir, name), 'utf8'))
+            const minutes = data.date === dateStr ? (data.minutes ?? 0) : 0
+            entries.push({ date: dateStr, minutes })
+        } catch {
+            entries.push({ date: dateStr, minutes: 0 })
+        }
+    }
+    entries.sort((a, b) => b.date.localeCompare(a.date))
+    return entries.slice(0, maxDays)
 }
 
 function installCheckScript(configDir) {
@@ -97,13 +116,18 @@ def lock_and_notify(message):
 
 active_sessions = get_active_graphical_sessions()
 
-# --- Allowed hours check ---
+# --- Allowed hours check (supports window across midnight when start > end, e.g. 22:00-07:00) ---
 if s.get('allowedHoursEnabled') and weekday in s.get('allowedDays', []):
     sh, sm = map(int, s['allowedHoursStart'].split(':'))
     eh, em = map(int, s['allowedHoursEnd'].split(':'))
     start  = datetime.time(sh, sm)
     end_t  = datetime.time(eh, em)
-    if not (start <= now.time() <= end_t):
+    now_t = now.time()
+    if start <= end_t:
+        allowed_now = start <= now_t <= end_t
+    else:
+        allowed_now = now_t >= start or now_t <= end_t
+    if not allowed_now:
         lock_and_notify('Computer use is not allowed at this time.')
         sys.exit(0)
 
@@ -144,15 +168,39 @@ function updateCron(schedule, configDir) {
     execFile('systemctl', ['reload', 'crond'], { timeout: 3000 }, () => {})
 }
 
+export function redeployScheduleCron(configDir) {
+    updateCron(readSchedule(configDir), configDir)
+}
+
+export function persistSchedule(configDir, schedule) {
+    fs.writeFileSync(path.join(configDir, CONFIG_FILE), JSON.stringify(schedule, null, 2), 'utf8')
+    updateCron(schedule, configDir)
+}
+
 export function registerSchedulesIpc(ipcMain, configDir) {
     ipcMain.handle('schedules:get', () => readSchedule(configDir))
 
     ipcMain.handle('schedules:getUsage', () => readUsage(configDir))
 
+    ipcMain.handle('schedules:getUsageHistory', (_, rawMax) => {
+        try {
+            const maxDays = Math.min(90, Math.max(1, Number(rawMax) || 14))
+            return { days: readUsageHistory(configDir, maxDays) }
+        } catch (e) {
+            return { days: [], error: e.message }
+        }
+    })
+
     ipcMain.handle('schedules:save', (_, schedule) => {
         try {
-            fs.writeFileSync(path.join(configDir, CONFIG_FILE), JSON.stringify(schedule, null, 2), 'utf8')
-            updateCron(schedule, configDir)
+            persistSchedule(configDir, schedule)
+        } catch (e) { return { error: e.message } }
+    })
+
+    ipcMain.handle('schedules:redeploy', () => {
+        try {
+            redeployScheduleCron(configDir)
+            return { ok: true }
         } catch (e) { return { error: e.message } }
     })
 }

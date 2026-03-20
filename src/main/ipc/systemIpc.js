@@ -44,9 +44,26 @@ function summarizeKdeglobalsKiosk(text) {
 }
 
 function restartKdeSession() {
-    execFile('kquitapp6', ['ksmserver'], err => {
+    const dbusAttempts = [
+        ['qdbus6', 'org.kde.KSMServer'],
+        ['qdbus6', 'org.kde.ksmserver'],
+        ['qdbus', 'org.kde.KSMServer'],
+        ['qdbus', 'org.kde.ksmserver']
+    ]
+    const runDbusChain = (idx) => {
+        if (idx >= dbusAttempts.length) return
+        const [bin, svc] = dbusAttempts[idx]
+        execFile(bin, [svc, '/KSMServer', 'logout', '0', '0', '1'], { timeout: 8000 }, err => {
+            if (!err) return
+            runDbusChain(idx + 1)
+        })
+    }
+    execFile('kquitapp6', ['ksmserver'], { timeout: 8000 }, err => {
         if (!err) return
-        execFile('kquitapp5', ['ksmserver'], () => {})
+        execFile('kquitapp5', ['ksmserver'], { timeout: 8000 }, err2 => {
+            if (!err2) return
+            runDbusChain(0)
+        })
     })
 }
 

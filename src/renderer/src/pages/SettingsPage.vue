@@ -1,0 +1,241 @@
+<template>
+    <div class="pc-page-header">
+        <h1>Settings</h1>
+        <p>Password protection and application configuration</p>
+    </div>
+
+    <div class="pc-content">
+        <div class="row g-3">
+            <!-- Change password -->
+            <div class="col-6">
+                <div class="pc-card">
+                    <div class="pc-card-header">
+                        <h6><i class="bi bi-key me-2" />Change Password</h6>
+                    </div>
+                    <div class="pc-card-body">
+                        <div class="mb-3">
+                            <label class="form-label small text-muted">Current password</label>
+                            <input v-model="changePw.current" type="password" class="pc-input" placeholder="Current password" />
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label small text-muted">New password</label>
+                            <input v-model="changePw.new1" type="password" class="pc-input" placeholder="New password" />
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label small text-muted">Confirm new password</label>
+                            <input v-model="changePw.new2" type="password" class="pc-input" placeholder="Repeat new password" />
+                        </div>
+                        <p v-if="pwMsg" :class="pwError ? 'text-danger' : 'text-success'" class="small">{{ pwMsg }}</p>
+                        <button class="btn-pc-primary" @click="onChangePassword">Update Password</button>
+                    </div>
+                </div>
+
+                <div class="pc-card mt-3">
+                    <div class="pc-card-header"><h6><i class="bi bi-archive me-2" />Backup &amp; restore</h6></div>
+                    <div class="pc-card-body">
+                        <p class="text-muted small mb-3">
+                            Export or import a JSON bundle: screen time, web filter list (also writes <code>/etc/hosts</code> marker block on import), blocked <code>.desktop</code> ids, per-app daily limits (<code>quota.json</code> + cron), custom life modes. Password and usage history are <strong>not</strong> included.
+                        </p>
+                        <div class="d-flex flex-wrap gap-2">
+                            <button type="button" class="btn-pc-outline" :disabled="backupBusy" @click="onBackupExport">
+                                <i class="bi bi-download me-1" />Export…
+                            </button>
+                            <button type="button" class="btn-pc-outline" :disabled="backupBusy" @click="onBackupImport">
+                                <i class="bi bi-upload me-1" />Import…
+                            </button>
+                        </div>
+                        <p v-if="backupMsg" class="small mt-2 mb-0" :class="backupError ? 'text-danger' : 'text-success'">{{ backupMsg }}</p>
+                    </div>
+                </div>
+
+                <div class="pc-card mt-3">
+                    <div class="pc-card-header"><h6><i class="bi bi-wrench-adjustable me-2" />Maintenance</h6></div>
+                    <div class="pc-card-body">
+                        <p class="text-muted small mb-3">
+                            Re-deploy cron jobs from JSON on disk (after app updates) — same as <strong>Screen Time</strong> /
+                            <strong>App Control</strong> “Rewrite”. <strong>Web filter</strong> rewrites the LiFE
+                            <code>/etc/hosts</code> block from <code>webfilter.json</code> (e.g. hosts edited by hand).
+                        </p>
+                        <div class="d-flex flex-wrap gap-2">
+                            <button type="button" class="btn-pc-outline" :disabled="maintBusy" @click="onRedeployScheduleCron">
+                                <i class="bi bi-arrow-repeat me-1" />Screen time
+                            </button>
+                            <button type="button" class="btn-pc-outline" :disabled="maintBusy" @click="onRedeployQuotaCron">
+                                <i class="bi bi-arrow-repeat me-1" />App quotas
+                            </button>
+                            <button type="button" class="btn-pc-outline" :disabled="maintBusy" @click="onReapplyWebHosts">
+                                <i class="bi bi-arrow-repeat me-1" />Web filter hosts
+                            </button>
+                        </div>
+                        <p v-if="maintMsg" class="small mt-2 mb-0" :class="maintError ? 'text-danger' : 'text-success'">{{ maintMsg }}</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- About + danger zone -->
+            <div class="col-6">
+                <div class="pc-card mb-3">
+                    <div class="pc-card-header"><h6><i class="bi bi-info-circle me-2" />About</h6></div>
+                    <div class="pc-card-body">
+                        <div class="d-flex flex-column gap-1" style="font-size:13px;">
+                            <div><span class="text-muted" style="min-width:120px;display:inline-block;">Application</span> LiFE Parental Control</div>
+                            <div><span class="text-muted" style="min-width:120px;display:inline-block;">Platform</span> KDE Plasma (Linux)</div>
+                            <div><span class="text-muted" style="min-width:120px;display:inline-block;">Config directory</span> <code>/etc/life-parental/</code></div>
+                            <div><span class="text-muted" style="min-width:120px;display:inline-block;">Running as</span> root</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="pc-card mb-3">
+                    <div class="pc-card-header"><h6><i class="bi bi-sliders me-2" />Custom family profiles</h6></div>
+                    <div class="pc-card-body text-muted" style="font-size:12px;line-height:1.65;">
+                        <p class="mb-2">Add modes to <code>/etc/life-parental/life-modes.json</code>. Keys must not be <code>school</code> or <code>leisure</code> (those stay built-in). Restart the app or rely on the next Dashboard load to see new buttons.</p>
+                        <p class="mb-2 small"><strong>Fields:</strong> <code>label</code> (optional), <code>schedule</code> (same shape as Screen Time), <code>mergeCategories</code> / <code>stripCategories</code> (Web Filter category names only), <code>blockedDesktopIds</code> (e.g. <code>firefox.desktop</code>). If <code>mergeCategories</code> is non-empty, <code>stripCategories</code> is ignored for that mode.</p>
+                        <pre class="bg-light border rounded p-2 mb-0" style="font-size:11px;max-height:220px;overflow:auto;">{
+  "homework": {
+    "label": "Homework",
+    "schedule": {
+      "enabled": true,
+      "dailyLimitEnabled": true,
+      "dailyLimitMinutes": 60,
+      "allowedHoursEnabled": true,
+      "allowedHoursStart": "17:00",
+      "allowedHoursEnd": "20:00",
+      "allowedDays": [1, 2, 3, 4, 5]
+    },
+    "mergeCategories": ["Video Streaming"],
+    "stripCategories": [],
+    "blockedDesktopIds": []
+  }
+}</pre>
+                    </div>
+                </div>
+
+                <div class="pc-card" style="border-color:#FFCDD2;">
+                    <div class="pc-card-header" style="background:#FFF5F5;">
+                        <h6 style="color:#C62828;"><i class="bi bi-exclamation-triangle me-2" />Danger Zone</h6>
+                    </div>
+                    <div class="pc-card-body d-flex flex-column gap-2">
+                        <button class="btn-pc-danger" @click="onExit">
+                            <i class="bi bi-box-arrow-right me-1" />Exit Application
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</template>
+
+<script setup>
+import { reactive, ref } from 'vue'
+import { useAppStore } from '../stores/appStore.js'
+
+const appStore = useAppStore()
+
+const changePw = reactive({ current: '', new1: '', new2: '' })
+const pwMsg = ref('')
+const pwError = ref(false)
+const backupBusy = ref(false)
+const backupMsg = ref('')
+const backupError = ref(false)
+const maintBusy = ref(false)
+const maintMsg = ref('')
+const maintError = ref(false)
+
+async function onChangePassword() {
+    pwMsg.value = ''
+    if (!changePw.new1) { pwMsg.value = 'New password cannot be empty'; pwError.value = true; return }
+    if (changePw.new1 !== changePw.new2) { pwMsg.value = 'Passwords do not match'; pwError.value = true; return }
+    const result = await window.api.settings.changePassword(changePw.current, changePw.new1)
+    if (result?.error) {
+        pwMsg.value = result.error; pwError.value = true
+    } else {
+        pwMsg.value = 'Password updated successfully'; pwError.value = false
+        changePw.current = changePw.new1 = changePw.new2 = ''
+    }
+}
+
+function onExit() {
+    window.api.system.quit()
+}
+
+async function onRedeployScheduleCron() {
+    if (!window.confirm('Rewrite /usr/local/bin/life-parental-check and /etc/cron.d/life-parental from saved schedules.json?')) return
+    maintBusy.value = true
+    maintMsg.value = ''
+    const r = await window.api.schedules.redeploy()
+    maintBusy.value = false
+    if (r?.error) {
+        maintMsg.value = r.error
+        maintError.value = true
+    } else {
+        maintMsg.value = 'Screen time cron and check script updated.'
+        maintError.value = false
+    }
+}
+
+async function onRedeployQuotaCron() {
+    if (!window.confirm('Rewrite /usr/local/bin/life-parental-quota and /etc/cron.d/life-parental-quota from quota.json?')) return
+    maintBusy.value = true
+    maintMsg.value = ''
+    const r = await window.api.quota.redeploy()
+    maintBusy.value = false
+    if (r?.error) {
+        maintMsg.value = r.error
+        maintError.value = true
+    } else {
+        maintMsg.value = 'App quota cron and script updated.'
+        maintError.value = false
+    }
+}
+
+async function onReapplyWebHosts() {
+    if (!window.confirm('Rewrite the LiFE block in /etc/hosts from /etc/life-parental/webfilter.json?')) return
+    maintBusy.value = true
+    maintMsg.value = ''
+    const r = await window.api.webFilter.reapplyMirror()
+    maintBusy.value = false
+    if (r?.error) {
+        maintMsg.value = r.error
+        maintError.value = true
+    } else {
+        await appStore.loadWebFilter()
+        maintMsg.value = 'Web filter hosts block updated from webfilter.json.'
+        maintError.value = false
+    }
+}
+
+async function onBackupExport() {
+    backupMsg.value = ''
+    backupBusy.value = true
+    const r = await window.api.backup.export()
+    backupBusy.value = false
+    if (r?.canceled) return
+    if (r?.error) {
+        backupMsg.value = r.error
+        backupError.value = true
+    } else {
+        backupMsg.value = `Saved: ${r.path}`
+        backupError.value = false
+    }
+}
+
+async function onBackupImport() {
+    backupMsg.value = ''
+    if (!window.confirm(
+        'Overwrite schedules, web filter (/etc/hosts + mirror), blocked apps, app quotas (cron script), and life-modes.json on this system from the selected file?'
+    )) return
+    backupBusy.value = true
+    const r = await window.api.backup.import()
+    backupBusy.value = false
+    if (r?.canceled) return
+    if (r?.error) {
+        backupMsg.value = r.error
+        backupError.value = true
+    } else {
+        await appStore.refreshProtectionsState()
+        backupMsg.value = 'Import completed. Protection state refreshed (open Dashboard to reload family profile buttons).'
+        backupError.value = false
+    }
+}
+</script>

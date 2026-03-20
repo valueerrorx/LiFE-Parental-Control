@@ -99,3 +99,16 @@ ENV/
 
 # mypy
 .mypy_cache/
+
+# Node / Electron / Quasar
+node_modules/
+dist/
+out/
+.quasar/
+.eslintcache
+*.local
+
+# IDE / AI tooling
+.cursor /
+.cursor/
+.claude/
