@@ -10,21 +10,21 @@
 
         <nav>
             <div class="nav-section-label">Overview</div>
-            <RouterLink to="/" custom v-slot="{ navigate, isActive }">
-                <button class="nav-item-link" :class="{ active: isActive }" @click="navigate">
+            <RouterLink to="/" custom v-slot="{ navigate, isExactActive }">
+                <button class="nav-item-link" :class="{ active: isExactActive }" @click="navigate">
                     <i class="bi bi-speedometer2" /> Dashboard
                 </button>
             </RouterLink>
 
             <div class="nav-section-label">Protection</div>
-            <RouterLink to="/webfilter" custom v-slot="{ navigate, isActive }">
-                <button class="nav-item-link" :class="{ active: isActive }" @click="navigate">
+            <RouterLink to="/webfilter" custom v-slot="{ navigate, isExactActive }">
+                <button class="nav-item-link" :class="{ active: isExactActive }" @click="navigate">
                     <i class="bi bi-shield-x" /> Web Filter
                     <span v-if="filterCount > 0" class="ms-auto badge-count">{{ filterCount }}</span>
                 </button>
             </RouterLink>
-            <RouterLink to="/apps" custom v-slot="{ navigate, isActive }">
-                <button class="nav-item-link" :class="{ active: isActive }" @click="navigate">
+            <RouterLink to="/apps" custom v-slot="{ navigate, isExactActive }">
+                <button class="nav-item-link" :class="{ active: isExactActive }" @click="navigate">
                     <i class="bi bi-app-indicator" /> App Control
                     <span v-if="blockedCount > 0 || quotaCount > 0" class="ms-auto d-flex align-items-center gap-1">
                         <span v-if="blockedCount > 0" class="badge-count" title="Blocked apps">{{ blockedCount }}</span>
@@ -32,41 +32,42 @@
                     </span>
                 </button>
             </RouterLink>
-            <RouterLink to="/schedules" custom v-slot="{ navigate, isActive }">
-                <button class="nav-item-link" :class="{ active: isActive }" @click="navigate">
+            <RouterLink to="/schedules" custom v-slot="{ navigate, isExactActive }">
+                <button class="nav-item-link" :class="{ active: isExactActive }" @click="navigate">
                     <i class="bi bi-clock-history" /> Screen Time
                     <span v-if="screenTimeOn" class="ms-auto badge-count badge-schedule" title="Screen time enforcement enabled">on</span>
                 </button>
             </RouterLink>
-            <RouterLink to="/process-whitelist" custom v-slot="{ navigate, isActive }">
-                <button class="nav-item-link" :class="{ active: isActive }" @click="navigate">
+            <RouterLink to="/process-whitelist" custom v-slot="{ navigate, isExactActive }">
+                <button class="nav-item-link" :class="{ active: isExactActive }" @click="navigate">
                     <i class="bi bi-list-check" /> Quota exemptions
                     <span v-if="whitelistActive" class="ms-auto badge-count badge-schedule" title="Daily quota exemptions enabled">on</span>
                 </button>
             </RouterLink>
 
             <div class="nav-section-label">Advanced</div>
-            <RouterLink to="/kiosk" custom v-slot="{ navigate, isActive }">
-                <button class="nav-item-link" :class="{ active: isActive }" @click="navigate">
+            <RouterLink to="/kiosk" custom v-slot="{ navigate, isExactActive }">
+                <button class="nav-item-link" :class="{ active: isExactActive }" @click="navigate">
                     <i class="bi bi-lock-fill" /> KDE Kiosk
                     <span v-if="kioskActive" class="ms-auto badge-count badge-schedule" title="KDE kiosk active">on</span>
                 </button>
             </RouterLink>
-            <RouterLink to="/settings" custom v-slot="{ navigate, isActive }">
-                <button class="nav-item-link" :class="{ active: isActive }" @click="navigate">
+            <RouterLink to="/settings" custom v-slot="{ navigate, isExactActive }">
+                <button class="nav-item-link" :class="{ active: isExactActive }" @click="navigate">
                     <i class="bi bi-gear-fill" /> Settings
                 </button>
             </RouterLink>
         </nav>
 
-        <div class="pc-sidebar-footer d-flex flex-column gap-2">
-            <button type="button" class="nav-item-link sidebar-footer-app-log py-2" @click="openApplicationLog">
+        <div class="pc-sidebar-footer">
+            <div class="nav-section-label">Diagnostics</div>
+            <button type="button" class="nav-item-link" @click="openApplicationLog">
                 <i class="bi bi-journal-text" /> Application log
             </button>
-            <div class="d-flex align-items-center justify-content-between">
+            <div class="pc-sidebar-footer-meta d-flex align-items-center justify-content-between">
                 <span :title="footerTitle">{{ footerLabel }}</span>
-                <button class="nav-item-link p-1" style="width:auto;" @click="onExit" title="Exit">
-                    <i class="bi bi-box-arrow-right" style="font-size:16px;color:rgba(255,255,255,0.6);" />
+                <button type="button" class="nav-item-link nav-item-link-icon-only" @click="onExit" title="Exit">
+                    <i class="bi bi-box-arrow-right" />
                 </button>
             </div>
         </div>
@@ -130,8 +131,5 @@ async function onExit() {
     text-transform: uppercase;
     font-size: 9px;
     letter-spacing: 0.02em;
-}
-.sidebar-footer-app-log {
-    font-size: 12.5px;
 }
 </style>

@@ -114,10 +114,31 @@ html, body, #app {
     }
 
     .pc-sidebar-footer {
-        padding: 12px 20px;
+        padding: 8px 0 0;
         border-top: 1px solid rgba(255, 255, 255, 0.15);
+        flex-shrink: 0;
+    }
+
+    .pc-sidebar-footer-meta {
+        padding: 10px 20px 14px;
         font-size: 11px;
         color: rgba(255, 255, 255, 0.45);
+    }
+
+    .nav-item-link-icon-only {
+        width: auto;
+        min-width: auto;
+        padding: 8px 10px;
+        flex-shrink: 0;
+
+        i {
+            font-size: 16px;
+            color: rgba(255, 255, 255, 0.6);
+        }
+
+        &:hover i {
+            color: #fff;
+        }
     }
 }
 
