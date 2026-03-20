@@ -1,15 +1,20 @@
-# LiFE Kiosk — persistent context (compressed)
+# LiFE Parental Control — persistent context (compressed)
 
 ## Stack (actual)
 electron-vite, Vue3+Pinia, Bootstrap5, Sass; **not** Quasar (`claude.md` stack line updated). **`src/shared/`** — cross-target modules (e.g. `lockIdleMinutes.js` imported via `@shared` alias in main + renderer). **Only** `src/main/`, `src/preload/`, `src/renderer/` for app code — no duplicate Vue tree under `src/`. Do **not** set npm `"type":"module"` (breaks preload path: outputs `.mjs` vs main expecting `.js`).
 
 ## IPC surface
-`config:readFiles`; `profile:*`; `system:*` (incl. `system:getAppInfo`: name/version/packaged/electron/node); `webfilter:*` (incl. `webfilter:reapplyMirror` → `reapplyWebFilterFromMirror`: hosts from `webfilter.json`); `apps:*`; `quota:*` (incl. `quota:redeploy`); `schedules:*` (incl. `schedules:redeploy`, `schedules:resetTodayUsage` → delete today `usage-*.json`); `lifeMode:*`; `backup:export|import`; `settings:*` (incl. `settings:getConfig` returns only whitelisted prefs (currently `lockIdleMinutes`, sanitized); `settings:saveConfig` only applies the same keys; main start `repairInvalidLockIdleInConfig` writes disk cleanup; `settings:pruneUsageArchives` → `{ ok, removed }`). **Usage log retention:** `usageArchivePrune.js` deletes `usage-*.json` / `quota-usage-*.json` when filename date is older than **120 days** (local calendar day, matches cron/Python); runs at app start, after schedule persist/redeploy + quota deploy, and manually from Settings **Maintenance**.
+`config:readFiles`; `profile:*`; `system:*` (incl. `system:getAppInfo`: name/version/packaged/electron/node); `webfilter:*` (incl. `webfilter:reapplyMirror` → `reapplyWebFilterFromMirror`: hosts from `webfilter.json`); `apps:*`; `quota:*` (incl. `quota:redeploy`, `quota:resetTodayUsage` → delete today `quota-usage-*.json`); `schedules:*` (incl. `schedules:redeploy`, `schedules:resetTodayUsage` → delete today `usage-*.json`); `lifeMode:*`; `backup:export|import`; `settings:*` (incl. `settings:getConfig` returns only whitelisted prefs (currently `lockIdleMinutes`, sanitized); `settings:saveConfig` only applies the same keys; main start `repairInvalidLockIdleInConfig` writes disk cleanup; `settings:pruneUsageArchives` → `{ ok, removed }`). **Usage log retention:** `usageArchivePrune.js` deletes `usage-*.json` / `quota-usage-*.json` when filename date is older than **120 days** (local calendar day, matches cron/Python); runs at app start, after schedule persist/redeploy + quota deploy, and manually from Settings **Maintenance**.
 
 ## KDE integration
 Kiosk: merges into `/etc/xdg/kdeglobals` — strips prior LiFE sections (`[KDE Action Restrictions][$i]` etc.) then appends new blocks; never wipes unrelated keys. Session restart: `kquitapp6 ksmserver` → `kquitapp5 ksmserver` → for each **x11/wayland** session (`loginctl` state active or online, **not** `Class=greeter|background`), user from `list-sessions`, `qdbus` as that uid with `DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/<uid>/bus` (KSMServer variants + qt bin paths) → last resort same qdbus as root (legacy). Status IPC reads same section headers (must match `kioskStore.buildPlasmaConfig`).
 
 ## Recent changes (2026-03-20)
+- **`memory.md`**: document title **LiFE Parental Control** (replaces legacy “LiFE Kiosk” header; repo/npm may still use `life-kiosk` / `life-parental-control` paths).
+- **`claude.md`**: product title **LiFE Parental Control**; Environment line matches real stack (`kdeglobals`, `qdbus`/`kquitapp`, `loginctl`, cron) — not `kwriteconfig6`.
+- **README** modules table + **Dashboard** quota card: document `usage-*` / `quota-usage-*` “reset today” actions (Screen Time / App Control).
+- **`quota:resetTodayUsage`**: IPC handler added to `quotaIpc.js`; preload + App Control button (`onResetQuotaTodayUsage`) already present — main-side handler was the missing piece.
+- **SchedulesPage** “Recent screen time” blurb: matches embedded Python (`loginctl` Type/State/Class, greeter/background skip).
 - **SchedulesPage**: `onResetTodayUsage` implemented — calls existing `schedules:resetTodayUsage` (button was broken).
 - **Graphical session pick**: one `loginctl show-session` per id (`Type`/`State`/`Class`); skip `Class=greeter` and `background` (`systemIpc`, schedule + quota Python). Reduces bogus KSMServer/logout targets and cron user lists from login greeter sessions.
 - **README**: session restart + note that cron scripts share the same `loginctl` class filter (redeploy after upgrade).
@@ -82,4 +87,4 @@ Kiosk: merges into `/etc/xdg/kdeglobals` — strips prior LiFE sections (`[KDE A
 
 ## Open / TODO
 - Session logout: rare stale `loginctl` rows; kquitapp remains preferred. **Multi-seat:** per-user `qdbus` after success; sessions active|online; greeter/background skipped.
-- Quota: remaining wrappers (AppImage `AppRun` comm mismatch, `steam` game subprocesses); UI process override when needed.
+- Quota: AppImage `AppRun` comm mismatch and Steam game subprocesses require manual override via the process-name edit field in App Control.
