@@ -183,6 +183,16 @@ export function registerQuotaIpc(ipcMain, configDir) {
 
     ipcMain.handle('quota:getUsage', () => readUsage(configDir))
 
+    ipcMain.handle('quota:resetTodayUsage', () => {
+        try {
+            const file = path.join(configDir, `quota-usage-${localIsoDate()}.json`)
+            if (fs.existsSync(file)) fs.unlinkSync(file)
+            return { ok: true }
+        } catch (e) {
+            return { error: e.message }
+        }
+    })
+
     ipcMain.handle('quota:redeploy', () => {
         try {
             redeployQuotaFromDisk(configDir)
@@ -207,6 +217,14 @@ export function registerQuotaIpc(ipcMain, configDir) {
             const quotas = readQuotaEntries(configDir).filter(q => q.appId !== appId)
             saveQuotas(configDir, quotas)
             deployScript(configDir, quotas)
+        } catch (e) { return { error: e.message } }
+    })
+
+    ipcMain.handle('quota:resetTodayUsage', () => {
+        try {
+            const file = path.join(configDir, `quota-usage-${localIsoDate()}.json`)
+            if (fs.existsSync(file)) fs.unlinkSync(file)
+            return { ok: true }
         } catch (e) { return { error: e.message } }
     })
 }

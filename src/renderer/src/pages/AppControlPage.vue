@@ -53,6 +53,9 @@
                     <button type="button" class="btn btn-sm btn-outline-secondary" :disabled="quotaBusy" @click="onRedeployQuota">
                         Rewrite cron script
                     </button>
+                    <button type="button" class="btn btn-sm btn-outline-secondary" :disabled="quotaBusy" @click="onResetQuotaTodayUsage">
+                        Reset today’s quota usage
+                    </button>
                     <span class="status-badge" :class="quotas.length > 0 ? 'active' : 'inactive'">
                         <i class="bi bi-circle-fill" style="font-size:7px;" />
                         {{ quotas.length }} app quota(s)
@@ -66,6 +69,7 @@
                     Default process names derive from <code>Exec</code> (flatpak <code>--command=</code> / <code>run</code>, <code>snap run</code>,
                     <code>sh|bash|dash|zsh -c …</code>, <code>electron</code> + flags, <code>*.AppImage</code> stem).
                     If the live process name still differs (Steam titles, some AppImages), edit the process field to match <code>comm</code> (e.g. <code>ps -o comm</code>).
+                    Counting only runs while the same <code>loginctl</code> rules as Screen Time apply (graphical <strong>active</strong>/<strong>online</strong>, not greeter/background).
                 </p>
                 <div v-if="quotas.length" class="table-responsive mb-3">
                     <table class="table table-sm align-middle mb-0">
@@ -187,6 +191,19 @@ async function onRedeployQuota() {
     const r = await window.api.quota.redeploy()
     quotaBusy.value = false
     if (r?.error) window.alert(r.error)
+}
+
+async function onResetQuotaTodayUsage() {
+    if (!window.confirm('Delete today’s quota-usage file? All “used today” minutes reset to 0; cron starts counting again on the next run.')) return
+    quotaBusy.value = true
+    const r = await window.api.quota.resetTodayUsage()
+    quotaBusy.value = false
+    if (r?.error) {
+        window.alert(r.error)
+        return
+    }
+    await loadQuotas()
+    await store.loadAppQuotas()
 }
 
 async function loadQuotas() {
