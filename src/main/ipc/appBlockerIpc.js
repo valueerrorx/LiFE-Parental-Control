@@ -1,7 +1,9 @@
 import fs from 'fs'
 import path from 'path'
+import { execFile } from 'child_process'
 import { desktopIconToDataUrl } from './desktopIconResolve.js'
 import { redeployQuotaFromDisk } from './quotaIpc.js'
+import { appendActivity } from './activityLog.js'
 
 const DESKTOP_DIRS = [
     '/usr/share/applications',
@@ -227,6 +229,8 @@ function applyDesktopOverride(configDir, appId, block) {
     } else if (fs.existsSync(overridePath)) {
         fs.unlinkSync(overridePath)
     }
+    // Refresh the app launcher database so GNOME and other desktops pick up the NoDisplay change
+    execFile('update-desktop-database', [OVERRIDE_DIR], { timeout: 5000 }, () => {})
 }
 
 export function replaceBlockedDesktopIds(configDir, nextIds) {
@@ -279,7 +283,12 @@ export function registerAppBlockerIpc(ipcMain, configDir) {
             }
             saveBlocked(configDir, list)
             applyDesktopOverride(configDir, appId, block)
-        } catch (e) { return { error: e.message } }
+            appendActivity(configDir, { action: block ? 'app_blocked' : 'app_unblocked', appId })
+            return { ok: true }
+        } catch (e) {
+            appendActivity(configDir, { action: 'app_block_error', appId, error: e.message })
+            return { error: e.message }
+        }
     })
 
     ipcMain.handle('apps:getBlocked', () => readBlocked(configDir))

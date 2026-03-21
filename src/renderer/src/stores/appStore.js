@@ -18,6 +18,7 @@ export const useAppStore = defineStore('app', () => {
     const statusMessage = ref('')
     const whitelistEnabled = ref(false)
     const runningAsRoot = ref(null)
+    const xdgCurrentDesktop = ref('')
 
     const webFilterEnabled = computed(() =>
         webFilterEntries.value.some(e => e.enabled)
@@ -103,11 +104,12 @@ export const useAppStore = defineStore('app', () => {
             ])
         ])
         runningAsRoot.value = info?.runningAsRoot ?? null
+        xdgCurrentDesktop.value = info?.xdgCurrentDesktop ?? ''
     }
 
     return {
         webFilterEntries, webFilterFeedState, webFilterHostRuleCount, webFilterAllowlist, blockedApps, schedule, todayUsageMinutes, todayExtraAllowanceMinutes, kioskStatus,
-        appQuotas, appQuotaUsage, appMonitorUsage, appMonitorLabels, statusMessage, whitelistEnabled, runningAsRoot,
+        appQuotas, appQuotaUsage, appMonitorUsage, appMonitorLabels, statusMessage, whitelistEnabled, runningAsRoot, xdgCurrentDesktop,
         webFilterEnabled,
         loadWebFilter, saveWebFilter, persistWebFilterAllowlist, loadBlockedApps, loadSchedule, loadKioskStatus, loadAppQuotas,
         loadProcessWhitelist, applyLifeMode, refreshProtectionsState

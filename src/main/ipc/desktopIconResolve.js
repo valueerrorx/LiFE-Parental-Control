@@ -137,6 +137,17 @@ function *yieldSnap(name) {
     }
 }
 
+// Explicit GNOME icon paths: hicolor/scalable/apps is the canonical GNOME location.
+function *yieldGnomeDirectPaths(name) {
+    const n = name.replace(/\.(png|svg|xpm)$/i, '')
+    yield path.join('/usr/share/icons/hicolor/scalable/apps', `${n}.svg`)
+    yield path.join('/usr/share/icons/hicolor/256x256/apps', `${n}.png`)
+    yield path.join('/usr/share/icons/hicolor/128x128/apps', `${n}.png`)
+    yield path.join('/usr/share/icons/hicolor/48x48/apps', `${n}.png`)
+    yield path.join('/usr/share/pixmaps', `${n}.png`)
+    yield path.join('/usr/share/pixmaps', `${n}.svg`)
+}
+
 function *yieldCandidatesForToken(token, desktopFilePath) {
     if (!token || typeof token !== 'string') return
     const icon = token.trim()
@@ -156,6 +167,8 @@ function *yieldCandidatesForToken(token, desktopFilePath) {
     }
 
     const name = icon.replace(/\.(png|svg|xpm)$/i, '')
+    // GNOME: check hicolor/scalable/apps and pixmaps directly before full theme discovery
+    for (const stem of iconStemVariants(name)) yield* yieldGnomeDirectPaths(stem)
     yield* yieldPixmaps(name)
     for (const stem of iconStemVariants(name)) yield* yieldThemedPaths(stem)
     yield* yieldSnap(name)

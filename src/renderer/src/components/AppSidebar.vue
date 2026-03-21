@@ -46,7 +46,7 @@
             </RouterLink>
 
             <div class="nav-section-label">Advanced</div>
-            <RouterLink to="/kiosk" custom v-slot="{ navigate, isExactActive }">
+            <RouterLink v-if="isKDE" to="/kiosk" custom v-slot="{ navigate, isExactActive }">
                 <button class="nav-item-link" :class="{ active: isExactActive }" @click="navigate">
                     <i class="bi bi-lock-fill" /> KDE Kiosk
                     <span v-if="kioskActive" class="ms-auto badge-count badge-schedule" title="KDE kiosk active">on</span>
@@ -87,6 +87,11 @@ const quotaCount = computed(() => store.appQuotas.length)
 const screenTimeOn = computed(() => store.schedule?.enabled === true)
 const kioskActive = computed(() => store.kioskStatus?.active === true)
 const whitelistActive = computed(() => store.whitelistEnabled === true)
+// Show KDE Kiosk tab only on KDE; hide on GNOME/other desktops
+const isKDE = computed(() => {
+    const d = (store.xdgCurrentDesktop || '').toUpperCase()
+    return !d || d.includes('KDE')
+})
 
 const footerLabel = computed(() => {
     if (store.runningAsRoot === true) return 'Running as root'

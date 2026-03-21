@@ -1,4 +1,4 @@
-import { app, dialog } from 'electron'
+import { app, dialog, Notification } from 'electron'
 import { execFile } from 'child_process'
 import fs from 'fs'
 import { appendActivity } from './activityLog.js'
@@ -168,14 +168,60 @@ export function persistKioskConfigText(configDir, configText) {
     restartKdeSession()
 }
 
+function applyUrgentWindowPresentation(win) {
+    if (!win || win.isDestroyed()) return
+    if (win.isMinimized()) win.restore()
+    win.show()
+    win.focus()
+    try {
+        win.setVisibleOnAllWorkspaces(true)
+    } catch {
+        /* ignore */
+    }
+    try {
+        win.setAlwaysOnTop(true, 'screen-saver')
+    } catch {
+        try {
+            win.setAlwaysOnTop(true, 'floating')
+        } catch {
+            try {
+                win.setAlwaysOnTop(true)
+            } catch {
+                /* ignore */
+            }
+        }
+    }
+    try {
+        win.moveTop()
+    } catch {
+        /* ignore */
+    }
+}
+
+function clearUrgentWindowPresentation(win) {
+    if (!win || win.isDestroyed()) return
+    try {
+        win.setAlwaysOnTop(false)
+    } catch {
+        /* ignore */
+    }
+    try {
+        win.setVisibleOnAllWorkspaces(false)
+    } catch {
+        /* ignore */
+    }
+}
+
 export function registerSystemIpc(ipcMain, getWindow, configDir) {
+    let urgentPresentDepth = 0
     ipcMain.handle('system:getAppInfo', () => ({
         name: app.getName(),
         version: app.getVersion(),
         packaged: app.isPackaged,
         electron: process.versions.electron,
         node: process.versions.node,
-        runningAsRoot: typeof process.getuid === 'function' ? process.getuid() === 0 : null
+        runningAsRoot: typeof process.getuid === 'function' ? process.getuid() === 0 : null,
+        xdgCurrentDesktop: process.env.XDG_CURRENT_DESKTOP ?? ''
     }))
 
     ipcMain.handle('system:getKioskStatus', async () => {
@@ -228,5 +274,46 @@ export function registerSystemIpc(ipcMain, getWindow, configDir) {
             message
         })
         return response === 1
+    })
+
+    ipcMain.handle('window:beginUrgentPresent', () => {
+        const win = getWindow()
+        urgentPresentDepth += 1
+        if (urgentPresentDepth === 1) applyUrgentWindowPresentation(win)
+        return { ok: true }
+    })
+
+    ipcMain.handle('window:endUrgentPresent', () => {
+        const win = getWindow()
+        if (urgentPresentDepth <= 0) return { ok: true }
+        urgentPresentDepth -= 1
+        if (urgentPresentDepth === 0) clearUrgentWindowPresentation(win)
+        return { ok: true }
+    })
+
+    ipcMain.handle('window:isObscured', () => {
+        const win = getWindow()
+        if (!win || win.isDestroyed()) return true
+        return win.isMinimized() || !win.isVisible()
+    })
+
+    ipcMain.handle('window:showNativeNotification', (_, payload) => {
+        const title = String((payload && payload.title) || 'LiFE Parental Control')
+        const body = String((payload && payload.body) ?? '')
+        if (!Notification.isSupported()) return { ok: false, reason: 'not_supported' }
+        try {
+            const n = new Notification({ title, body })
+            n.on('click', () => {
+                const win = getWindow()
+                if (!win || win.isDestroyed()) return
+                if (win.isMinimized()) win.restore()
+                win.show()
+                win.focus()
+            })
+            n.show()
+            return { ok: true }
+        } catch (e) {
+            return { ok: false, error: String(e && e.message ? e.message : e) }
+        }
     })
 }

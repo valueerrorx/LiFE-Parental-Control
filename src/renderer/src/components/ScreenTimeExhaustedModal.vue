@@ -52,6 +52,7 @@
 <script setup>
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useAppStore } from '../stores/appStore.js'
+import { useUrgentWindowPresent } from '../composables/useUrgentWindowPresent.js'
 
 const store = useAppStore()
 const hideUntilMs = ref(0)
@@ -74,6 +75,8 @@ const exhausted = computed(() => {
 })
 
 const visible = computed(() => exhausted.value && Date.now() >= hideUntilMs.value)
+
+useUrgentWindowPresent(visible)
 
 watch(exhausted, (v) => {
     if (!v) hideUntilMs.value = 0

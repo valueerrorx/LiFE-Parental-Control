@@ -5,12 +5,14 @@
             <router-view />
         </main>
     </div>
+    <ScreenTimeLowWarningModal />
     <ScreenTimeExhaustedModal />
 </template>
 
 <script setup>
 import { onMounted, onUnmounted } from 'vue'
 import AppSidebar from '../components/AppSidebar.vue'
+import ScreenTimeLowWarningModal from '../components/ScreenTimeLowWarningModal.vue'
 import ScreenTimeExhaustedModal from '../components/ScreenTimeExhaustedModal.vue'
 import { useAppStore } from '../stores/appStore.js'
 
@@ -20,7 +22,10 @@ const QUOTA_USAGE_POLL_MS = 60_000
 let quotaPollTimer = null
 
 function onVisibilityChange() {
-    if (document.visibilityState === 'visible') void store.loadAppQuotas()
+    if (document.visibilityState === 'visible') {
+        void store.loadAppQuotas()
+        void store.loadSchedule()
+    }
 }
 
 onMounted(() => {

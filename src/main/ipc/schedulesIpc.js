@@ -69,7 +69,7 @@ function installCheckScript(configDir) {
     // Python script deployed to /usr/local/bin — runs every minute via cron as root
     const script = `#!/usr/bin/env python3
 # LiFE Parental Control - screen time enforcement
-import json, datetime, subprocess, sys, os, pwd
+import json, datetime, subprocess, sys, os, pwd, shutil
 
 SCHED_FILE = "${configDir}/schedules.json"
 USAGE_DIR  = "${configDir}"
@@ -127,17 +127,92 @@ def get_active_graphical_sessions():
         pass
     return sessions
 
-def notify_user(user, message):
-    # Use the user's systemd D-Bus socket at /run/user/<uid>/bus
+def _parse_proc_environ(pid):
     try:
-        uid = pwd.getpwnam(user).pw_uid
-        env = {**os.environ, 'DBUS_SESSION_BUS_ADDRESS': f'unix:path=/run/user/{uid}/bus'}
+        with open(os.path.join('/proc', pid, 'environ'), 'rb') as f:
+            raw = f.read()
+    except (FileNotFoundError, PermissionError, TypeError):
+        return None
+    env = {}
+    for entry in raw.split(b'\\x00'):
+        if not entry or b'=' not in entry:
+            continue
+        k, v = entry.split(b'=', 1)
+        try:
+            env[k.decode('utf-8', errors='replace')] = v.decode('utf-8', errors='replace')
+        except Exception:
+            pass
+    return env or None
+
+def _proc_uid_comm(pid):
+    try:
+        uid = None
+        with open(os.path.join('/proc', pid, 'status'), encoding='utf-8', errors='replace') as f:
+            for line in f:
+                if line.startswith('Uid:'):
+                    uid = int(line.split()[1])
+                    break
+        with open(os.path.join('/proc', pid, 'comm'), encoding='utf-8', errors='replace') as f:
+            comm = f.read().strip()
+        return uid, comm
+    except Exception:
+        return None, None
+
+_SESSION_COMM_PRIORITY = ('plasmashell', 'kwin_wayland', 'kwin_x11', 'ksmserver', 'Xorg')
+
+def _session_comm_rank(comm):
+    try:
+        return _SESSION_COMM_PRIORITY.index(comm)
+    except ValueError:
+        return 99
+
+def desktop_session_env_for_uid(target_uid):
+    target_uid = int(target_uid)
+    hits = []
+    for pid in os.listdir('/proc'):
+        if not str(pid).isdigit():
+            continue
+        uid, comm = _proc_uid_comm(pid)
+        if uid != target_uid or not comm:
+            continue
+        if comm not in _SESSION_COMM_PRIORITY and comm not in ('gnome-shell',):
+            continue
+        hits.append((pid, comm))
+    hits.sort(key=lambda t: _session_comm_rank(t[1]))
+    for pid, _ in hits:
+        env = _parse_proc_environ(str(pid))
+        if not env:
+            continue
+        if env.get('WAYLAND_DISPLAY') or (env.get('DISPLAY') and env.get('DISPLAY') not in ('', '-')):
+            return env
+    for pid, _ in hits:
+        env = _parse_proc_environ(str(pid))
+        if env:
+            return env
+    return None
+
+def _notify_env_for_user(user):
+    uid = pwd.getpwnam(user).pw_uid
+    uid_s = str(uid)
+    desk = desktop_session_env_for_uid(uid)
+    env = {**desk} if desk else {**os.environ}
+    env['XDG_RUNTIME_DIR'] = env.get('XDG_RUNTIME_DIR') or f'/run/user/{uid_s}'
+    env['DBUS_SESSION_BUS_ADDRESS'] = f'unix:path=/run/user/{uid_s}/bus'
+    if 'PATH' not in env or not env['PATH']:
+        env['PATH'] = '/usr/local/bin:/usr/bin:/bin'
+    return env
+
+def notify_user(user, message):
+    try:
+        env = _notify_env_for_user(user)
+        ns = shutil.which('notify-send') or '/usr/bin/notify-send'
         subprocess.run(
-            ['notify-send', '-u', 'critical', 'LiFE Parental Control', message],
-            env=env, timeout=3, check=False
+            [ns, '-u', 'critical', '-t', '60000', 'LiFE Parental Control', message],
+            env=env, timeout=15, check=False
         )
     except Exception:
         pass
+
 
 def lock_and_notify(message):
     subprocess.run(['loginctl', 'lock-sessions'], check=False, timeout=5)
@@ -188,14 +263,38 @@ if s.get('dailyLimitEnabled'):
     limit = limit_base + extra
     used  = usage.get('minutes', 0)
     remaining = limit - used
+
+    # Invalidate one-shot warn when limit changes (bonus/schedule) or usage is back above the band; snap missing = stale file
+    if usage.get('warnedLowScreenTime'):
+        stale = remaining > 5
+        if not stale:
+            try:
+                snap = usage.get('warnSnapLimit')
+                if snap is None or int(snap) != int(limit):
+                    stale = True
+            except Exception:
+                stale = True
+        if stale:
+            usage['warnedLowScreenTime'] = False
+            usage.pop('warnSnapLimit', None)
+            with open(usage_file, 'w') as f:
+                json.dump(usage, f)
+
     if remaining <= 0:
         lock_and_notify(
             f'Daily screen time limit reached ({used}/{limit} min). Open LiFE Parental Control to add more time (parent password).'
         )
-    elif remaining == 5 and active_sessions:
-        # 5-minute warning — only notify, do not lock yet
-        for _, user in get_active_graphical_sessions():
-            notify_user(user, f'Screen time: 5 minutes remaining today.')
+    elif 0 < remaining <= 5 and not usage.get('warnedLowScreenTime'):
+        # One notification the first time remaining enters 1–5 min; Electron modal handles the in-app dialog
+        low_sess = get_active_graphical_sessions()
+        if low_sess:
+            st_msg = f'Screen time: {remaining} minutes remaining today.'
+            for _, user in low_sess:
+                notify_user(user, st_msg)
+            usage['warnedLowScreenTime'] = True
+            usage['warnSnapLimit'] = limit
+            with open(usage_file, 'w') as f:
+                json.dump(usage, f)
 `
     fs.writeFileSync(CHECK_SCRIPT, script, { mode: 0o755 })
 }
@@ -249,7 +348,12 @@ export function registerSchedulesIpc(ipcMain, configDir) {
     ipcMain.handle('schedules:save', (_, schedule) => {
         try {
             persistSchedule(configDir, schedule)
-        } catch (e) { return { error: e.message } }
+            appendActivity(configDir, { action: 'schedule_saved', enabled: schedule?.enabled ?? false })
+            return { ok: true }
+        } catch (e) {
+            appendActivity(configDir, { action: 'schedule_save_error', error: e.message })
+            return { error: e.message }
+        }
     })
 
     ipcMain.handle('schedules:redeploy', () => {
@@ -287,11 +391,12 @@ export function registerSchedulesIpc(ipcMain, configDir) {
             const nextExtra = prevExtra + bonus
             const file = path.join(configDir, `usage-${today}.json`)
             fs.mkdirSync(configDir, { recursive: true })
-            fs.writeFileSync(file, JSON.stringify({
+            const out = {
                 date: today,
                 minutes: minutesLogged,
                 extraAllowanceMinutes: nextExtra
-            }), 'utf8')
+            }
+            fs.writeFileSync(file, JSON.stringify(out), 'utf8')
             appendActivity(configDir, {
                 action: 'screen_time_bonus',
                 granted: bonus,

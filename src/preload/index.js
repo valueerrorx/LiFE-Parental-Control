@@ -19,7 +19,11 @@ contextBridge.exposeInMainWorld('api', {
         showConfirm: (opts) => ipcRenderer.invoke('dialog:showConfirm', opts),
         quit: () => ipcRenderer.invoke('app:quit'),
         onQuitFromTray: (cb) => ipcRenderer.on('app:quit-from-tray', cb),
-        offQuitFromTray: (cb) => ipcRenderer.removeListener('app:quit-from-tray', cb)
+        offQuitFromTray: (cb) => ipcRenderer.removeListener('app:quit-from-tray', cb),
+        isWindowObscured: () => ipcRenderer.invoke('window:isObscured'),
+        showNativeNotification: (payload) => ipcRenderer.invoke('window:showNativeNotification', payload),
+        beginUrgentPresent: () => ipcRenderer.invoke('window:beginUrgentPresent'),
+        endUrgentPresent: () => ipcRenderer.invoke('window:endUrgentPresent')
     },
     webFilter: {
         getList: () => ipcRenderer.invoke('webfilter:getList'),
