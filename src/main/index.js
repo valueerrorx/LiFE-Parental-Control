@@ -140,6 +140,12 @@ document.getElementById('go').onclick=function(){
     gate.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(gateHtml))
 }
 
+// Suppress Chromium D-Bus connection attempts when running as root (harmless but noisy stderr errors).
+if (typeof process.getuid === 'function' && process.getuid() === 0) {
+    app.commandLine.appendSwitch('disable-features', 'HardwareMediaKeyHandling,MediaSessionService')
+    app.commandLine.appendSwitch('disable-dbus')
+}
+
 app.whenReady().then(() => {
 
     if (!app.isPackaged && typeof process.getuid === 'function' && process.getuid() !== 0) {
