@@ -48,7 +48,7 @@ function readMirrorRaw(configDir) {
     try {
         const parsed = JSON.parse(fs.readFileSync(path.join(configDir, CONFIG_FILE), 'utf8'))
         if (Array.isArray(parsed)) {
-            return { entries: parsed, feedState: {}, listAllowlist: [] }
+            return { entries: parsed, feedState: {}, listAllowlist: [], cachedHostRuleCount: undefined }
         }
         const entries = Array.isArray(parsed.entries)
             ? parsed.entries
@@ -60,9 +60,11 @@ function readMirrorRaw(configDir) {
             feedState = { ...parsed.feedState }
         }
         const listAllowlist = normalizeAllowlist(parsed.listAllowlist)
-        return { entries, feedState, listAllowlist }
+        const n = parsed.cachedHostRuleCount
+        const cachedHostRuleCount = typeof n === 'number' && Number.isFinite(n) && n >= 0 ? Math.floor(n) : undefined
+        return { entries, feedState, listAllowlist, cachedHostRuleCount }
     } catch {
-        return { entries: [], feedState: {}, listAllowlist: [] }
+        return { entries: [], feedState: {}, listAllowlist: [], cachedHostRuleCount: undefined }
     }
 }
 
@@ -72,16 +74,16 @@ export function readWebFilterMirror(configDir) {
 
 function writeMirrorToDisk(configDir, mirror) {
     fs.mkdirSync(configDir, { recursive: true })
-    fs.writeFileSync(
-        path.join(configDir, CONFIG_FILE),
-        JSON.stringify({
-            entries: mirror.entries,
-            feedState: mirror.feedState,
-            listAllowlist: normalizeAllowlist(mirror.listAllowlist),
-            updatedAt: new Date().toISOString()
-        }, null, 2),
-        'utf8'
-    )
+    const payload = {
+        entries: mirror.entries,
+        feedState: mirror.feedState,
+        listAllowlist: normalizeAllowlist(mirror.listAllowlist),
+        updatedAt: new Date().toISOString()
+    }
+    if (typeof mirror.cachedHostRuleCount === 'number' && Number.isFinite(mirror.cachedHostRuleCount) && mirror.cachedHostRuleCount >= 0) {
+        payload.cachedHostRuleCount = Math.floor(mirror.cachedHostRuleCount)
+    }
+    fs.writeFileSync(path.join(configDir, CONFIG_FILE), JSON.stringify(payload, null, 2), 'utf8')
 }
 
 function buildCombinedEntries(configDir, mirror) {
@@ -143,9 +145,10 @@ async function persistMirrorAndHosts(configDir, mirror) {
         feedState: mirror.feedState || {},
         listAllowlist: mirror.listAllowlist ?? []
     }
-    writeMirrorToDisk(configDir, full)
     await new Promise((resolve) => globalThis.setImmediate(resolve))
     const combined = buildCombinedEntries(configDir, full)
+    full.cachedHostRuleCount = combined.length
+    writeMirrorToDisk(configDir, full)
     await writeHostsSectionAsync(combined)
     flushDns()
 }
@@ -165,13 +168,10 @@ export function registerWebFilterIpc(ipcMain, configDir, opts = {}) {
             source = 'mirror'
             error = `Could not read ${HOSTS_FILE}: ${e.message}. Showing data from ${CONFIG_FILE} (Apply may fail until permissions are fixed).`
         }
+        // Use cached count from last persist — never call buildCombinedEntries here (multi‑MB feeds block the main process for seconds).
         let hostRuleCount = mirror.entries.filter(e => e.enabled !== false).length
-        if (hageziBundledDir) {
-            try {
-                hostRuleCount = buildCombinedEntries(configDir, mirror).length
-            } catch {
-                /* ignore */
-            }
+        if (hageziBundledDir && typeof mirror.cachedHostRuleCount === 'number' && Number.isFinite(mirror.cachedHostRuleCount)) {
+            hostRuleCount = Math.max(0, Math.floor(mirror.cachedHostRuleCount))
         }
         return {
             entries: mirror.entries,
@@ -203,6 +203,7 @@ export function registerWebFilterIpc(ipcMain, configDir, opts = {}) {
             try {
                 const mirror = readMirrorRaw(configDir)
                 mirror.entries = Array.isArray(entries) ? entries : []
+                delete mirror.cachedHostRuleCount
                 writeMirrorToDisk(configDir, mirror)
             } catch {
                 /* ignore */

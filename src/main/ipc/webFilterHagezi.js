@@ -135,11 +135,20 @@ export async function syncHageziFeeds(bundledDir, configDir) {
     return { updated, notModified, errors }
 }
 
+// Version metadata lives in the file header — avoid reading multi‑MB lists into memory for UI metadata only.
+const VERSION_HEAD_BYTES = 65536
+
 export function readBundledFeedVersion(bundledDir, feed) {
     try {
         const p = path.join(bundledDir, feed.file)
-        const text = fs.readFileSync(p, 'utf8')
-        return extractListVersion(text)
+        const fd = fs.openSync(p, 'r')
+        try {
+            const buf = Buffer.alloc(VERSION_HEAD_BYTES)
+            const n = fs.readSync(fd, buf, 0, VERSION_HEAD_BYTES, 0)
+            return extractListVersion(buf.subarray(0, n).toString('utf8'))
+        } finally {
+            fs.closeSync(fd)
+        }
     } catch {
         return null
     }

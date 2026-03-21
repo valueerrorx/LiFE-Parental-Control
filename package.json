@@ -8,8 +8,8 @@
     "private": true,
     "main": "out/main/index.js",
     "scripts": {
-        "dev": "sudo --preserve-env=DISPLAY,XAUTHORITY,WAYLAND_DISPLAY,XDG_SESSION_TYPE,XDG_CURRENT_DESKTOP,QT_QPA_PLATFORM,LANG,LC_ALL,LANGUAGE env -u NODE_OPTIONS -u APPDIR -u OWD PATH=\"$PATH\" XDG_RUNTIME_DIR=/run/user/$(id -u) DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/$(id -u)/bus ./node_modules/.bin/electron-vite dev -- --no-sandbox",
-        "dev:root": "npm run dev",
+        "dev": "electron-vite dev",
+        "dev:root": "sudo -E env -u DBUS_SESSION_BUS_ADDRESS XDG_RUNTIME_DIR=/run/user/$(id -u) npx electron-vite dev -- --no-sandbox",
         "compile": "electron-vite build",
         "check": "npm run lint && npm run compile",
         "build": "electron-vite build && electron-builder --publish never",

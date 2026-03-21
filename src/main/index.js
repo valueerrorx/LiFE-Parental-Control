@@ -141,24 +141,15 @@ document.getElementById('go').onclick=function(){
 }
 
 app.whenReady().then(() => {
-    // All app.* calls are safe inside whenReady — avoids top-level require('electron') resolution issues
 
     if (!app.isPackaged && typeof process.getuid === 'function' && process.getuid() !== 0) {
-        const msg =
-            'LiFE Parental Control benötigt root (Schreibzugriff auf /etc/life-parental/). ' +
-            'Entwicklung: npm run dev (startet mit sudo).'
-        console.error('[LiFE Parental Control]', msg)
-        dialog.showErrorBox('LiFE Parental Control', msg)
-        app.quit()
-        return
+        console.warn('[LiFE Parental Control] Running without root — writes to /etc/life-parental will fail. Use npm run dev:root for full access.')
     }
 
     if (app.isPackaged && typeof process.getuid === 'function' && process.getuid() !== 0) {
         showElevationGateAndWaitForPkexec()
         return
     }
-
-    applyLinuxUserSessionBusIfRoot()
 
     const kioskDir = app.isPackaged
         ? path.join(process.resourcesPath, 'kiosk')
@@ -265,6 +256,8 @@ app.whenReady().then(() => {
         || (fromRtUid && fromRtUid !== '0' ? fromRtUid : null) || firstNonRootUserBusUid()
 
     const startTrayAfterUiReady = async () => {
+        // Set D-Bus address late so Chromium does not inherit it at window creation (avoids multi-second D-Bus timeouts).
+        applyLinuxUserSessionBusIfRoot()
         if (process.platform === 'linux' && process.getuid?.() === 0 && desktopUidForTray && desktopUidForTray !== '0' && trayPath) {
             trayUserHelper = await startUserTrayHelper({
                 uidS: desktopUidForTray,
@@ -308,12 +301,10 @@ app.whenReady().then(() => {
     ipcMain.handle('app:deferredHeavyWork', async () => {
         if (deferredHeavyWorkStarted) return { ok: true }
         deferredHeavyWorkStarted = true
+        scheduleHeavyIpcRegistration()
         await heavyIpcReady
         const { runDeferredStartupTasks } = await import('./registerHeavyIpc.js')
         globalThis.setImmediate(() => runDeferredStartupTasks(APP_CONFIG_DIR))
-        globalThis.setImmediate(() => {
-            void startTrayAfterUiReady()
-        })
         return { ok: true }
     })
 
@@ -323,9 +314,8 @@ app.whenReady().then(() => {
     } else {
         mainWindow.loadFile(path.join(__dirname, '../renderer/index.html'))
     }
-
     mainWindow.webContents.once('did-finish-load', () => {
-        globalThis.setImmediate(() => scheduleHeavyIpcRegistration())
+        globalThis.setImmediate(() => void startTrayAfterUiReady())
     })
 })
 
