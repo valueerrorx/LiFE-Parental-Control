@@ -3,6 +3,7 @@ import { promisify } from 'util'
 import { localIsoDate } from './ipc/localCalendarDay.js'
 import { getActiveGraphicalSessions } from './graphicalSessionDetect.js'
 import { readSchedule, readUsage, writeUsage } from './ipc/schedulesIpc.js'
+import { normalizeScreenTimeLinuxUser, effectiveScreenMinutes } from '@shared/screenTimeUsage.js'
 import {
     readQuotaEntries,
     readQuotaUsageState,
@@ -74,6 +75,22 @@ async function lockSessions() {
     }
 }
 
+/** When targetUser is set, only lock that login’s graphical sessions; otherwise lock all (legacy). */
+async function lockSessionsForPolicy(sessions, targetUser) {
+    if (!targetUser) {
+        await lockSessions()
+        return
+    }
+    for (const { user, sid } of sessions) {
+        if (user !== targetUser) continue
+        try {
+            await execFileAsync('loginctl', ['lock-session', String(sid)], { timeout: 5000 })
+        } catch {
+            /* ignore */
+        }
+    }
+}
+
 function isoWeekday(d) {
     const n = d.getDay()
     return n === 0 ? 7 : n
@@ -94,6 +111,11 @@ function atLoggedMinuteBoundary() {
     return tickInMinute === 0
 }
 
+function ensureUserMinutes(usage, key) {
+    if (!usage.users || typeof usage.users !== 'object') usage.users = {}
+    if (!usage.users[key]) usage.users[key] = { minutes: 0 }
+}
+
 async function tickScreenTime(configDir, { onScreenTimeWarn }, logMinute) {
     const s = readSchedule(configDir)
     const now = new Date()
@@ -101,23 +123,33 @@ async function tickScreenTime(configDir, { onScreenTimeWarn }, logMinute) {
     const weekday = isoWeekday(now)
 
     const sessions = await getActiveGraphicalSessions()
-    const hasSession = sessions.length > 0
+    const activeUsers = uniqueUsers(sessions)
+    const limitLu = normalizeScreenTimeLinuxUser(s.screenTimeLinuxUser)
+    const hasSessionForLimit = limitLu ? activeUsers.includes(limitLu) : activeUsers.length > 0
 
     let usage = readUsage(configDir)
     if (usage.date !== today) {
         usage = {
             date: today,
-            minutes: 0,
+            users: {},
             extraAllowanceMinutes: 0,
             warnedLowScreenTime: false,
             warnedScreenTimeExhausted: false
         }
     }
 
-    let minutes = Math.max(0, Number(usage.minutes) || 0)
-    if (hasSession && logMinute) minutes += 1
-    usage.minutes = minutes
+    if (limitLu) {
+        if (logMinute && activeUsers.includes(limitLu)) {
+            ensureUserMinutes(usage, limitLu)
+            usage.users[limitLu].minutes = Math.max(0, Number(usage.users[limitLu].minutes) || 0) + 1
+        }
+    } else if (logMinute && activeUsers.length > 0) {
+        ensureUserMinutes(usage, '')
+        usage.users[''].minutes = Math.max(0, Number(usage.users[''].minutes) || 0) + 1
+    }
     usage.date = today
+
+    const minutes = effectiveScreenMinutes(usage, s.screenTimeLinuxUser)
 
     const limitBase = Math.max(0, Number(s.dailyLimitMinutes) || 0)
     const extra = Math.max(0, Number(usage.extraAllowanceMinutes) || 0)
@@ -132,7 +164,7 @@ async function tickScreenTime(configDir, { onScreenTimeWarn }, logMinute) {
     if (s.allowedHoursEnabled && Array.isArray(s.allowedDays) && s.allowedDays.includes(weekday)) {
         if (!isWithinAllowedHours(s, now)) {
             writeUsage(configDir, usage)
-            await lockSessions()
+            await lockSessionsForPolicy(sessions, limitLu)
             if (Date.now() - lastAllowedHoursWarnAt >= ALLOWED_HOURS_WARN_INTERVAL_MS) {
                 lastAllowedHoursWarnAt = Date.now()
                 onScreenTimeWarn({
@@ -173,7 +205,7 @@ async function tickScreenTime(configDir, { onScreenTimeWarn }, logMinute) {
     const remaining = limit - minutes
 
     if (remaining <= 0) {
-        await lockSessions()
+        await lockSessionsForPolicy(sessions, limitLu)
         if (!usage.warnedScreenTimeExhausted) {
             usage.warnedScreenTimeExhausted = true
             onScreenTimeWarn({
@@ -185,7 +217,7 @@ async function tickScreenTime(configDir, { onScreenTimeWarn }, logMinute) {
         }
     } else {
         if (usage.warnedScreenTimeExhausted) usage.warnedScreenTimeExhausted = false
-        if (remaining >= 1 && remaining <= 5 && !usage.warnedLowScreenTime && hasSession) {
+        if (remaining >= 1 && remaining <= 5 && !usage.warnedLowScreenTime && hasSessionForLimit) {
             usage.warnedLowScreenTime = true
             usage.warnSnapLimit = limit
             onScreenTimeWarn({

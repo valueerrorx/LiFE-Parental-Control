@@ -151,7 +151,7 @@ export function showWarningWindow(payload) {
         alwaysOnTop: true,
         title: 'LiFE Parental Control',
         ...(iconPath ? { icon: iconPath } : {}),
-        webPreferences: { nodeIntegration: true, contextIsolation: false }
+        webPreferences: { nodeIntegration: true, contextIsolation: false, devTools: false }
     })
     warningWin.removeMenu()
     try { warningWin.setAlwaysOnTop(true, 'screen-saver') } catch { warningWin.setAlwaysOnTop(true) }

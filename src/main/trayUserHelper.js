@@ -2,8 +2,11 @@
 import crypto from 'crypto'
 import fs from 'fs'
 import net from 'net'
+import os from 'os'
 import path from 'path'
 import { execFileSync, spawn } from 'child_process'
+import { app } from 'electron'
+import { getAppImagePathIfAny } from './appImageResolve.js'
 
 function passwdRow(uidS) {
     try {
@@ -63,14 +66,45 @@ export function startUserTrayHelper(opts) {
                 res(null)
                 return
             }
+            // Desktop uid cannot execute paths inside the AppImage FUSE mount; run the on-disk .AppImage with a /tmp script + icon copy.
+            let spawnExec = electronExec
+            let spawnArgs = [helperPath]
+            let effectiveIconPath = trayIconPath
+            const tmpCleanup = []
+            // Dev: never use APPIMAGE from the shell — would spawn the wrong Electron instead of electron-vite’s binary.
+            const resolvedAppImage = app.isPackaged ? getAppImagePathIfAny() : ''
+            if (resolvedAppImage) {
+                try {
+                    const tmpJ = path.join(os.tmpdir(), `life-parental-tray-${uidS}.js`)
+                    const tmpPng = path.join(os.tmpdir(), `life-parental-tray-icon-${uidS}.png`)
+                    fs.copyFileSync(helperPath, tmpJ)
+                    fs.chmodSync(tmpJ, 0o644)
+                    tmpCleanup.push(tmpJ)
+                    if (trayIconPath && fs.existsSync(trayIconPath)) {
+                        fs.copyFileSync(trayIconPath, tmpPng)
+                        fs.chmodSync(tmpPng, 0o644)
+                        tmpCleanup.push(tmpPng)
+                        effectiveIconPath = tmpPng
+                    }
+                    spawnExec = resolvedAppImage
+                    // Match pkexec relaunch: extract avoids FUSE permission issues for the dropped-privilege child.
+                    spawnArgs = ['--appimage-extract-and-run', '--no-sandbox', tmpJ]
+                } catch (e) {
+                    console.warn('[LiFE Parental Control] Tray helper: AppImage shim failed, falling back to execPath', e.message)
+                }
+            }
             const childEnv = {
                 ...process.env,
-                LIFE_TRAY_ICON_PATH: trayIconPath,
+                LIFE_TRAY_ICON_PATH: effectiveIconPath,
                 LIFE_TRAY_PORT: String(port),
                 LIFE_TRAY_TOKEN: token,
                 DBUS_SESSION_BUS_ADDRESS: `unix:path=/run/user/${uidS}/bus`,
                 XDG_RUNTIME_DIR: `/run/user/${uidS}`,
                 HOME: row.home || process.env.HOME
+            }
+            if (spawnExec === resolvedAppImage) {
+                childEnv.APPIMAGE = resolvedAppImage
+                childEnv.APPIMAGE_EXTRACT_AND_RUN = '1'
             }
             const xa = path.join(row.home || '', '.Xauthority')
             try {
@@ -84,7 +118,7 @@ export function startUserTrayHelper(opts) {
             if (childEnv.WAYLAND_DISPLAY) childEnv.ELECTRON_OZONE_PLATFORM_HINT = 'auto'
             let child
             try {
-                child = spawn(electronExec, [helperPath], {
+                child = spawn(spawnExec, spawnArgs, {
                     env: childEnv,
                     uid,
                     gid,
@@ -98,17 +132,27 @@ export function startUserTrayHelper(opts) {
                 return
             }
             child.unref()
+            child.on('exit', (code, signal) => {
+                if (code !== 0 && code !== null) {
+                    console.error('[LiFE Parental Control] Tray helper exited', { code, signal })
+                }
+            })
             child.on('error', err => {
                 console.error('[LiFE Parental Control] Tray helper process:', err.message)
                 try { server.close() } catch { /* */ }
                 res(null)
             })
-            console.warn('[LiFE Parental Control] Tray: desktop-user helper (uid=' + uidS + ')')
+            console.warn('[LiFE Parental Control] Tray: desktop-user helper (uid=' + uidS + ') appimage=' + Boolean(resolvedAppImage))
             res({
                 stop() {
                     try {
                         if (child && !child.killed) child.kill('SIGTERM')
                     } catch { /* */ }
+                    for (const p of tmpCleanup) {
+                        try {
+                            fs.unlinkSync(p)
+                        } catch { /* */ }
+                    }
                     try {
                         server.close()
                     } catch { /* */ }

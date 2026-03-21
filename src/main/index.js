@@ -1,6 +1,7 @@
 import { app, BrowserWindow, ipcMain, Menu, Tray } from 'electron'
 import path from 'path'
 import fs, { mkdirSync } from 'fs'
+import { tmpdir } from 'os'
 import { spawn } from 'child_process'
 import { registerConfigIpc } from './ipc/configIpc.js'
 import { registerProfileIpc } from './ipc/profileIpc.js'
@@ -11,6 +12,7 @@ import { loadTrayNativeImage, resolveTrayIconPath, resolveWindowIconPath } from 
 import { startUserTrayHelper } from './trayUserHelper.js'
 import { initWarningWindow } from './warningWindow.js'
 import { stopEnforcementScheduler } from './enforcementScheduler.js'
+import { resolveElevatedExecutablePath } from './appImageResolve.js'
 
 // __dirname = out/main/ after electron-vite compilation
 
@@ -82,21 +84,54 @@ function buildPkexecForwardEnvPairs() {
     return envPairs
 }
 
+function appendElevateDebug(line) {
+    try {
+        fs.appendFileSync('/tmp/life-parental-elevate.log', `${new Date().toISOString()} ${line}\n`, 'utf8')
+    } catch {
+        /* ignore */
+    }
+}
+
 function spawnPkexecRelaunch() {
-    const self = process.env.APPIMAGE ?? process.execPath
+    const self = resolveElevatedExecutablePath()
+    const isAppImage = Boolean(process.env.APPIMAGE) || /\.AppImage$/i.test(self)
+    const envPairs = buildPkexecForwardEnvPairs()
+    if (isAppImage) {
+        envPairs.push('APPIMAGE_EXTRACT_AND_RUN=1')
+        if (!process.env.APPIMAGE) envPairs.push(`APPIMAGE=${self}`)
+    }
+    // Root Electron exits immediately unless Chromium sandbox is disabled (same as autostart --no-sandbox).
+    const childArgs = [...process.argv.slice(1)]
+    const hasNoSandbox = childArgs.some(a => a === '--no-sandbox' || a.startsWith('--no-sandbox='))
+    if (!hasNoSandbox) childArgs.push('--no-sandbox')
+    const hasExtract = childArgs.some(a => a === '--appimage-extract-and-run')
+    const extractArg = isAppImage && !hasExtract ? ['--appimage-extract-and-run'] : []
+    const pkexecArgv = ['/usr/bin/env', ...envPairs, self, ...extractArg, ...childArgs]
+    appendElevateDebug(`elevate self=${self} argvLen=${pkexecArgv.length} appimage=${isAppImage}`)
     const child = spawn(
         'pkexec',
-        ['/usr/bin/env', ...buildPkexecForwardEnvPairs(), self, ...process.argv.slice(1)],
+        pkexecArgv,
         { detached: true, stdio: 'ignore', env: process.env }
     )
     child.on('error', err => {
         console.error('[LiFE Parental Control] pkexec relaunch failed:', err.message)
+        appendElevateDebug(`spawn error ${err.message}`)
+        app.quit()
     })
-    child.unref()
+    child.on('exit', (code, signal) => {
+        if (code !== 0 && code !== null) {
+            appendElevateDebug(`pkexec exit code=${code} signal=${signal ?? ''}`)
+        }
+        // Quit only after pkexec (or the elevated app replacing its PID) exits — never while the auth dialog is open.
+        app.quit()
+    })
 }
 
 // Suppress Chromium D-Bus connection attempts when running as root (harmless but noisy stderr errors).
 if (typeof process.getuid === 'function' && process.getuid() === 0) {
+    if (process.platform === 'linux') {
+        app.commandLine.appendSwitch('no-sandbox')
+    }
     app.commandLine.appendSwitch('disable-features', 'HardwareMediaKeyHandling,MediaSessionService')
     app.commandLine.appendSwitch('disable-dbus')
 }
@@ -105,7 +140,6 @@ app.whenReady().then(() => {
     // Linux: require root; non-root processes only relaunch via pkexec (Polkit) and exit.
     if (process.platform === 'linux' && typeof process.getuid === 'function' && process.getuid() !== 0) {
         spawnPkexecRelaunch()
-        app.quit()
         return
     }
 
@@ -183,7 +217,8 @@ app.whenReady().then(() => {
             preload: path.join(__dirname, '../preload/index.js'),
             contextIsolation: true,
             nodeIntegration: false,
-            sandbox: false
+            sandbox: false,
+            devTools: false
         }
     })
 
@@ -204,7 +239,17 @@ app.whenReady().then(() => {
         if (!mainWindow.isDestroyed()) mainWindow.webContents.send('app:quit-from-tray')
     }
 
-    const trayPath = resolveTrayIconPath(imagesDir)
+    let trayIconForHelper = resolveTrayIconPath(imagesDir)
+    if (!trayIconForHelper) {
+        try {
+            const img = loadTrayNativeImage(imagesDir)
+            const p = path.join(tmpdir(), `life-parental-tray-fallback-${process.pid}.png`)
+            fs.writeFileSync(p, img.toPNG())
+            trayIconForHelper = p
+        } catch (e) {
+            console.warn('[LiFE Parental Control] Tray: could not create icon file for helper', e?.message)
+        }
+    }
     const fromRtUid = (() => {
         const m = String(process.env.XDG_RUNTIME_DIR || '').match(/^\/run\/user\/(\d+)$/)
         return m ? m[1] : null
@@ -216,10 +261,10 @@ app.whenReady().then(() => {
     const startTrayAfterUiReady = async () => {
         // Set D-Bus address late so Chromium does not inherit it at window creation (avoids multi-second D-Bus timeouts).
         applyLinuxUserSessionBusIfRoot()
-        if (process.platform === 'linux' && process.getuid?.() === 0 && desktopUidForTray && desktopUidForTray !== '0' && trayPath) {
+        if (process.platform === 'linux' && process.getuid?.() === 0 && desktopUidForTray && desktopUidForTray !== '0' && trayIconForHelper) {
             trayUserHelper = await startUserTrayHelper({
                 uidS: desktopUidForTray,
-                trayIconPath: trayPath,
+                trayIconPath: trayIconForHelper,
                 mainDir: __dirname,
                 electronExec: process.execPath,
                 onShow: showMainWindow,
@@ -227,6 +272,7 @@ app.whenReady().then(() => {
             })
         }
         if (!trayUserHelper) {
+            const trayPath = trayIconForHelper || resolveTrayIconPath(imagesDir)
             try {
                 tray = trayPath ? new Tray(trayPath) : new Tray(loadTrayNativeImage(imagesDir))
             } catch (err) {
@@ -268,7 +314,6 @@ app.whenReady().then(() => {
 
     if (process.env.NODE_ENV === 'development') {
         mainWindow.loadURL(process.env.ELECTRON_RENDERER_URL)
-        mainWindow.webContents.openDevTools()
     } else {
         mainWindow.loadFile(path.join(__dirname, '../renderer/index.html'))
     }

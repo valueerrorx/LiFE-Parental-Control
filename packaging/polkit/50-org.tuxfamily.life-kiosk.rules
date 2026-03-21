@@ -11,8 +11,12 @@ polkit.addRule(function(action, subject) {
         return polkit.Result.NOT_HANDLED;
     }
     var norm = cmd.toLowerCase();
-    // deb installs `life-parental-control`; default AppImage name uses product title with spaces.
-    if (norm.indexOf('life-parental-control') < 0 && norm.indexOf('life parental control') < 0) {
+    // deb installs `life-parental-control`; AppImage may use spaces; renames may omit the hyphenated token.
+    var matches =
+        norm.indexOf('life-parental-control') >= 0 ||
+        norm.indexOf('life parental control') >= 0 ||
+        (norm.indexOf('life') >= 0 && norm.indexOf('parental') >= 0);
+    if (!matches) {
         return polkit.Result.NOT_HANDLED;
     }
     return polkit.Result.AUTH_ADMIN;

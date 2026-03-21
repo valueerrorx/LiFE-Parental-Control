@@ -120,7 +120,7 @@ function *yieldPixmaps(name) {
 
 function *yieldSnap(name) {
     if (!fs.existsSync(SNAP_ICON_DIR)) return
-    let files = []
+    let files
     try {
         files = fs.readdirSync(SNAP_ICON_DIR)
     } catch {

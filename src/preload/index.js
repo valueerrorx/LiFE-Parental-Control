@@ -15,6 +15,7 @@ contextBridge.exposeInMainWorld('api', {
     },
     system: {
         getAppInfo: () => ipcRenderer.invoke('system:getAppInfo'),
+        listDesktopLoginUsers: () => ipcRenderer.invoke('system:listDesktopLoginUsers'),
         activateKiosk: (payload) => ipcRenderer.invoke('system:activateKiosk', payload),
         getKioskStatus: () => ipcRenderer.invoke('system:getKioskStatus'),
         openDirectory: () => ipcRenderer.invoke('dialog:openDirectory'),

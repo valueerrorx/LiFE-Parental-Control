@@ -12,7 +12,7 @@ export function assertParentalCronInstallDirs() {
             if (!st.isDirectory()) throw new Error(`${dir} is not a directory`)
         } catch (e) {
             if (e && e.code === 'ENOENT') {
-                throw new Error(`Cannot install cron job: ${dir} is missing. ${fixHint}.`)
+                throw new Error(`Cannot install cron job: ${dir} is missing. ${fixHint}.`, { cause: e })
             }
             throw e
         }

@@ -7,7 +7,7 @@ const MAX_ENTRIES = 400
 // Ring buffer of recent parent-facing events (config dir, survives restarts; not in backup bundle).
 export function appendActivity(configDir, entry) {
     const file = path.join(configDir, FILE)
-    let list = []
+    let list
     try {
         const data = JSON.parse(fs.readFileSync(file, 'utf8'))
         list = Array.isArray(data) ? data : []

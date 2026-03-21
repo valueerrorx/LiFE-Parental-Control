@@ -11,7 +11,7 @@ const VERSION_MARKER = '.embedded-enforcement-version'
 export function syncEmbeddedEnforcementIfNeeded(configDir, appVersion) {
     if (!appVersion || typeof appVersion !== 'string') return
     const markerPath = path.join(configDir, VERSION_MARKER)
-    let previous = ''
+    let previous
     try {
         previous = fs.readFileSync(markerPath, 'utf8').trim()
     } catch {

@@ -63,6 +63,13 @@
                         <span class="text-muted small">minutes</span>
                         <span class="text-muted small">({{ Math.floor(schedule.dailyLimitMinutes / 60) }}h {{ schedule.dailyLimitMinutes % 60 }}m)</span>
                     </div>
+                    <div class="d-flex flex-wrap align-items-center gap-3 mb-3">
+                        <label class="text-muted small" style="white-space:nowrap;">Limit for Linux user:</label>
+                        <select v-model="schedule.screenTimeLinuxUser" class="pc-input" style="max-width:280px;">
+                            <option value="">All sessions (shared counter)</option>
+                            <option v-for="u in screenTimeUserOptions" :key="u" :value="u">{{ u }}</option>
+                        </select>
+                    </div>
                     <!-- Today's usage progress -->
                     <div class="usage-bar-wrap">
                         <p v-if="todayExtraAllowance > 0" class="text-muted small mb-1">
@@ -171,12 +178,15 @@
 
 <script setup>
 import { ref, reactive, computed, onMounted } from 'vue'
+import { normalizeQuotaLinuxUser } from '@shared/quotaUsageKey.js'
 import { useAppStore } from '../stores/appStore.js'
+import { useDesktopLoginUsers, loadDesktopLoginUsers } from '../composables/useDesktopLoginUsers.js'
 
 const appStore = useAppStore()
+const { desktopLoginUsers } = useDesktopLoginUsers()
 const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 const schedule = reactive({
-    enabled: false, dailyLimitEnabled: false, dailyLimitMinutes: 120,
+    enabled: false, dailyLimitEnabled: false, dailyLimitMinutes: 120, screenTimeLinuxUser: '',
     allowedHoursEnabled: false, allowedHoursStart: '07:00', allowedHoursEnd: '22:00',
     allowedDays: [1, 2, 3, 4, 5, 6, 7]
 })
@@ -189,6 +199,13 @@ const historyDays = ref(7)
 const todayExtraAllowance = ref(0)
 
 const effectiveDailyLimit = computed(() => (schedule.dailyLimitMinutes || 120) + todayExtraAllowance.value)
+
+const screenTimeUserOptions = computed(() => {
+    const cur = normalizeQuotaLinuxUser(schedule.screenTimeLinuxUser)
+    const base = [...desktopLoginUsers.value]
+    if (cur && !base.includes(cur)) base.push(cur)
+    return base.sort((a, b) => a.localeCompare(b))
+})
 
 const usagePercent  = computed(() => Math.min(100, Math.round((todayMinutes.value / (effectiveDailyLimit.value || 1)) * 100)))
 const usageBarColor = computed(() => usagePercent.value >= 100 ? '#C62828' : usagePercent.value >= 80 ? '#E65100' : '#1565C0')
@@ -219,6 +236,7 @@ async function refreshUsageData() {
 }
 
 onMounted(async () => {
+    await loadDesktopLoginUsers()
     const saved = await window.api.schedules.get()
     if (saved) Object.assign(schedule, saved)
     await refreshUsageData()

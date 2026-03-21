@@ -4,6 +4,7 @@ import fs from 'fs'
 import { appendActivity } from './activityLog.js'
 import { showWarningWindow } from '../warningWindow.js'
 import { getActiveGraphicalSessions } from '../graphicalSessionDetect.js'
+import { listDesktopLoginUsers } from '../linuxLoginUsers.js'
 
 const KDEGLOBALS_PATH = '/etc/xdg/kdeglobals'
 const PLASMA_APPLETSRC_PATH = '/etc/xdg/plasma-appletsrc'
@@ -134,11 +135,12 @@ export function readKioskLockdownSummary() {
 }
 
 function applyPlasmaLayoutHardLock() {
-    let existing = ''
+    let existing
     try {
         existing = fs.readFileSync(PLASMA_APPLETSRC_PATH, 'utf8')
     } catch (e) {
         if (e.code !== 'ENOENT') throw e
+        existing = ''
     }
     const first = (existing.split('\n')[0] ?? '').trim()
     if (first === '[$i]') return
@@ -146,7 +148,7 @@ function applyPlasmaLayoutHardLock() {
 }
 
 function stripPlasmaLayoutHardLock() {
-    let existing = ''
+    let existing
     try {
         existing = fs.readFileSync(PLASMA_APPLETSRC_PATH, 'utf8')
     } catch (e) {
@@ -241,6 +243,15 @@ function clearUrgentWindowPresentation(win) {
 
 export function registerSystemIpc(ipcMain, getWindow, configDir) {
     let urgentPresentDepth = 0
+    ipcMain.handle('system:listDesktopLoginUsers', async () => {
+        try {
+            const users = await listDesktopLoginUsers()
+            return { ok: true, users }
+        } catch (err) {
+            return { ok: false, users: [], error: err.message }
+        }
+    })
+
     ipcMain.handle('system:getAppInfo', () => ({
         name: app.getName(),
         version: app.getVersion(),

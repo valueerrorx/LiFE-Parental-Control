@@ -4,6 +4,8 @@ import { pruneUsageArchives } from './usageArchivePrune.js'
 import { localIsoDate } from './localCalendarDay.js'
 import { checkParentPassword } from './settingsIpc.js'
 import { appendActivity } from './activityLog.js'
+import { effectiveScreenMinutes, effectiveScreenMinutesFromFileData } from '@shared/screenTimeUsage.js'
+import { normalizeQuotaLinuxUser } from '@shared/quotaUsageKey.js'
 
 const CONFIG_FILE = 'schedules.json'
 const BONUS_MIN = 5
@@ -14,6 +16,8 @@ export const DEFAULT_SCHEDULE = {
     enabled: false,
     dailyLimitEnabled: false,
     dailyLimitMinutes: 120,
+    /** Empty = legacy pool (any graphical session adds to one counter); set to child’s Linux login for per-user tally + limit. */
+    screenTimeLinuxUser: '',
     allowedHoursEnabled: false,
     allowedHoursStart: '07:00',
     allowedHoursEnd: '22:00',
@@ -24,22 +28,42 @@ export function readSchedule(configDir) {
     try { return { ...DEFAULT_SCHEDULE, ...JSON.parse(fs.readFileSync(path.join(configDir, CONFIG_FILE), 'utf8')) } } catch { return { ...DEFAULT_SCHEDULE } }
 }
 
+function emptyUsage(today) {
+    return {
+        date: today,
+        users: {},
+        extraAllowanceMinutes: 0,
+        warnedLowScreenTime: false,
+        warnedScreenTimeExhausted: false
+    }
+}
+
+/** Raw today usage (users map); does not include legacy top-level minutes. */
 export function readUsage(configDir) {
     const today = localIsoDate()
     const file = path.join(configDir, `usage-${today}.json`)
     try {
         const data = JSON.parse(fs.readFileSync(file, 'utf8'))
-        if (data.date !== today) return { date: today, minutes: 0, extraAllowanceMinutes: 0 }
+        if (data.date !== today) return emptyUsage(today)
+        /** @type {Record<string, { minutes: number }>} */
+        let users = {}
+        if (data.users && typeof data.users === 'object') {
+            for (const [k, v] of Object.entries(data.users)) {
+                users[k] = { minutes: Math.max(0, Number(v?.minutes) || 0) }
+            }
+        } else if (data.minutes != null) {
+            users[''] = { minutes: Math.max(0, Number(data.minutes) || 0) }
+        }
         return {
             date: today,
-            minutes: Math.max(0, Number(data.minutes) || 0),
+            users,
             extraAllowanceMinutes: Math.max(0, Number(data.extraAllowanceMinutes) || 0),
             warnedLowScreenTime: data.warnedLowScreenTime === true,
             warnSnapLimit: data.warnSnapLimit != null ? Number(data.warnSnapLimit) : undefined,
             warnedScreenTimeExhausted: data.warnedScreenTimeExhausted === true
         }
     } catch {
-        return { date: today, minutes: 0, extraAllowanceMinutes: 0 }
+        return emptyUsage(today)
     }
 }
 
@@ -50,7 +74,7 @@ export function writeUsage(configDir, usage) {
     fs.writeFileSync(file, JSON.stringify(usage, null, 2), 'utf8')
 }
 
-function readUsageHistory(configDir, maxDays) {
+function readUsageHistory(configDir, maxDays, screenTimeLinuxUser) {
     const re = /^usage-(\d{4}-\d{2}-\d{2})\.json$/
     const entries = []
     for (const name of fs.readdirSync(configDir)) {
@@ -59,7 +83,7 @@ function readUsageHistory(configDir, maxDays) {
         const dateStr = m[1]
         try {
             const data = JSON.parse(fs.readFileSync(path.join(configDir, name), 'utf8'))
-            const minutes = data.date === dateStr ? (data.minutes ?? 0) : 0
+            const minutes = effectiveScreenMinutesFromFileData(data, dateStr, screenTimeLinuxUser)
             entries.push({ date: dateStr, minutes })
         } catch {
             entries.push({ date: dateStr, minutes: 0 })
@@ -70,7 +94,8 @@ function readUsageHistory(configDir, maxDays) {
 }
 
 export function persistSchedule(configDir, schedule) {
-    fs.writeFileSync(path.join(configDir, CONFIG_FILE), JSON.stringify(schedule, null, 2), 'utf8')
+    const s = { ...schedule, screenTimeLinuxUser: normalizeQuotaLinuxUser(schedule?.screenTimeLinuxUser) }
+    fs.writeFileSync(path.join(configDir, CONFIG_FILE), JSON.stringify(s, null, 2), 'utf8')
     try {
         pruneUsageArchives(configDir)
     } catch {
@@ -90,12 +115,18 @@ export function redeployScheduleCron(configDir) {
 export function registerSchedulesIpc(ipcMain, configDir) {
     ipcMain.handle('schedules:get', () => readSchedule(configDir))
 
-    ipcMain.handle('schedules:getUsage', () => readUsage(configDir))
+    ipcMain.handle('schedules:getUsage', () => {
+        const schedule = readSchedule(configDir)
+        const usage = readUsage(configDir)
+        const minutes = effectiveScreenMinutes(usage, schedule.screenTimeLinuxUser)
+        return { ...usage, minutes }
+    })
 
     ipcMain.handle('schedules:getUsageHistory', (_, rawMax) => {
         try {
             const maxDays = Math.min(90, Math.max(1, Number(rawMax) || 14))
-            return { days: readUsageHistory(configDir, maxDays) }
+            const schedule = readSchedule(configDir)
+            return { days: readUsageHistory(configDir, maxDays, schedule.screenTimeLinuxUser) }
         } catch (e) {
             return { days: [], error: e.message }
         }
@@ -136,17 +167,18 @@ export function registerSchedulesIpc(ipcMain, configDir) {
                 : BONUS_DEFAULT
             const today = localIsoDate()
             const data = readUsage(configDir)
-            const minutesLogged = Math.max(0, Number(data.minutes) || 0)
             const prevExtra = Math.max(0, Number(data.extraAllowanceMinutes) || 0)
             const nextExtra = prevExtra + bonus
             const out = {
                 date: today,
-                minutes: minutesLogged,
+                users: data.users && typeof data.users === 'object' ? data.users : {},
                 extraAllowanceMinutes: nextExtra,
                 warnedLowScreenTime: false,
                 warnedScreenTimeExhausted: false
             }
             writeUsage(configDir, out)
+            const schedule = readSchedule(configDir)
+            const minutesLogged = effectiveScreenMinutes(out, schedule.screenTimeLinuxUser)
             appendActivity(configDir, {
                 action: 'screen_time_bonus',
                 granted: bonus,

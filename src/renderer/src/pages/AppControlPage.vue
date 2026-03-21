@@ -132,15 +132,10 @@
                     </div>
                     <div>
                         <label class="form-label small text-muted mb-1 d-block">Linux account</label>
-                        <input
-                            v-model="addLinuxUser"
-                            type="text"
-                            class="pc-input"
-                            style="width:140px;"
-                            placeholder="empty = all"
-                            title="Leave empty to enforce for every signed-in user; set to a login name (e.g. child) for a per-user limit."
-                            autocomplete="username"
-                        />
+                        <select v-model="addLinuxUser" class="pc-input" style="min-width:180px;">
+                            <option value="">All accounts</option>
+                            <option v-for="u in addQuotaLinuxUserOptions" :key="u" :value="u">{{ u }}</option>
+                        </select>
                     </div>
                     <div>
                         <label class="form-label small text-muted mb-1 d-block">Minutes / day</label>
@@ -163,9 +158,11 @@
 import { ref, computed, onMounted } from 'vue'
 import { normalizeQuotaLinuxUser, quotaUsedMinutes } from '@shared/quotaUsageKey.js'
 import { useAppStore } from '../stores/appStore.js'
+import { useDesktopLoginUsers, loadDesktopLoginUsers } from '../composables/useDesktopLoginUsers.js'
 import AppListItemIcon from '../components/AppListItemIcon.vue'
 
 const store = useAppStore()
+const { desktopLoginUsers } = useDesktopLoginUsers()
 const apps = ref([])
 const search = ref('')
 const loading = ref(true)
@@ -202,7 +199,7 @@ const filteredQuotas = computed(() => {
 })
 
 const quotaFilterUserOptions = computed(() => {
-    const set = new Set()
+    const set = new Set(desktopLoginUsers.value)
     for (const q of quotas.value) {
         const u = normalizeQuotaLinuxUser(q.linuxUser)
         if (u) set.add(u)
@@ -211,7 +208,16 @@ const quotaFilterUserOptions = computed(() => {
     if (inv) set.add(inv)
     const cur = normalizeQuotaLinuxUser(store.quotaViewLinuxUser)
     if (cur) set.add(cur)
-    return [...set].sort()
+    return [...set].sort((a, b) => a.localeCompare(b))
+})
+
+const addQuotaLinuxUserOptions = computed(() => {
+    const set = new Set(desktopLoginUsers.value)
+    for (const q of quotas.value) {
+        const u = normalizeQuotaLinuxUser(q.linuxUser)
+        if (u) set.add(u)
+    }
+    return [...set].sort((a, b) => a.localeCompare(b))
 })
 
 function quotaUsedForRow(q) {
@@ -239,6 +245,7 @@ const canAddQuota = computed(() => {
 })
 
 onMounted(async () => {
+    await loadDesktopLoginUsers()
     apps.value = await window.api.apps.list()
     await loadQuotas()
     if (!addAppId.value) addAppId.value = appsForQuota.value[0]?.id ?? ''

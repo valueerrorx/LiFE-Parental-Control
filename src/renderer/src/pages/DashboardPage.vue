@@ -70,59 +70,7 @@
             </div>
         </div>
 
-        <!-- Quick actions -->
-        <div class="pc-card">
-            <div class="pc-card-header">
-                <h6>Quick Actions</h6>
-            </div>
-            <div class="pc-card-body d-flex flex-wrap gap-2">
-                <RouterLink to="/webfilter">
-                    <button class="btn-pc-outline">
-                        <i class="bi bi-shield-plus me-2" />Add Web Filter Rule
-                    </button>
-                </RouterLink>
-                <RouterLink to="/apps">
-                    <button class="btn-pc-outline">
-                        <i class="bi bi-app-indicator me-2" />Manage Apps
-                    </button>
-                </RouterLink>
-                <RouterLink to="/schedules">
-                    <button class="btn-pc-outline">
-                        <i class="bi bi-clock me-2" />Set Screen Time
-                    </button>
-                </RouterLink>
-                <RouterLink to="/kiosk">
-                    <button class="btn-pc-outline">
-                        <i class="bi bi-lock me-2" />KDE Kiosk Mode
-                    </button>
-                </RouterLink>
-            </div>
-        </div>
-
-        <div v-if="quotaCount" class="pc-card mt-3">
-            <div class="pc-card-header d-flex align-items-center justify-content-between flex-wrap gap-2">
-                <h6 class="mb-0">Limited apps — today’s usage</h6>
-                <RouterLink to="/apps" class="small text-decoration-none">App Control</RouterLink>
-            </div>
-            <div class="pc-card-body pt-2">
-                <div v-for="row in quotaSummaryRows" :key="row.key" class="mb-3">
-                    <div class="d-flex justify-content-between align-items-baseline small mb-1">
-                        <span>{{ row.appName }}<small class="text-muted">{{ row.userSuffix }}</small></span>
-                        <span class="text-muted">{{ row.used }} / {{ row.limit }} min</span>
-                    </div>
-                    <div class="progress" style="height:7px;">
-                        <div
-                            class="progress-bar"
-                            :class="row.used >= row.limit ? 'bg-danger' : row.ratio >= 0.85 ? 'bg-warning' : 'bg-primary'"
-                            role="progressbar"
-                            :style="{ width: row.pct + '%' }"
-                        />
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Screen time analytics + application log -->
+        <!-- Screen time analytics -->
         <div class="pc-card mt-3">
             <div class="pc-card-header d-flex align-items-center justify-content-between flex-wrap gap-2">
                 <h6 class="mb-0">Screen time</h6>
@@ -208,26 +156,54 @@
             </div>
         </div>
 
+        <div v-if="quotaCount" class="pc-card mt-3">
+            <div class="pc-card-header d-flex align-items-center justify-content-between flex-wrap gap-2">
+                <h6 class="mb-0">Limited apps — today’s usage</h6>
+                <RouterLink to="/apps" class="small text-decoration-none">App Control</RouterLink>
+            </div>
+            <div class="pc-card-body pt-2">
+                <div v-for="row in quotaSummaryRows" :key="row.key" class="mb-3">
+                    <div class="d-flex justify-content-between align-items-baseline small mb-1">
+                        <span>{{ row.appName }}<small class="text-muted">{{ row.userSuffix }}</small></span>
+                        <span class="text-muted">{{ row.used }} / {{ row.limit }} min</span>
+                    </div>
+                    <div class="progress" style="height:7px;">
+                        <div
+                            class="progress-bar"
+                            :class="row.used >= row.limit ? 'bg-danger' : row.ratio >= 0.85 ? 'bg-warning' : 'bg-primary'"
+                            role="progressbar"
+                            :style="{ width: row.pct + '%' }"
+                        />
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <div class="pc-card mt-3">
             <div class="pc-card-header">
-                <h6>Family profiles</h6>
+                <h6>Quick Actions</h6>
             </div>
-            <div class="pc-card-body d-flex flex-column gap-3 align-items-stretch">
-                <div class="d-flex flex-wrap gap-2">
-                    <template v-for="key in lifeModeKeys" :key="key">
-                        <button
-                            :class="key === 'school' ? 'btn-pc-primary' : 'btn-pc-outline'"
-                            :disabled="modeBusy"
-                            @click="onApplyLifeMode(key)"
-                        >
-                            <i class="bi me-2" :class="lifeModeIcon(key)" />{{ lifeModeLabels[key] || key }}
-                        </button>
-                    </template>
-                </div>
-                <label class="d-flex align-items-center gap-2 mb-0" style="cursor:pointer;font-size:13px;">
-                    <input v-model="profileIncludeKiosk" type="checkbox" class="m-0" />
-                    <span>Include KDE kiosk (merge current profile, or clear on Leisure)</span>
-                </label>
+            <div class="pc-card-body d-flex flex-wrap gap-2">
+                <RouterLink to="/webfilter">
+                    <button class="btn-pc-outline">
+                        <i class="bi bi-shield-plus me-2" />Add Web Filter Rule
+                    </button>
+                </RouterLink>
+                <RouterLink to="/apps">
+                    <button class="btn-pc-outline">
+                        <i class="bi bi-app-indicator me-2" />Manage Apps
+                    </button>
+                </RouterLink>
+                <RouterLink to="/schedules">
+                    <button class="btn-pc-outline">
+                        <i class="bi bi-clock me-2" />Set Screen Time
+                    </button>
+                </RouterLink>
+                <RouterLink to="/kiosk">
+                    <button class="btn-pc-outline">
+                        <i class="bi bi-lock me-2" />KDE Kiosk Mode
+                    </button>
+                </RouterLink>
             </div>
         </div>
     </div>
@@ -237,8 +213,6 @@
 import { ref, computed, onMounted } from 'vue'
 import { normalizeQuotaLinuxUser, quotaUsedMinutes, quotaBonusMinutes } from '@shared/quotaUsageKey.js'
 import { useAppStore } from '../stores/appStore.js'
-import { useKioskStore } from '../stores/kioskStore.js'
-import { useModal } from '../composables/useModal.js'
 
 /** Light Material (100–200) tones for top-10 app slices plus "Other session time". */
 const DONUT_COLORS = [
@@ -252,12 +226,6 @@ const WEEK_BAR_TRACK_PX = 120
 const WEEK_BAR_FULL_MINUTES = 12 * 60
 
 const store = useAppStore()
-const kioskStore = useKioskStore()
-const { confirm } = useModal()
-const modeBusy = ref(false)
-const profileIncludeKiosk = ref(false)
-const lifeModeKeys = ref(['school', 'leisure'])
-const lifeModeLabels = ref({ school: 'School', leisure: 'Leisure' })
 const weekUsage = ref([])
 
 const filterCount = computed(() => store.webFilterHostRuleCount)
@@ -400,12 +368,6 @@ const weekPeakDay = computed(() => {
     return `Peak this week: ${top.shortLabel} (${top.minutes}m)`
 })
 
-function lifeModeIcon(key) {
-    if (key === 'school') return 'bi-mortarboard'
-    if (key === 'leisure') return 'bi-brightness-high'
-    return 'bi-sliders'
-}
-
 async function loadWeekUsage() {
     const r = await window.api.schedules.getUsageHistory(14)
     const days = Array.isArray(r?.days) ? r.days : []
@@ -434,57 +396,8 @@ async function refreshScreenCharts() {
 }
 
 onMounted(async () => {
-    const lm = await window.api.lifeMode.list()
-    if (lm?.modes?.length) {
-        lifeModeKeys.value = lm.modes
-        lifeModeLabels.value = lm.labels ?? {}
-    }
     await refreshScreenCharts()
 })
-
-async function onApplyLifeMode(key) {
-    const label = lifeModeLabels.value[key] || key
-    let detail
-    if (key === 'school') {
-        detail = 'Tight weekday schedule, merge Social Media + Gaming into /etc/hosts, unblock all launcher blocks.'
-    } else if (key === 'leisure') {
-        detail = 'Relaxed schedule all week, remove Social/Gaming preset domains from /etc/hosts (your other rules stay), unblock all launcher blocks.'
-    } else {
-        detail = `Custom profile "${label}": schedule, web categories, and blocked apps from life-modes.json (unknown categories are ignored).`
-    }
-    if (profileIncludeKiosk.value) {
-        detail += key === 'leisure'
-            ? ' KDE kiosk: clear and restart the session.'
-            : ' KDE kiosk: apply current profile and restart the session.'
-    }
-    const ok = await confirm(
-        `Apply ${label} profile?`,
-        detail,
-        { ok: 'Apply', cancel: 'Cancel' }
-    )
-    if (!ok) return
-    modeBusy.value = true
-    const result = await store.applyLifeMode(key)
-    if (result?.error) {
-        modeBusy.value = false
-        window.alert(result.error)
-        return
-    }
-    if (profileIncludeKiosk.value) {
-        if (key === 'leisure') {
-            const kr = await window.api.system.activateKiosk('')
-            if (kr?.error) window.alert(`KDE kiosk: ${kr.error}`)
-        } else {
-            await kioskStore.init()
-            const { configText, plasmaLayoutHardLock } = await kioskStore.prepareActivation()
-            const kr = await window.api.system.activateKiosk({ configText, plasmaLayoutHardLock })
-            if (kr?.error) window.alert(`KDE kiosk: ${kr.error}`)
-        }
-    }
-    modeBusy.value = false
-    await store.refreshProtectionsState()
-    await refreshScreenCharts()
-}
 </script>
 
 <style scoped>
