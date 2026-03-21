@@ -1,12 +1,9 @@
-# Full electron-builder run (AppImage + deb); slower than ci.yml — manual or release tags.
+# Full electron-builder run (AppImage + deb); manual only — releases + tags are handled by package-on-version-bump.yml (avoids duplicate builds when the release workflow creates tag v*).
 
 name: Package
 
 on:
   workflow_dispatch:
-  push:
-    tags:
-      - 'v*'
 
 permissions:
   contents: read

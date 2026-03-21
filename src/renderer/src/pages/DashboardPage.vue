@@ -137,11 +137,11 @@
             </div>
             <div class="pc-card-body">
                 <div class="row g-4 align-items-stretch">
-                    <div class="col-lg-5">
-                        <div class="donut-with-legend d-flex flex-column flex-md-row align-items-start justify-content-start">
+                    <div class="col-12 col-lg-4 min-w-0 screen-time-donut-col">
+                        <div class="donut-with-legend">
                             <ul
                                 v-if="donutLegend.length"
-                                class="donut-legend list-unstyled small mb-0 order-2 order-md-1 flex-shrink-0 d-flex flex-column gap-1"
+                                class="donut-legend list-unstyled small mb-0 d-flex flex-column gap-1"
                             >
                                 <li
                                     v-for="(row, idx) in donutLegend"
@@ -153,7 +153,7 @@
                                     <span class="text-muted text-nowrap">{{ row.value }}m</span>
                                 </li>
                             </ul>
-                            <div class="donut-chart-side order-1 order-md-2 w-100 d-flex justify-content-center align-items-start">
+                            <div class="donut-chart-side d-flex justify-content-center align-items-start">
                                 <div
                                     class="donut-wrap"
                                     :class="{ 'donut-wrap--empty': !donutGradient }"
@@ -171,7 +171,7 @@
                             Tracked app minutes can exceed session minutes when several catalog apps run at the same time.
                         </p>
                     </div>
-                    <div class="col-lg-7 d-flex flex-column week-chart-col-wrap">
+                    <div class="col-12 col-lg-8 min-w-0 d-flex flex-column week-chart-col-wrap">
                         <div class="d-flex flex-wrap align-items-start justify-content-between gap-2 mb-2">
                             <h6 class="small text-muted mb-0">Last 7 days (logged minutes)</h6>
                             <div class="d-flex flex-wrap gap-3 small text-muted justify-content-end">
@@ -464,18 +464,42 @@ async function onApplyLifeMode(key) {
 .donut-overlap-hint {
     color: #b0bec5;
 }
+.screen-time-donut-col {
+    max-width: 100%;
+}
 .donut-with-legend {
+    display: grid;
     width: 100%;
-    gap: 1.25rem;
+    gap: 1rem 1.25rem;
+    align-items: start;
+    justify-items: stretch;
 }
 @media (min-width: 768px) {
     .donut-with-legend {
-        gap: 1.25rem 3rem;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 1rem 1.5rem;
+    }
+    .donut-with-legend:has(> .donut-chart-side:only-child) {
+        grid-template-columns: 1fr;
+        justify-items: center;
+    }
+}
+@media (max-width: 767.98px) {
+    .donut-with-legend {
+        grid-template-columns: 1fr;
+        justify-items: center;
+    }
+    .donut-with-legend .donut-legend {
+        grid-row: 2;
+        justify-self: stretch;
+    }
+    .donut-with-legend .donut-chart-side {
+        grid-row: 1;
     }
 }
 .donut-legend {
-    width: 100%;
-    max-width: 220px;
+    width: min(220px, 100%);
+    min-width: 0;
     /* Exactly 10 rows (DONUT_TOP_APPS): 10×row + 9×gap; scroll only if 11th slice (e.g. Other session time). */
     max-height: calc(10 * 1.375rem + 9 * 0.25rem);
     overflow-y: auto;
@@ -496,9 +520,16 @@ async function onApplyLifeMode(key) {
     min-width: 0;
 }
 .donut-chart-side {
-    flex: 1 1 auto;
-    min-width: 200px; /* match .donut-wrap; min-width:0 was allowing flex to squash the ring */
-    flex-shrink: 0;
+    min-width: 0;
+    justify-self: center;
+}
+@media (min-width: 768px) {
+    .donut-chart-side {
+        justify-self: end;
+    }
+    .donut-legend {
+        justify-self: start;
+    }
 }
 .donut-wrap {
     flex-shrink: 0;
