@@ -1,0 +1,40 @@
+[Group]
+Icon=printer
+Name=Printing
+Description=[KDE Resource Restrictions] with print/* keys — KDE print dialog and CUPS integration.
+
+[Action-1]
+Type=resource
+Key=print/copies
+Name=Disable multi-copy panel
+Description=Disallows choosing more than one copy in the print dialog.
+
+[Action-2]
+Type=resource
+Key=print/dialog
+Name=Disable print dialog (print immediately)
+Description=Skips the print dialog; uses defaults (ensure a default printer is set).
+
+[Action-3]
+Type=resource
+Key=print/options
+Name=Disable extra print options
+Description=Disables additional print options button.
+
+[Action-4]
+Type=resource
+Key=print/properties
+Name=Disable printer properties
+Description=Disables changing printer properties or adding printers from the dialog.
+
+[Action-5]
+Type=resource
+Key=print/selection
+Name=Disable printer selection
+Description=Disables choosing another printer or changing printer properties (implies stricter lock).
+
+[Action-6]
+Type=resource
+Key=print/system
+Name=Disable print system backend selection
+Description=Disables switching printing system (e.g. CUPS) in the dialog.

@@ -1,0 +1,34 @@
+[Group]
+Icon=preferences-system
+Name=Resources
+Description=[KDE Resource Restrictions] — limits use of per-user resource dirs (see KDE Kiosk docs).
+
+[Action-1]
+Type=resource
+Key=all
+Name=Disable all user resources
+Description=Blocks all resource types listed in the KDE table (heavy-handed).
+
+[Action-2]
+Type=resource
+Key=autostart
+Name=Disable autostart changes
+Description=Blocks adding/changing autostart entries under share/autostart.
+
+[Action-3]
+Type=resource
+Key=data
+Name=Disable application data writes
+Description=Restricts per-user application data areas (as enforced by apps using this key).
+
+[Action-4]
+Type=resource
+Key=cache
+Name=Disable cache writes
+Description=Restricts cache directories where applicable.
+
+[Action-5]
+Type=resource
+Key=services
+Name=Disable service registry changes
+Description=Restricts user service registrations where applicable.

@@ -1,0 +1,112 @@
+[Group]
+Icon=utilities-terminal
+Name=Konsole
+Description=Konsole 25+ actionCollection() ids (hyphenated). Legacy KDE Kiosk table used underscores (e.g. new_session); real ids are new-tab, close-session. KActionCollection applies KAuthorized per id.
+
+[Action-1]
+Type=actionrestriction
+Key=action/konsole_rmb
+Name=[Legacy] Disable Konsole context menus
+Description=Old KDE Kiosk name; modern Konsole may not register this id—prefer disabling specific context actions below if RMB still appears.
+
+[Action-2]
+Type=actionrestriction
+Key=action/new-tab
+Name=Disable New Tab
+Description=MainWindow registers new-tab (replaces obsolete action/new_session in docs).
+
+[Action-3]
+Type=actionrestriction
+Key=action/clone-tab
+Name=Disable Clone Tab
+Description=Duplicates the current session in a new tab.
+
+[Action-4]
+Type=actionrestriction
+Key=action/new-window
+Name=Disable New Window
+Description=Opens another Konsole window.
+
+[Action-5]
+Type=actionrestriction
+Key=action/close-session
+Name=Disable Close Session
+Description=SessionController uses close-session (hyphen), not close_session.
+
+[Action-6]
+Type=actionrestriction
+Key=action/close-window
+Name=Disable Close Window
+Description=Closes the whole Konsole window.
+
+[Action-7]
+Type=actionrestriction
+Key=action/open-browser
+Name=Disable Open File Manager
+Description=Opens Dolphin (or default file manager) from the terminal—often unwanted in locked setups.
+
+[Action-8]
+Type=actionrestriction
+Key=action/manage-profiles
+Name=Disable Manage Profiles
+Description=Opens the profile editor / profile list.
+
+[Action-9]
+Type=actionrestriction
+Key=action/edit-current-profile
+Name=Disable Edit Current Profile
+Description=Quick edit of the active profile.
+
+[Action-10]
+Type=actionrestriction
+Key=action/split-view-left-right
+Name=Disable Split View (left/right)
+Description=Splits the terminal view horizontally.
+
+[Action-11]
+Type=actionrestriction
+Key=action/split-view-top-bottom
+Name=Disable Split View (top/bottom)
+Description=Splits the terminal view vertically.
+
+[Action-12]
+Type=actionrestriction
+Key=action/detach-tab
+Name=Disable Detach Tab
+Description=Detaches the tab to a new window.
+
+[Action-13]
+Type=actionrestriction
+Key=action/detach-view
+Name=Disable Detach View
+Description=Detaches the split view.
+
+[Action-14]
+Type=actionrestriction
+Key=action/zmodem-upload
+Name=Disable ZModem upload
+Description=File transfer entry from the session menu.
+
+[Action-15]
+Type=actionrestriction
+Key=action/clear-history
+Name=Disable Clear History
+Description=Clears scrollback history.
+
+[Action-16]
+Type=actionrestriction
+Key=action/clear-history-and-reset
+Name=Disable Clear History and Reset
+Description=Clears history and resets the terminal state.
+
+[Action-17]
+Type=actionrestriction
+Key=action/rename-session
+Name=Disable Rename Session
+Description=Renames the tab / session title.
+
+[Action-18]
+Type=actionrestriction
+Key=action/web-search
+Name=Disable Web Search
+Description=Web search on selected text (if shown in your build).

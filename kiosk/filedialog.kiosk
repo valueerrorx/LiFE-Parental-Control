@@ -1,0 +1,82 @@
+[Group]
+Icon=plasmavault
+Name=File dialog
+Description=KDE file picker (KDirSelect / QFileDialog) action keys — same [KDE Action Restrictions] group as other actions.
+
+[Action-1]
+Type=actionrestriction
+Key=action/home
+Name=Disable Go to home
+Description=Removes home in the file dialog path bar.
+
+[Action-2]
+Type=actionrestriction
+Key=action/up
+Name=Disable Go to parent
+Description=Removes parent-directory navigation.
+
+[Action-3]
+Type=actionrestriction
+Key=action/back
+Name=Disable Back
+Description=Disables history back.
+
+[Action-4]
+Type=actionrestriction
+Key=action/forward
+Name=Disable Forward
+Description=Disables history forward.
+
+[Action-5]
+Type=actionrestriction
+Key=action/reload
+Name=Disable Reload
+Description=Disables reloading the current directory listing.
+
+[Action-6]
+Type=actionrestriction
+Key=action/mkdir
+Name=Disable Create folder
+Description=Disables creating new directories from the dialog.
+
+[Action-7]
+Type=actionrestriction
+Key=action/toggleSpeedbar
+Name=Disable sidebar toggle
+Description=Show/hide places sidebar.
+
+[Action-8]
+Type=actionrestriction
+Key=action/sorting menu
+Name=Disable sorting menu
+Description=Disables sorting options (key name includes a space per KDE docs).
+
+[Action-9]
+Type=actionrestriction
+Key=action/short view
+Name=Disable short list view
+Description=Disables switching to short list view.
+
+[Action-10]
+Type=actionrestriction
+Key=action/detailed view
+Name=Disable detailed list view
+Description=Disables switching to detailed list view.
+
+[Action-11]
+Type=actionrestriction
+Key=action/show hidden
+Name=Disable show hidden files
+Description=Disables toggling hidden files in the dialog.
+
+[Action-12]
+Type=actionrestriction
+Key=action/preview
+Name=Disable preview pane
+Description=Disables preview in the file dialog.
+
+[Action-13]
+Type=actionrestriction
+Key=action/separate dirs
+Name=Disable separate dirs mode
+Description=Disables “separate directories” layout option.
