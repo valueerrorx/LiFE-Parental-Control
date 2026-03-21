@@ -14,7 +14,7 @@ import { initWarningWindow } from './warningWindow.js'
 import { stopEnforcementScheduler } from './enforcementScheduler.js'
 import { resolveElevatedExecutablePath } from './appImageResolve.js'
 import { getActiveGraphicalSessions } from './graphicalSessionDetect.js'
-import { getUidForLinuxUser } from './desktopSessionEnviron.js'
+import { getUidForLinuxUser, readDesktopSessionEnvForUid, isSessionGnomeShell } from './desktopSessionEnviron.js'
 import { trayDebugLog } from './trayDebugLog.js'
 
 // __dirname = out/main/ after electron-vite compilation
@@ -26,6 +26,8 @@ let tray = null
 let trayUserHelper = null
 let allowAppTermination = false
 let deferredHeavyWorkStarted = false
+// GNOME: hide() removes the dash icon; minimize() keeps the running app in the dock without a tray.
+let gnomeCloseMinimizesToDock = false
 
 function readProcLoginUid() {
     try {
@@ -140,6 +142,11 @@ if (process.env.LIFE_TRAY_SPAWN !== '1' && typeof process.getuid === 'function' 
 }
 
 if (process.env.LIFE_TRAY_SPAWN === '1') {
+    app.setName('LiFE Parental Control')
+    if (process.platform === 'linux') {
+        app.commandLine.appendSwitch('ozone-platform-hint', 'x11')
+    }
+    Menu.setApplicationMenu(null)
     void import('./trayHelperMain.js')
 } else {
     app.whenReady().then(() => {
@@ -231,7 +238,17 @@ if (process.env.LIFE_TRAY_SPAWN === '1') {
         mainWindow.on('close', e => {
             if (allowAppTermination) return
             e.preventDefault()
-            if (!mainWindow.isDestroyed()) mainWindow.hide()
+            if (mainWindow.isDestroyed()) return
+            const useMinimize =
+                gnomeCloseMinimizesToDock
+                || (process.platform === 'linux'
+                    && isSessionGnomeShell({
+                        XDG_CURRENT_DESKTOP: process.env.XDG_CURRENT_DESKTOP,
+                        XDG_SESSION_DESKTOP: process.env.XDG_SESSION_DESKTOP,
+                        DESKTOP_SESSION: process.env.DESKTOP_SESSION
+                    }))
+            if (useMinimize) mainWindow.minimize()
+            else mainWindow.hide()
         })
 
         const showMainWindow = () => {
@@ -265,6 +282,7 @@ if (process.env.LIFE_TRAY_SPAWN === '1') {
         || (fromRtUid && fromRtUid !== '0' ? fromRtUid : null) || firstNonRootUserBusUid()
 
         const startTrayAfterUiReady = async () => {
+            gnomeCloseMinimizesToDock = false
             trayDebugLog('main', 'startTrayAfterUiReady', {
                 uid: typeof process.getuid === 'function' ? process.getuid() : null,
                 packaged: app.isPackaged,
@@ -278,8 +296,6 @@ if (process.env.LIFE_TRAY_SPAWN === '1') {
                 imagesDir,
                 trayIconForHelper: trayIconForHelper || ''
             })
-            // Set D-Bus address late so Chromium does not inherit it at window creation (avoids multi-second D-Bus timeouts).
-            applyLinuxUserSessionBusIfRoot()
             let trayTargetUser = desktopUidForTray
             try {
                 const sessions = await getActiveGraphicalSessions()
@@ -297,6 +313,16 @@ if (process.env.LIFE_TRAY_SPAWN === '1') {
                 trayDebugLog('main', 'getActiveGraphicalSessions error', e?.message || String(e))
                 console.warn('[LiFE Parental Control] Tray: session list failed', e?.message)
             }
+            const desktopEnvForTray = readDesktopSessionEnvForUid(String(trayTargetUser || ''))
+            if (process.platform === 'linux' && isSessionGnomeShell(desktopEnvForTray)) {
+                gnomeCloseMinimizesToDock = true
+                trayDebugLog('main', 'skip tray on GNOME Shell (close minimizes to dock; restore from dash)', {
+                    trayTargetUser: trayTargetUser || ''
+                })
+                return
+            }
+            // Set D-Bus address late so Chromium does not inherit it at window creation (avoids multi-second D-Bus timeouts).
+            applyLinuxUserSessionBusIfRoot()
             trayDebugLog('main', 'trayTargetUser resolved', { trayTargetUser: trayTargetUser || '', willTryHelper: Boolean(
                 process.platform === 'linux' && process.getuid?.() === 0 && trayTargetUser && trayTargetUser !== '0' && trayIconForHelper
             ) })

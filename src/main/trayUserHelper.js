@@ -79,8 +79,9 @@ export function startUserTrayHelper(opts) {
                 return
             }
             // AppImage ignores `-- script.js`; spawning it starts index.js → second non-root instance → pkexec loop. Use LIFE_TRAY_SPAWN=1 so index.js only loads trayHelperMain.js; exec on-disk *.AppImage, not the extract-dir binary (EACCES for uid).
+            // Electron loads package.json main even when argv is trayHelperMain.js — that path is not the entry; use LIFE_TRAY_SPAWN=1 like AppImage.
             let spawnExec = electronExec
-            let spawnArgs = [helperPath]
+            let spawnArgs = ['--no-sandbox']
             let effectiveIconPath = trayIconPath
             const tmpCleanup = []
             const resolvedAppImage = app.isPackaged ? getAppImagePathIfAny() : ''
@@ -102,6 +103,11 @@ export function startUserTrayHelper(opts) {
                     trayDebugLog('helper', 'AppImage shim copy failed', e?.message || String(e))
                     console.warn('[LiFE Parental Control] Tray helper: AppImage shim failed, falling back to execPath', e.message)
                 }
+            }
+            const pkgRoot = path.join(mainDir, '..', '..')
+            if (!(resolvedAppImage && spawnExec === resolvedAppImage) && fs.existsSync(path.join(pkgRoot, 'package.json'))) {
+                // Without an app path, Electron loads default_app (version info window); AppImage binary is the app and only needs --no-sandbox.
+                spawnArgs = ['--no-sandbox', pkgRoot]
             }
             trayDebugLog('helper', 'spawn plan', {
                 resolvedAppImage: resolvedAppImage || '',
@@ -126,7 +132,7 @@ export function startUserTrayHelper(opts) {
                 childEnv.APPIMAGELAUNCHER_DISABLE = '1'
             } else {
                 delete childEnv.APPIMAGE
-                delete childEnv.LIFE_TRAY_SPAWN
+                childEnv.LIFE_TRAY_SPAWN = '1'
             }
             const xa = path.join(row.home || '', '.Xauthority')
             try {
@@ -155,14 +161,18 @@ export function startUserTrayHelper(opts) {
             })
             let child
             let stderrBuf = ''
+            const appImageChild = Boolean(resolvedAppImage && spawnExec === resolvedAppImage)
+            const spawnOpts = {
+                env: childEnv,
+                uid,
+                gid,
+                detached: true,
+                stdio: ['ignore', 'ignore', 'pipe'],
+                // Optional cwd for dev electron; argv already passes absolute pkgRoot when not AppImage.
+                ...(!appImageChild && fs.existsSync(path.join(pkgRoot, 'package.json')) ? { cwd: pkgRoot } : {})
+            }
             try {
-                child = spawn(spawnExec, spawnArgs, {
-                    env: childEnv,
-                    uid,
-                    gid,
-                    detached: true,
-                    stdio: ['ignore', 'ignore', 'pipe']
-                })
+                child = spawn(spawnExec, spawnArgs, spawnOpts)
             } catch (err) {
                 trayDebugLog('helper', 'spawn threw', err?.message || String(err))
                 console.error('[LiFE Parental Control] Tray helper spawn:', err.message)

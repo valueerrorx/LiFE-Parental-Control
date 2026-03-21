@@ -148,3 +148,14 @@ export function readDesktopSessionEnvForUid(uidOrName) {
     const fromRun = readRunuserEnv(username)
     return pickKeysFromMaps(fromProc, fromRun)
 }
+
+/** True when the graphical session looks like GNOME Shell (StatusNotifier tray is unreliable; use dock + close-to-hide instead). */
+export function isSessionGnomeShell(env) {
+    const cur = String(env?.XDG_CURRENT_DESKTOP || '').toUpperCase()
+    const sess = String(env?.XDG_SESSION_DESKTOP || '').toLowerCase()
+    const desk = String(env?.DESKTOP_SESSION || '').toLowerCase()
+    if (cur.includes('GNOME')) return true
+    if (sess === 'gnome' || sess === 'ubuntu') return true
+    if (desk === 'gnome' || desk === 'ubuntu') return true
+    return false
+}
