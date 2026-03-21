@@ -2,9 +2,9 @@ import fs from 'fs'
 import path from 'path'
 import { app, nativeImage } from 'electron'
 
-// Match working Electron trays: `new Tray(absolutePathToSmallPng)`; see images/tray-24.png (regenerate from pc.png if branding changes).
-const TRAY_PNG = 'tray-64.png'
-const WINDOW_ICON_PNG = 'pc.png'
+// Tray: small PNGs only. Window chrome: same first, then dashboard.png — never pc.png (large decode on main thread).
+const TRAY_ONLY_PNGS = ['tray-64.png', 'tray-24.png']
+const WINDOW_EXTRA_PNGS = ['dashboard.png']
 const FALLBACK_TRAY_PNG = Buffer.from(
     'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAFgwJ/l1G8WQAAAABJRU5ErkJggg==',
     'base64'
@@ -21,13 +21,23 @@ function orderedPaths(imagesDir, filename) {
     return [...new Set(list)]
 }
 
-export function resolveTrayIconPath(imagesDir) {
-    for (const filename of [TRAY_PNG, WINDOW_ICON_PNG]) {
+function firstExistingPath(imagesDir, filenames) {
+    for (const filename of filenames) {
         for (const p of orderedPaths(imagesDir, filename)) {
             if (fs.existsSync(p)) return p
         }
     }
     return null
+}
+
+export function resolveTrayIconPath(imagesDir) {
+    return firstExistingPath(imagesDir, TRAY_ONLY_PNGS)
+}
+
+export function resolveWindowIconPath(imagesDir) {
+    const small = firstExistingPath(imagesDir, TRAY_ONLY_PNGS)
+    if (small) return small
+    return firstExistingPath(imagesDir, WINDOW_EXTRA_PNGS)
 }
 
 function normalizeTraySize(img) {
@@ -44,7 +54,7 @@ function normalizeTraySize(img) {
 }
 
 export function loadTrayNativeImage(imagesDir) {
-    for (const filename of [TRAY_PNG, WINDOW_ICON_PNG]) {
+    for (const filename of TRAY_ONLY_PNGS) {
         for (const iconPath of orderedPaths(imagesDir, filename)) {
             try {
                 if (!fs.existsSync(iconPath)) continue
@@ -58,6 +68,6 @@ export function loadTrayNativeImage(imagesDir) {
             }
         }
     }
-    console.warn('[LiFE Parental Control] Tray: no PNG in images/; using embedded fallback')
+    console.warn('[LiFE Parental Control] Tray: no small PNG in images/; using embedded fallback')
     return normalizeTraySize(nativeImage.createFromBuffer(FALLBACK_TRAY_PNG))
 }

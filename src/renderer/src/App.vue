@@ -10,10 +10,7 @@
                 <h2>LiFE Parental Control</h2>
 
                 <Transition name="pc-lock-inner" mode="out-in">
-                    <div v-if="!passwordGateReady" key="loading" class="lock-card-phase">
-                        <p class="text-muted small mb-0">Loading…</p>
-                    </div>
-                    <div v-else-if="!passwordSet" key="setup" class="lock-card-phase">
+                    <div v-if="!passwordSet" key="setup" class="lock-card-phase">
                         <p>Create a password to protect parental control settings.</p>
                         <div class="text-start mb-3">
                             <label class="form-label small text-muted">New password</label>
@@ -55,7 +52,6 @@ import { useModal } from './composables/useModal.js'
 const { prompt } = useModal()
 
 const unlocked = ref(false)
-const passwordGateReady = ref(false)
 const passwordSet = ref(false)
 const password = ref('')
 const pw1 = ref('')
@@ -98,7 +94,6 @@ function onUserActivity() {
 
 onMounted(async () => {
     passwordSet.value = await window.api.settings.isPasswordSet()
-    passwordGateReady.value = true
     void window.api.app.deferredHeavyWork()
     window.addEventListener('wheel', onUserActivity, { passive: true })
     window.addEventListener('keydown', onUserActivity)
@@ -193,7 +188,7 @@ async function onExit() {
 </script>
 
 <style scoped>
-/* Soft entrance for password gate; inner Transition crossfades loading → forms. */
+/* Soft entrance for password gate; inner Transition crossfades setup ↔ unlock. */
 .pc-lock-fade-enter-active,
 .pc-lock-fade-appear-active {
     transition: opacity 0.45s ease, transform 0.45s ease;

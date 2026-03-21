@@ -5,19 +5,9 @@ import { spawn } from 'child_process'
 import { registerConfigIpc } from './ipc/configIpc.js'
 import { registerProfileIpc } from './ipc/profileIpc.js'
 import { registerSystemIpc } from './ipc/systemIpc.js'
-import { registerWebFilterIpc, runStartupHageziSync } from './ipc/webFilterIpc.js'
-import { registerAppBlockerIpc, refreshAppMonitorCatalog } from './ipc/appBlockerIpc.js'
-import { registerSchedulesIpc } from './ipc/schedulesIpc.js'
 import { registerSettingsIpc, repairInvalidLockIdleInConfig } from './ipc/settingsIpc.js'
-import { registerLifeModeIpc } from './ipc/lifeModeIpc.js'
-import { registerBackupIpc } from './ipc/backupIpc.js'
-import { registerQuotaIpc } from './ipc/quotaIpc.js'
-import { registerProcessWhitelistIpc } from './ipc/processWhitelistIpc.js'
-import { registerActivityIpc } from './ipc/activityIpc.js'
-import { registerSettingsDangerIpc } from './ipc/settingsDangerIpc.js'
 import { pruneUsageArchives } from './ipc/usageArchivePrune.js'
-import { syncEmbeddedEnforcementIfNeeded } from './ipc/embeddedEnforcementSync.js'
-import { loadTrayNativeImage, resolveTrayIconPath } from './trayIcon.js'
+import { loadTrayNativeImage, resolveTrayIconPath, resolveWindowIconPath } from './trayIcon.js'
 import { startUserTrayHelper } from './trayUserHelper.js'
 import { initWarningWindow } from './warningWindow.js'
 
@@ -106,7 +96,7 @@ function spawnPkexecRelaunch() {
 
 function showElevationGateAndWaitForPkexec() {
     const imagesDir = path.join(process.resourcesPath, 'images')
-    const gateIcon = resolveTrayIconPath(imagesDir) ?? path.join(imagesDir, 'pc.png')
+    const gateIcon = resolveWindowIconPath(imagesDir)
     const gateHtml = `<!DOCTYPE html>
 <html><head><meta charset="utf-8"><title>LiFE Parental Control</title>
 <style>
@@ -138,7 +128,7 @@ document.getElementById('go').onclick=function(){
         maximizable: false,
         fullscreenable: false,
         title: 'LiFE Parental Control',
-        icon: gateIcon,
+        ...(gateIcon ? { icon: gateIcon } : {}),
         show: true,
         autoHideMenuBar: true,
         webPreferences: {
@@ -150,7 +140,7 @@ document.getElementById('go').onclick=function(){
     gate.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(gateHtml))
 }
 
-app.whenReady().then(async () => {
+app.whenReady().then(() => {
     // All app.* calls are safe inside whenReady — avoids top-level require('electron') resolution issues
 
     if (!app.isPackaged && typeof process.getuid === 'function' && process.getuid() !== 0) {
@@ -200,23 +190,38 @@ app.whenReady().then(async () => {
     registerConfigIpc(ipcMain, kioskDir)
     registerProfileIpc(ipcMain, profilesDir)
     registerSystemIpc(ipcMain, () => mainWindow, APP_CONFIG_DIR)
-    const hageziBundledDir = app.isPackaged
-        ? path.join(process.resourcesPath, 'hagezi')
-        : path.resolve(path.join(__dirname, '../../hagezi'))
-    registerWebFilterIpc(ipcMain, APP_CONFIG_DIR, { hageziBundledDir })
-    registerAppBlockerIpc(ipcMain, APP_CONFIG_DIR)
-    registerSchedulesIpc(ipcMain, APP_CONFIG_DIR)
     registerSettingsIpc(ipcMain, APP_CONFIG_DIR)
-    registerLifeModeIpc(ipcMain, APP_CONFIG_DIR)
-    registerQuotaIpc(ipcMain, APP_CONFIG_DIR)
-    registerProcessWhitelistIpc(ipcMain, APP_CONFIG_DIR)
-    registerActivityIpc(ipcMain, APP_CONFIG_DIR)
-    registerBackupIpc(ipcMain, APP_CONFIG_DIR, () => mainWindow)
-    registerSettingsDangerIpc(ipcMain, APP_CONFIG_DIR)
 
     Menu.setApplicationMenu(null)
 
-    const windowIconPath = resolveTrayIconPath(imagesDir) ?? path.join(imagesDir, 'pc.png')
+    let heavyIpcReadyResolve
+    const heavyIpcReady = new Promise((resolve) => {
+        heavyIpcReadyResolve = resolve
+    })
+    let heavyIpcScheduled = false
+    const scheduleHeavyIpcRegistration = () => {
+        if (heavyIpcScheduled) return
+        heavyIpcScheduled = true
+        globalThis.setImmediate(async () => {
+            try {
+                const { registerHeavyIpc } = await import('./registerHeavyIpc.js')
+                const hageziBundledDir = app.isPackaged
+                    ? path.join(process.resourcesPath, 'hagezi')
+                    : path.resolve(path.join(__dirname, '../../hagezi'))
+                registerHeavyIpc(ipcMain, {
+                    appConfigDir: APP_CONFIG_DIR,
+                    hageziBundledDir,
+                    getMainWindow: () => mainWindow
+                })
+            } catch (e) {
+                console.error('[LiFE Parental Control] Heavy IPC registration failed:', e)
+            } finally {
+                heavyIpcReadyResolve()
+            }
+        })
+    }
+
+    const windowIconPath = resolveWindowIconPath(imagesDir)
 
     mainWindow = new BrowserWindow({
         width: 1600,
@@ -224,7 +229,7 @@ app.whenReady().then(async () => {
         minWidth: 1100,
         minHeight: 700,
         title: 'LiFE Parental Control',
-        icon: windowIconPath,
+        ...(windowIconPath ? { icon: windowIconPath } : {}),
         webPreferences: {
             preload: path.join(__dirname, '../preload/index.js'),
             contextIsolation: true,
@@ -237,34 +242,6 @@ app.whenReady().then(async () => {
         if (allowAppTermination) return
         e.preventDefault()
         if (!mainWindow.isDestroyed()) mainWindow.hide()
-    })
-
-    ipcMain.handle('app:quit', () => {
-        allowAppTermination = true
-        app.quit()
-    })
-
-    ipcMain.handle('app:deferredHeavyWork', () => {
-        if (deferredHeavyWorkStarted) return { ok: true }
-        deferredHeavyWorkStarted = true
-        globalThis.setImmediate(() => {
-            if (app.isPackaged && typeof process.getuid === 'function' && process.getuid() === 0) {
-                try {
-                    syncEmbeddedEnforcementIfNeeded(APP_CONFIG_DIR, app.getVersion())
-                } catch {
-                    // best-effort: enforcement scripts must not block first IPC
-                }
-            }
-            void runStartupHageziSync(APP_CONFIG_DIR)
-            globalThis.setImmediate(() => {
-                try {
-                    refreshAppMonitorCatalog(APP_CONFIG_DIR)
-                } catch {
-                    // best-effort: catalog + cron so dashboard app-usage can run without opening App Control first
-                }
-            })
-        })
-        return { ok: true }
     })
 
     const showMainWindow = () => {
@@ -287,6 +264,59 @@ app.whenReady().then(async () => {
         process.env.SUDO_UID || process.env.PKEXEC_UID || readProcLoginUid()
         || (fromRtUid && fromRtUid !== '0' ? fromRtUid : null) || firstNonRootUserBusUid()
 
+    const startTrayAfterUiReady = async () => {
+        if (process.platform === 'linux' && process.getuid?.() === 0 && desktopUidForTray && desktopUidForTray !== '0' && trayPath) {
+            trayUserHelper = await startUserTrayHelper({
+                uidS: desktopUidForTray,
+                trayIconPath: trayPath,
+                mainDir: __dirname,
+                electronExec: process.execPath,
+                onShow: showMainWindow,
+                onQuitFromTray: quitFromTray
+            })
+        }
+        if (!trayUserHelper) {
+            try {
+                tray = trayPath ? new Tray(trayPath) : new Tray(loadTrayNativeImage(imagesDir))
+            } catch (err) {
+                console.error('[LiFE Parental Control] Tray init failed:', err)
+                tray = new Tray(loadTrayNativeImage(imagesDir))
+            }
+            tray.setToolTip('LiFE Parental Control')
+            tray.on('click', showMainWindow)
+            tray.setContextMenu(Menu.buildFromTemplate([
+                { label: 'Show window', click: showMainWindow },
+                { type: 'separator' },
+                { label: 'Quit…', click: quitFromTray }
+            ]))
+        }
+        if (process.platform === 'linux' && process.getuid?.() === 0) {
+            console.warn(
+                '[LiFE Parental Control] Tray: root main; userHelper=',
+                Boolean(trayUserHelper),
+                'DBUS_SESSION_BUS_ADDRESS=',
+                process.env.DBUS_SESSION_BUS_ADDRESS || '(unset)'
+            )
+        }
+    }
+
+    ipcMain.handle('app:quit', () => {
+        allowAppTermination = true
+        app.quit()
+    })
+
+    ipcMain.handle('app:deferredHeavyWork', async () => {
+        if (deferredHeavyWorkStarted) return { ok: true }
+        deferredHeavyWorkStarted = true
+        await heavyIpcReady
+        const { runDeferredStartupTasks } = await import('./registerHeavyIpc.js')
+        globalThis.setImmediate(() => runDeferredStartupTasks(APP_CONFIG_DIR))
+        globalThis.setImmediate(() => {
+            void startTrayAfterUiReady()
+        })
+        return { ok: true }
+    })
+
     if (process.env.NODE_ENV === 'development') {
         mainWindow.loadURL(process.env.ELECTRON_RENDERER_URL)
         mainWindow.webContents.openDevTools()
@@ -294,40 +324,9 @@ app.whenReady().then(async () => {
         mainWindow.loadFile(path.join(__dirname, '../renderer/index.html'))
     }
 
-    if (process.platform === 'linux' && process.getuid?.() === 0 && desktopUidForTray && desktopUidForTray !== '0' && trayPath) {
-        trayUserHelper = await startUserTrayHelper({
-            uidS: desktopUidForTray,
-            trayIconPath: trayPath,
-            mainDir: __dirname,
-            electronExec: process.execPath,
-            onShow: showMainWindow,
-            onQuitFromTray: quitFromTray
-        })
-    }
-
-    if (!trayUserHelper) {
-        try {
-            tray = trayPath ? new Tray(trayPath) : new Tray(loadTrayNativeImage(imagesDir))
-        } catch (err) {
-            console.error('[LiFE Parental Control] Tray init failed:', err)
-            tray = new Tray(loadTrayNativeImage(imagesDir))
-        }
-        tray.setToolTip('LiFE Parental Control')
-        tray.on('click', showMainWindow)
-        tray.setContextMenu(Menu.buildFromTemplate([
-            { label: 'Show window', click: showMainWindow },
-            { type: 'separator' },
-            { label: 'Quit…', click: quitFromTray }
-        ]))
-    }
-    if (process.platform === 'linux' && process.getuid?.() === 0) {
-        console.warn(
-            '[LiFE Parental Control] Tray: root main; userHelper=',
-            Boolean(trayUserHelper),
-            'DBUS_SESSION_BUS_ADDRESS=',
-            process.env.DBUS_SESSION_BUS_ADDRESS || '(unset)'
-        )
-    }
+    mainWindow.webContents.once('did-finish-load', () => {
+        globalThis.setImmediate(() => scheduleHeavyIpcRegistration())
+    })
 })
 
 app.on('before-quit', () => {
