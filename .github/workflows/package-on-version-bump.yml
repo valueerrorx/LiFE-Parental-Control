@@ -1,11 +1,11 @@
-# Builds AppImage + deb and publishes a GitHub Release when package.json "version" changes on master.
+# Builds AppImage + deb and publishes a GitHub Release when package.json "version" changes on main.
 
 name: Package on version bump
 
 on:
   push:
     branches:
-      - master
+      - main
     paths:
       - 'package.json'
 
