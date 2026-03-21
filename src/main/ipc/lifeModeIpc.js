@@ -131,7 +131,7 @@ export function registerLifeModeIpc(ipcMain, configDir) {
         return { modes, labels, customPath: path.join(configDir, LIFE_MODES_FILE) }
     })
 
-    ipcMain.handle('lifeMode:apply', (_, modeKey) => {
+    ipcMain.handle('lifeMode:apply', async (_, modeKey) => {
         const all = getAllLifeModes(configDir)
         const mode = all[modeKey]
         if (!mode) return { error: `Unknown mode: ${modeKey}` }
@@ -145,11 +145,11 @@ export function registerLifeModeIpc(ipcMain, configDir) {
             if (mode.mergeCategories?.length) {
                 const cur = readWebFilterMirror(configDir)
                 const next = mergeCategoriesIntoMirror(cur, mode.mergeCategories)
-                persistWebFilterEntries(configDir, next.entries, next.feedState)
+                await persistWebFilterEntries(configDir, next.entries, next.feedState)
             } else if (mode.stripCategories?.length) {
                 const cur = readWebFilterMirror(configDir)
                 const next = stripCategoriesFromMirror(cur, mode.stripCategories)
-                persistWebFilterEntries(configDir, next.entries, next.feedState)
+                await persistWebFilterEntries(configDir, next.entries, next.feedState)
             }
         } catch (e) {
             errs.push(`webfilter: ${e.message}`)

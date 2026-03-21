@@ -267,37 +267,21 @@ def notify_user(user, message):
     except Exception:
         pass
 
-def _kdialog_popup(user, kdialog, urgency_flag, msg):
-    try:
-        env = _notify_env_for_user(user)
-        subprocess.Popen(
-            ['/usr/bin/runuser', '-u', user, '--', kdialog, '--title', 'LiFE Parental Control',
-             urgency_flag, msg],
-            env=env, start_new_session=True, stdin=subprocess.DEVNULL,
-            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
-        )
-    except Exception:
-        pass
-
 def foreground_warn_quota_two_minutes(user, sid, name):
+    # notify-send only; Electron warning window handles the in-app dialog
     msg = (
         f'{name}: About two minutes of allowed screen time left for today. '
         f'You will get a stronger warning in the last minute; then the app will close.'
     )
     notify_user(user, msg)
-    kdialog = shutil.which('kdialog') or '/usr/bin/kdialog'
-    if os.path.isfile(kdialog):
-        _kdialog_popup(user, kdialog, '--sorry', msg)
 
 def foreground_warn_quota_final_minute(user, sid, name):
+    # notify-send only; Electron warning window handles the in-app dialog
     msg = (
         f'{name}: Final minute before this app is closed for today. Save your work now; '
         f'it will be stopped on the next check (about one minute).'
     )
     notify_user(user, msg)
-    kdialog = shutil.which('kdialog') or '/usr/bin/kdialog'
-    if os.path.isfile(kdialog):
-        _kdialog_popup(user, kdialog, '--error', msg)
 
 active_sessions  = get_active_sessions()
 active_users     = unique_users_from_sessions(active_sessions)

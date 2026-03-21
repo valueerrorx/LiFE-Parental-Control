@@ -19,6 +19,7 @@ import { pruneUsageArchives } from './ipc/usageArchivePrune.js'
 import { syncEmbeddedEnforcementIfNeeded } from './ipc/embeddedEnforcementSync.js'
 import { loadTrayNativeImage, resolveTrayIconPath } from './trayIcon.js'
 import { startUserTrayHelper } from './trayUserHelper.js'
+import { initWarningWindow } from './warningWindow.js'
 
 // __dirname = out/main/ after electron-vite compilation
 
@@ -28,6 +29,7 @@ let mainWindow = null
 let tray = null
 let trayUserHelper = null
 let allowAppTermination = false
+let deferredHeavyWorkStarted = false
 
 function readProcLoginUid() {
     try {
@@ -104,6 +106,7 @@ function spawnPkexecRelaunch() {
 
 function showElevationGateAndWaitForPkexec() {
     const imagesDir = path.join(process.resourcesPath, 'images')
+    const gateIcon = resolveTrayIconPath(imagesDir) ?? path.join(imagesDir, 'pc.png')
     const gateHtml = `<!DOCTYPE html>
 <html><head><meta charset="utf-8"><title>LiFE Parental Control</title>
 <style>
@@ -135,7 +138,7 @@ document.getElementById('go').onclick=function(){
         maximizable: false,
         fullscreenable: false,
         title: 'LiFE Parental Control',
-        icon: path.join(imagesDir, 'pc.png'),
+        icon: gateIcon,
         show: true,
         autoHideMenuBar: true,
         webPreferences: {
@@ -181,6 +184,7 @@ app.whenReady().then(async () => {
         return path.join(process.resourcesPath, 'profiles')
     })()
 
+    initWarningWindow(imagesDir)
     mkdirSync(profilesDir, { recursive: true })
     mkdirSync(APP_CONFIG_DIR, { recursive: true })
     try {
@@ -193,14 +197,6 @@ app.whenReady().then(async () => {
     } catch {
         // best-effort cleanup
     }
-    if (app.isPackaged && typeof process.getuid === 'function' && process.getuid() === 0) {
-        try {
-            syncEmbeddedEnforcementIfNeeded(APP_CONFIG_DIR, app.getVersion())
-        } catch {
-            // best-effort: enforcement scripts must not block startup
-        }
-    }
-
     registerConfigIpc(ipcMain, kioskDir)
     registerProfileIpc(ipcMain, profilesDir)
     registerSystemIpc(ipcMain, () => mainWindow, APP_CONFIG_DIR)
@@ -208,17 +204,11 @@ app.whenReady().then(async () => {
         ? path.join(process.resourcesPath, 'hagezi')
         : path.resolve(path.join(__dirname, '../../hagezi'))
     registerWebFilterIpc(ipcMain, APP_CONFIG_DIR, { hageziBundledDir })
-    void runStartupHageziSync(APP_CONFIG_DIR)
     registerAppBlockerIpc(ipcMain, APP_CONFIG_DIR)
     registerSchedulesIpc(ipcMain, APP_CONFIG_DIR)
     registerSettingsIpc(ipcMain, APP_CONFIG_DIR)
     registerLifeModeIpc(ipcMain, APP_CONFIG_DIR)
     registerQuotaIpc(ipcMain, APP_CONFIG_DIR)
-    try {
-        refreshAppMonitorCatalog(APP_CONFIG_DIR)
-    } catch {
-        // best-effort: catalog + cron so dashboard app-usage can run without opening App Control first
-    }
     registerProcessWhitelistIpc(ipcMain, APP_CONFIG_DIR)
     registerActivityIpc(ipcMain, APP_CONFIG_DIR)
     registerBackupIpc(ipcMain, APP_CONFIG_DIR, () => mainWindow)
@@ -226,13 +216,15 @@ app.whenReady().then(async () => {
 
     Menu.setApplicationMenu(null)
 
+    const windowIconPath = resolveTrayIconPath(imagesDir) ?? path.join(imagesDir, 'pc.png')
+
     mainWindow = new BrowserWindow({
         width: 1600,
         height: 860,
         minWidth: 1100,
         minHeight: 700,
         title: 'LiFE Parental Control',
-        icon: path.join(imagesDir, 'pc.png'),
+        icon: windowIconPath,
         webPreferences: {
             preload: path.join(__dirname, '../preload/index.js'),
             contextIsolation: true,
@@ -250,6 +242,29 @@ app.whenReady().then(async () => {
     ipcMain.handle('app:quit', () => {
         allowAppTermination = true
         app.quit()
+    })
+
+    ipcMain.handle('app:deferredHeavyWork', () => {
+        if (deferredHeavyWorkStarted) return { ok: true }
+        deferredHeavyWorkStarted = true
+        globalThis.setImmediate(() => {
+            if (app.isPackaged && typeof process.getuid === 'function' && process.getuid() === 0) {
+                try {
+                    syncEmbeddedEnforcementIfNeeded(APP_CONFIG_DIR, app.getVersion())
+                } catch {
+                    // best-effort: enforcement scripts must not block first IPC
+                }
+            }
+            void runStartupHageziSync(APP_CONFIG_DIR)
+            globalThis.setImmediate(() => {
+                try {
+                    refreshAppMonitorCatalog(APP_CONFIG_DIR)
+                } catch {
+                    // best-effort: catalog + cron so dashboard app-usage can run without opening App Control first
+                }
+            })
+        })
+        return { ok: true }
     })
 
     const showMainWindow = () => {
@@ -271,6 +286,13 @@ app.whenReady().then(async () => {
     const desktopUidForTray =
         process.env.SUDO_UID || process.env.PKEXEC_UID || readProcLoginUid()
         || (fromRtUid && fromRtUid !== '0' ? fromRtUid : null) || firstNonRootUserBusUid()
+
+    if (process.env.NODE_ENV === 'development') {
+        mainWindow.loadURL(process.env.ELECTRON_RENDERER_URL)
+        mainWindow.webContents.openDevTools()
+    } else {
+        mainWindow.loadFile(path.join(__dirname, '../renderer/index.html'))
+    }
 
     if (process.platform === 'linux' && process.getuid?.() === 0 && desktopUidForTray && desktopUidForTray !== '0' && trayPath) {
         trayUserHelper = await startUserTrayHelper({
@@ -305,13 +327,6 @@ app.whenReady().then(async () => {
             'DBUS_SESSION_BUS_ADDRESS=',
             process.env.DBUS_SESSION_BUS_ADDRESS || '(unset)'
         )
-    }
-
-    if (process.env.NODE_ENV === 'development') {
-        mainWindow.loadURL(process.env.ELECTRON_RENDERER_URL)
-        mainWindow.webContents.openDevTools()
-    } else {
-        mainWindow.loadFile(path.join(__dirname, '../renderer/index.html'))
     }
 })
 

@@ -106,7 +106,7 @@ export function registerBackupIpc(ipcMain, configDir, getWindow) {
                 const listAllowlist = Object.hasOwn(wf || {}, 'listAllowlist') && Array.isArray(wf.listAllowlist)
                     ? wf.listAllowlist
                     : undefined
-                persistWebFilterEntries(configDir, entries, feedState, listAllowlist)
+                await persistWebFilterEntries(configDir, entries, feedState, listAllowlist)
             }
             if (Object.hasOwn(raw, 'blockedApps')) {
                 const src = Array.isArray(raw.blockedApps) ? raw.blockedApps : []

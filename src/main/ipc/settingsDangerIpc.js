@@ -31,12 +31,12 @@ function unlinkAllUsageAndQuotaLogs(configDir) {
 }
 
 export function registerSettingsDangerIpc(ipcMain, configDir) {
-    ipcMain.handle('settings:stopAllProtections', () => {
+    ipcMain.handle('settings:stopAllProtections', async () => {
         try {
             persistSchedule(configDir, { ...DEFAULT_SCHEDULE })
             replaceQuotaEntries(configDir, [])
             replaceBlockedDesktopIds(configDir, [])
-            persistWebFilterEntries(configDir, [], {}, [])
+            await persistWebFilterEntries(configDir, [], {}, [])
             replaceProcessWhitelistFromBackup(configDir, { enabled: false, allowedIds: [] })
             const kiosk = readKioskLockdownSummary()
             if (kiosk.active) persistKioskConfigText(configDir, '')

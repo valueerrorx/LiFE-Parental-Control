@@ -1,6 +1,9 @@
 import { contextBridge, ipcRenderer } from 'electron'
 
 contextBridge.exposeInMainWorld('api', {
+    app: {
+        deferredHeavyWork: () => ipcRenderer.invoke('app:deferredHeavyWork')
+    },
     config: {
         readFiles: () => ipcRenderer.invoke('config:readFiles')
     },
@@ -23,7 +26,8 @@ contextBridge.exposeInMainWorld('api', {
         isWindowObscured: () => ipcRenderer.invoke('window:isObscured'),
         showNativeNotification: (payload) => ipcRenderer.invoke('window:showNativeNotification', payload),
         beginUrgentPresent: () => ipcRenderer.invoke('window:beginUrgentPresent'),
-        endUrgentPresent: () => ipcRenderer.invoke('window:endUrgentPresent')
+        endUrgentPresent: () => ipcRenderer.invoke('window:endUrgentPresent'),
+        showUrgentWarning: (payload) => ipcRenderer.invoke('window:showUrgentWarning', payload)
     },
     webFilter: {
         getList: () => ipcRenderer.invoke('webfilter:getList'),

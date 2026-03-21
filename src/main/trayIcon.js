@@ -3,7 +3,7 @@ import path from 'path'
 import { app, nativeImage } from 'electron'
 
 // Match working Electron trays: `new Tray(absolutePathToSmallPng)`; see images/tray-24.png (regenerate from pc.png if branding changes).
-const TRAY_PNG = 'tray-24.png'
+const TRAY_PNG = 'tray-64.png'
 const WINDOW_ICON_PNG = 'pc.png'
 const FALLBACK_TRAY_PNG = Buffer.from(
     'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAFgwJ/l1G8WQAAAABJRU5ErkJggg==',

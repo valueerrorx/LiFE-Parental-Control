@@ -82,6 +82,7 @@ watch(exhausted, (v) => {
     if (!v) hideUntilMs.value = 0
 })
 
+
 async function poll() {
     const s = store.schedule
     if (!s?.enabled || !s?.dailyLimitEnabled) return

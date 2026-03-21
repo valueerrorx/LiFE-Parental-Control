@@ -99,6 +99,7 @@ function onUserActivity() {
 onMounted(async () => {
     passwordSet.value = await window.api.settings.isPasswordSet()
     passwordGateReady.value = true
+    void window.api.app.deferredHeavyWork()
     window.addEventListener('wheel', onUserActivity, { passive: true })
     window.addEventListener('keydown', onUserActivity)
     window.addEventListener('life-parental-lock-prefs', onLockPrefsChanged)

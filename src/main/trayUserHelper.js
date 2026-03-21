@@ -80,6 +80,8 @@ export function startUserTrayHelper(opts) {
             for (const k of passKeys) {
                 if (!childEnv[k] && process.env[k]) childEnv[k] = process.env[k]
             }
+            // Let Electron auto-detect X11 vs Wayland so SNI tray registers on the correct backend
+            if (childEnv.WAYLAND_DISPLAY) childEnv.ELECTRON_OZONE_PLATFORM_HINT = 'auto'
             let child
             try {
                 child = spawn(electronExec, [helperPath], {

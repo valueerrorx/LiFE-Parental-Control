@@ -2,6 +2,7 @@ import { app, dialog, Notification } from 'electron'
 import { execFile } from 'child_process'
 import fs from 'fs'
 import { appendActivity } from './activityLog.js'
+import { showWarningWindow } from '../warningWindow.js'
 
 const KDEGLOBALS_PATH = '/etc/xdg/kdeglobals'
 
@@ -295,6 +296,17 @@ export function registerSystemIpc(ipcMain, getWindow, configDir) {
         const win = getWindow()
         if (!win || win.isDestroyed()) return true
         return win.isMinimized() || !win.isVisible()
+    })
+
+    ipcMain.handle('window:showUrgentWarning', (_, payload) => {
+        try {
+            showWarningWindow(payload ?? {})
+            appendActivity(configDir, { action: 'warning_window_shown', type: payload?.type })
+            return { ok: true }
+        } catch (e) {
+            appendActivity(configDir, { action: 'warning_window_error', error: e.message })
+            return { error: e.message }
+        }
     })
 
     ipcMain.handle('window:showNativeNotification', (_, payload) => {
