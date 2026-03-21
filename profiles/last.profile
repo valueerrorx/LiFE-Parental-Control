@@ -1,0 +1,1 @@
+actionrestriction::action/show_hidden_files

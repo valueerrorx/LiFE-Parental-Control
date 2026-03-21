@@ -1,32 +1,88 @@
 [Group]
 Icon=preferences-desktop-plasma
-Name=Systemsettings
-Description=Disable important parts of the Systemsettings
-
-
-
-
-[Action-3]
-Type=module
-Key=device_automounter_kcm.desktop
-Name=Lock down automounter settings
-Description=When the automounter settings are locked down the user can no longer change them.
-
-
-
-
-
-[Action-2]
-Type=module
-Key=formats.desktop
-Name=Lock down formats settings
-Description=When the formats settings are locked down the user can no longer change them.
-
+Name=System Settings
+Description=Plasma 6 System Settings modules (kcm_* ids from kcmshell6 --list). Verified against local kcmshell6.
 
 [Action-1]
 Type=module
-Key=clock.desktop
-Name=Lock down clock settings
-Description=When the clock settings are locked down the user can no longer change them.
+Key=kcm_device_automounter
+Name=Lock removable storage (automount)
+Description=Prevents changing automatic mounting of volumes.
 
+[Action-2]
+Type=module
+Key=kcm_regionandlang
+Name=Lock region & language formats
+Description=Prevents changing locale, formats, and related settings.
 
+[Action-3]
+Type=module
+Key=kcm_clock
+Name=Lock date & time
+Description=Prevents changing date, time, and time zone settings.
+
+[Action-4]
+Type=module
+Key=kcm_networkmanagement
+Name=Lock network connections
+Description=Prevents editing Wi‑Fi/Ethernet/VPN connections.
+
+[Action-5]
+Type=module
+Key=kcm_users
+Name=Lock user accounts
+Description=Prevents managing local user accounts (where applicable).
+
+[Action-6]
+Type=module
+Key=kcm_powerdevilprofilesconfig
+Name=Lock power management
+Description=Prevents changing sleep, lid, and power profiles.
+
+[Action-7]
+Type=module
+Key=kcm_kded
+Name=Lock background services (KDED modules)
+Description=Prevents toggling background KDE services.
+
+[Action-8]
+Type=module
+Key=kcm_printer_manager
+Name=Lock printers
+Description=Prevents adding or reconfiguring printers.
+
+[Action-9]
+Type=module
+Key=kcm_sddm
+Name=Lock login manager (SDDM)
+Description=Prevents changing the display/login manager configuration (sensitive on shared machines).
+
+[Action-10]
+Type=module
+Key=kcm_smserver
+Name=Lock session login & logout
+Description=Desktop Session module: login, logout, and session-related options.
+
+[Action-11]
+Type=module
+Key=kcm_autostart
+Name=Lock autostart applications
+Description=Prevents adding or removing entries that start at login.
+
+[Action-12]
+Type=module
+Key=kcm_bluetooth
+Name=Lock Bluetooth
+Description=Prevents pairing and changing Bluetooth device settings.
+
+[Action-13]
+Type=module
+Key=kcm_keys
+Name=Lock global keyboard shortcuts
+Description=Prevents editing system-wide shortcut schemes (KWin, Plasma, apps).
+
+[Action-14]
+Type=module
+Key=kcm_pulseaudio
+Name=Lock audio devices & volume
+Description=Prevents changing default devices and volume policies in System Settings.

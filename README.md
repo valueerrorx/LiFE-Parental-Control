@@ -2,7 +2,7 @@
 
 ![LiFE Parental Control — Dashboard](images/dashboard.png)
 
-Desktop app for **KDE Plasma (Linux)**: parental controls via **Electron**, **Vue 3**, **Pinia**, and **Bootstrap 5**. Kiosk restrictions use `.kiosk` profile snippets merged into `/etc/xdg/kdeglobals`.
+Desktop app for **KDE Plasma (Linux)**: parental controls via **Electron**, **Vue 3**, **Pinia**, and **Bootstrap 5**. Kiosk restrictions use `.kiosk` profile snippets merged into **`/etc/xdg/kdeglobals`**; an optional layout lock can prepend **`[$i]`** to **`/etc/xdg/plasma-appletsrc`** (see **KDE kiosk** below).
 
 ## Modules
 
@@ -15,11 +15,17 @@ Desktop app for **KDE Plasma (Linux)**: parental controls via **Electron**, **Vu
 | **App quotas** | `quota.json`; cron → `/usr/local/bin/life-parental-quota` (`pgrep` / `pkill` per process name); per-app tally in `quota-usage-YYYY-MM-DD.json` (reset **today** from **App Control**). The same cron increments **`app-usage-YYYY-MM-DD.json`** for every app in **`app-monitor-catalog.json`** (built from the same `.desktop` list as **App Control**; refreshed at app start and when you open **App Control**) so the Dashboard donut can show the **top 10** most-used catalog apps. Warnings (~5 / ~2 / final minute) and kills are issued by that script via `notify-send` and `kdialog` (not the Electron window). Optional **Quota exemptions** (`process-whitelist.json`): listed apps are **not** stopped when their daily quota is reached. |
 | **Profiles** | School / Leisure + optional `life-modes.json`; backup/export JSON bundle |
 
+### KDE kiosk: `kdeglobals` and Plasma layout lock
+
+LiFE merges **`.kiosk` catalog blocks** into **`/etc/xdg/kdeglobals`** (action restrictions, control modules, resource restrictions, URL rules, etc.); the graphical session restarts after apply so settings take effect.
+
+**Optional Plasma layout hard lock** (checkbox under **KDE Kiosk Mode → Look and feel**): when enabled, LiFE prepends **`[$i]`** as the **first line** of **`/etc/xdg/plasma-appletsrc`**. In KDE’s kiosk / config cascade, that line marks the **system** file as authoritative for the Plasma layout; the user’s copy **`~/.config/plasma-appletsrc`** is then **ignored** for layout. Deactivating kiosk (or clearing LiFE kiosk blocks) removes a leading **`[$i]`** line when LiFE had written it.
+
 ### Family profiles (Dashboard)
 
 Built-in **School** / **Leisure** buttons plus any **custom modes** from **`/etc/life-parental/life-modes.json`** (see **Settings**). Applying a mode updates schedules, web filter, and blocked apps as defined in that file.
 
-The **Include KDE kiosk** checkbox (below the profile buttons) is optional: when enabled, applying a profile also **merges** the current **KDE Kiosk** tab profile into `/etc/xdg/kdeglobals`, or on **Leisure** **removes** LiFE kiosk sections there. Either action **restarts the graphical session** so the lockdown takes effect.
+The **Include KDE kiosk** checkbox (below the profile buttons) is optional: when enabled, applying a profile also **merges** the current **KDE Kiosk** tab profile into `/etc/xdg/kdeglobals` (including optional **Plasma layout hard lock** if enabled under **Look and feel**; see **KDE kiosk: `kdeglobals` and Plasma layout lock** above), or on **Leisure** **removes** LiFE kiosk sections there. Either action **restarts the graphical session** so the lockdown takes effect.
 
 **Config:** `/etc/life-parental/` (app expects elevated rights when packaged; see main process). Optional **`activity-log.json`** records parental actions (ring buffer); open it from the sidebar (**Application log**, bottom left), not part of backup export.
 

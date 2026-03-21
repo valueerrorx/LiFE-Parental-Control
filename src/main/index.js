@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, ipcMain, Menu, Tray } from 'electron'
+import { app, BrowserWindow, ipcMain, Menu, Tray } from 'electron'
 import path from 'path'
 import fs, { mkdirSync } from 'fs'
 import { spawn } from 'child_process'
@@ -10,6 +10,7 @@ import { pruneUsageArchives } from './ipc/usageArchivePrune.js'
 import { loadTrayNativeImage, resolveTrayIconPath, resolveWindowIconPath } from './trayIcon.js'
 import { startUserTrayHelper } from './trayUserHelper.js'
 import { initWarningWindow } from './warningWindow.js'
+import { stopEnforcementScheduler } from './enforcementScheduler.js'
 
 // __dirname = out/main/ after electron-vite compilation
 
@@ -94,52 +95,6 @@ function spawnPkexecRelaunch() {
     child.unref()
 }
 
-function showElevationGateAndWaitForPkexec() {
-    const imagesDir = path.join(process.resourcesPath, 'images')
-    const gateIcon = resolveWindowIconPath(imagesDir)
-    const gateHtml = `<!DOCTYPE html>
-<html><head><meta charset="utf-8"><title>LiFE Parental Control</title>
-<style>
-body{font-family:system-ui,sans-serif;margin:0;padding:20px 22px;background:#f8f9fa;color:#212529;line-height:1.45;}
-h1{font-size:1.05rem;margin:0 0 10px;font-weight:600;}
-p{margin:0 0 10px;font-size:14px;}
-code{font-size:12px;background:#e9ecef;padding:1px 5px;border-radius:4px;}
-button{margin-top:12px;padding:10px 20px;font-size:14px;font-weight:500;border:0;border-radius:6px;background:#0d6efd;color:#fff;cursor:pointer;}
-button:hover{background:#0b5ed7;}
-</style></head><body>
-<h1>Administratorrechte erforderlich</h1>
-<p>Diese Anwendung ändert Systemeinstellungen (z.&nbsp;B. unter <code>/etc</code>). </p>
-<p>Mit <strong>Weiter</strong> öffnet sich die grafische Systemabfrage (Polkit) zur Passwort-Eingabe.</p>
-<button id="go">Weiter</button>
-<script>
-document.getElementById('go').onclick=function(){
-  require('electron').ipcRenderer.send('elevation:continue');
-};
-</script>
-</body></html>`
-    ipcMain.once('elevation:continue', () => {
-        spawnPkexecRelaunch()
-        app.quit()
-    })
-    const gate = new BrowserWindow({
-        width: 480,
-        height: 280,
-        resizable: false,
-        maximizable: false,
-        fullscreenable: false,
-        title: 'LiFE Parental Control',
-        ...(gateIcon ? { icon: gateIcon } : {}),
-        show: true,
-        autoHideMenuBar: true,
-        webPreferences: {
-            nodeIntegration: true,
-            contextIsolation: false
-        }
-    })
-    gate.removeMenu()
-    gate.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(gateHtml))
-}
-
 // Suppress Chromium D-Bus connection attempts when running as root (harmless but noisy stderr errors).
 if (typeof process.getuid === 'function' && process.getuid() === 0) {
     app.commandLine.appendSwitch('disable-features', 'HardwareMediaKeyHandling,MediaSessionService')
@@ -147,13 +102,10 @@ if (typeof process.getuid === 'function' && process.getuid() === 0) {
 }
 
 app.whenReady().then(() => {
-
-    if (!app.isPackaged && typeof process.getuid === 'function' && process.getuid() !== 0) {
-        console.warn('[LiFE Parental Control] Running without root — writes to /etc/life-parental will fail. Use npm run dev:root for full access.')
-    }
-
-    if (app.isPackaged && typeof process.getuid === 'function' && process.getuid() !== 0) {
-        showElevationGateAndWaitForPkexec()
+    // Linux: require root; non-root processes only relaunch via pkexec (Polkit) and exit.
+    if (process.platform === 'linux' && typeof process.getuid === 'function' && process.getuid() !== 0) {
+        spawnPkexecRelaunch()
+        app.quit()
         return
     }
 
@@ -330,6 +282,7 @@ app.on('before-quit', () => {
 })
 
 app.on('will-quit', () => {
+    stopEnforcementScheduler()
     if (trayUserHelper) {
         trayUserHelper.stop()
         trayUserHelper = null

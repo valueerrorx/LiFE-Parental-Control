@@ -175,7 +175,7 @@ onMounted(async () => {
 })
 
 async function onResetQuotaTodayUsage() {
-    if (!window.confirm('Delete today’s quota-usage file? All “used today” minutes reset to 0; cron starts counting again on the next run.')) return
+    if (!window.confirm('Delete today’s quota-usage file? All “used today” minutes reset to 0; counting resumes on the next enforcement tick.')) return
     quotaBusy.value = true
     const r = await window.api.quota.resetTodayUsage()
     quotaBusy.value = false

@@ -2,7 +2,7 @@
     <div class="pc-page-header d-flex align-items-start justify-content-between">
         <div>
             <h1>KDE Kiosk Mode</h1>
-            <p>Configure KDE Plasma lockdown restrictions via /etc/xdg/kdeglobals</p>
+            <p class="text-muted mb-0">Configure lockdown restrictions for KDE Plasma.</p>
         </div>
         <div class="d-flex gap-2 pt-1">
             <button class="btn-pc-outline" @click="onDeactivate">
@@ -82,7 +82,10 @@ const kdeIconMap = {
     kolourpaint: 'bi-palette',
     plasmavault: 'bi-folder2-open',
     'security-high': 'bi-shield-lock',
-    folder: 'bi-folder'
+    folder: 'bi-folder',
+    'utilities-terminal': 'bi-terminal',
+    printer: 'bi-printer',
+    'preferences-system': 'bi-hdd-stack'
 }
 const kdeIconToBootstrap = (name) => kdeIconMap[name] ?? 'bi-gear'
 
@@ -91,7 +94,7 @@ onMounted(() => store.init())
 async function onDeactivate() {
     const ok = await confirm(
         'Deactivate Kiosk Mode',
-        'Remove all LiFE kiosk restrictions from /etc/xdg/kdeglobals and restart the KDE session?',
+        'Remove LiFE kiosk restrictions and restart the KDE session?',
         { ok: 'Deactivate', cancel: 'Cancel' }
     )
     if (!ok) return
@@ -104,13 +107,13 @@ async function onDeactivate() {
 }
 
 async function onActivate() {
-    const configText = await store.prepareActivation()
+    const { configText, plasmaLayoutHardLock } = await store.prepareActivation()
     const escapedText = configText.replace(/</g, '&lt;').replace(/>/g, '&gt;')
-    const html = `<p>Merge the following blocks into <code>/etc/xdg/kdeglobals</code> (existing LiFE kiosk sections are replaced; other settings stay), then restart the KDE session?</p>
-        <pre class="bg-light border rounded p-2" style="max-height:200px;overflow-y:auto;font-size:11px;">${escapedText || '(remove LiFE kiosk sections only)'}</pre>`
+    const html = `<p class="mb-2">Apply and restart the KDE session?</p>
+        <pre class="bg-light border rounded p-2 mb-0" style="max-height:200px;overflow-y:auto;font-size:11px;">${escapedText || '(clear LiFE kiosk blocks)'}</pre>`
     const ok = await confirm('Activate Kiosk Mode', '', { html, ok: 'Activate', cancel: 'Cancel' })
     if (!ok) return
-    const result = await window.api.system.activateKiosk(configText)
+    const result = await window.api.system.activateKiosk({ configText, plasmaLayoutHardLock })
     if (result?.error) alert(`Failed: ${result.error}`)
     else await appStore.loadKioskStatus()
 }

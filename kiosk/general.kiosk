@@ -1,158 +1,154 @@
 [Group]
 Icon=kdeapp
 Name=General
-Description=General restrictions for a KDE Plasma session
+Description=Session security, Plasma lockdown, and KCM blocks. Verified against KF6 KAuthorized + plasma-workspace sessionmanagement/libplasma (Plasma 6).
 
 [Action-1]
 Type=actionrestriction
-Key=action/kwin_rmb
-Name=Disable Window Manager context menu (Alt-F3)
-Description=The Window Manager context menu is normally shown when Alt-F3 is pressed or when the menu button on the window frame is pressed
+Key=shell_access
+Name=Disable command shell access
+Description=KAuthorized generic key; blocks shells and related (pairs with Dolphin terminal actions).
 
 [Action-2]
 Type=actionrestriction
-Key=action/bookmarks
-Name=Disable bookmarks
-Description=Disable Bookmarks in all applications.
+Key=logout
+Name=Disable logout
+Description=SessionManagement::canLogout() checks authorizeAction("logout") && authorize("logout"); either generic logout=false or action/logout=false blocks—this sets the legacy generic key.
 
 [Action-3]
 Type=actionrestriction
-Key=user/root
-Name=Disable all tasks and applications that require root access
-Description=In multi-user environments the users normally do not know the root password; in such a case, it may be desirable to use this option to remove the tasks and applications from the menus that the users cannot use.
+Key=action/lock_screen
+Name=Disable lock screen
+Description=SessionManagement::canLock() uses only authorizeAction("lock_screen") → must be action/lock_screen, not lock_screen.
 
 [Action-4]
 Type=actionrestriction
-Key=action/shell_access
-Name=Disable access to a command shell
-Description=In an environment where the desktop is dedicated to a defined set of tasks it may be desirable to disable access to a command shell to prevent users from engaging in tasks that were not intended or authorized; hence, it is strongly recommended to disable access to a command shell if the desktop is to act as a public terminal.
+Key=run_command
+Name=Disable Run Command (Alt+F2 / KRunner)
+Description=Hides Run Command when you need to block arbitrary launches.
 
 [Action-5]
 Type=actionrestriction
-Key=action/logout
-Name=Disable logout option
-Description=This prevents the user from logging out. To make this option effective it is important to ensure that key-combinations to terminate the X-server, such as Alt-Ctrl-Backspace, are disabled in the configuration of the X-server.
+Key=run_desktop_files
+Name=Disable running arbitrary .desktop files
+Description=Prevents executing .desktop files outside the menu/autostart (pairs with shell restrictions).
 
 [Action-6]
 Type=actionrestriction
-Key=action/lock_screen
-Name=Disable lock screen option
-Description=When the desktop is to act as a public terminal or is to be shared by different users it may be desirable to prevent locking of the screen to ensure that the system remains accessible if a user leaves the terminal.
+Key=lineedit_text_completion
+Name=Disable line-edit history/completion
+Description=Reduces remembered input in line edits and similar UI (privacy on shared accounts).
 
 [Action-7]
 Type=actionrestriction
-Key=action/run_command
-Name=Disable the "Run Command" option (Alt+F2)
-Description=The "Run Command" option can normally be used to execute arbitrary commands; however, when access to a command shell is restricted only applications and services defined by a .desktop file can be started this way. Disabling "Run Command" here hides the option completely.
+Key=movable_toolbars
+Name=Disable movable toolbars
+Description=Fixes toolbars in place in supporting applications.
 
 [Action-8]
 Type=actionrestriction
-Key=action/movable_toolbars
-Name=Disable toolbar moving
-Description=Normally toolbars in applications can be moved around; when this option is chosen all toolbars are fixed in their original positions.
+Key=action/kwin_rmb
+Name=Disable window titlebar context menu
+Description=Disables Alt+F3 / titlebar menu actions (KWin).
 
 [Action-9]
 Type=actionrestriction
-Key=action/run_desktop_files
-Name=Disable execution of arbitrary .desktop files
-Description=This option defines whether users may execute .desktop files that are not part of the system-wide desktop icons, KDE menu, registered services or autostart services. When access to a command shell is restricted it is recommended to disable the execution of arbitrary .desktop files as well since such .desktop files can be used to circumvent the command shell restriction.
+Key=action/bookmarks
+Name=Disable bookmarks (global)
+Description=Disables bookmark actions; also covers add/edit per KDE docs.
 
 [Action-10]
 Type=actionrestriction
-Key=action/start_new_session
-Name=Disable starting of a second X session
-Description=KDM has the possibility to login a second user in parallel to the current session. Note that this can also be configured as part of the KDM settings in which case the setting here should be left enabled.
+Key=plasma/plasmashell/unlockedDesktop
+Name=Lock Plasma widgets (desktop & panels)
+Description=When false, widgets stay locked; launcher favorites follow Plasma kiosk rules.
 
 [Action-11]
 Type=actionrestriction
-Key=action/lineedit_text_completion
-Name=Disable input line history
-Description=If a single account is used by multiple people it may be desirable to disable the input line history out of privacy considerations.
+Key=plasma/containment_actions
+Name=Restrict Plasma mouse actions on containments
+Description=Disables many desktop/panel context actions and related mouse shortcuts (see KDE docs).
 
 [Action-12]
 Type=actionrestriction
-Key=action/skip_drm
-Name=Enforce DRM restrictions
-Description=Some KDE applications can enforce DRM restrictions on content. You may want to enable this if your organisation relies on such restrictions or if local law requires it.
-Version=3.4
+Key=plasma/allow_configure_when_locked
+Name=Disallow configuring Plasma while locked
+Description=When the desktop is locked down, also block configuration UI.
 
 [Action-13]
 Type=actionrestriction
-Key=action/allow_downloading
-Name=Prevent Downloading
-Description=Some KDE applications can prevent the user from downloading or uploading files.  The normal web browsing experience will not be affected.  Note that you still have to set up the unix file permissions correctly - treat this as merely cosmetic for security.
-Version=3.5
+Key=plasma-desktop/scripting_console
+Name=Disable Plasma scripting console
+Description=Blocks the desktop scripting console entry point.
 
 [Action-14]
-Type=config
-Key=widgetStyle
-Group=General
-Name=KDE Widget Style
-Description=Set the system wide widget style to the following style.
+Type=actionrestriction
+Key=plasma-desktop/add_activities
+Name=Disable adding activities
+Description=Listed in KDE Kiosk docs; Plasma 6 may expose fewer activity-creation entry points—effect can be partial.
 
 [Action-15]
 Type=actionrestriction
-Key=action/editable_desktop_icons
-Name=Lock down all Desktop icons
-Description=When checked the user will not be able to remove or edit any existing icon or file on the Desktop or add any new icon or file.
+Key=ghns
+Name=Disable Get New Stuff (KDE Store)
+Description=Disables KNewStuff download dialogs (widgets, wallpapers, etc.).
 
 [Action-16]
 Type=actionrestriction
-Key=action/opengl_screensavers
-Name=Disable OpenGL-based Screen Savers
-Description=OpenGL-based screen savers may cause problems on systems without decent OpenGL support; with this option all such screensavers can be disabled.
+Key=action/menuedit
+Name=Disable application menu editing
+Description=Removes menu editor entry points (KMenuEdit).
 
 [Action-17]
 Type=actionrestriction
-Key=action/manipulatescreen_screensavers
-Name=Discreet Screen Savers Only
-Description=Some screensavers do not hide the complete screen content and may leave possible sensitive information visible. This option disables all such screensavers and only enables those screensavers that completely hide the original content of the screen.
+Key=action/editable_desktop_icons
+Name=Lock desktop icons
+Description=Prevents adding/removing/editing icons on the desktop.
 
 [Action-18]
 Type=actionrestriction
-Key=action/plasma/containment_context_menu
-Name=Disable Plasma Containment context menus
-Description=This option can be used to disable context menus for all Plasma containments
+Key=action/skip_drm
+Name=Enforce DRM-related restrictions
+Description=Where supported by applications (organizational policy).
 
 [Action-19]
 Type=actionrestriction
-Key=action/plasma/containment_actions
-Name=Disable Plasma Containment Actions
-Description=This option disables all Plasma containment actions
+Key=action/allow_downloading
+Name=Restrict downloads in KDE apps
+Description=Cosmetic in many cases; combine with permissions and non-KDE controls for real security.
 
 [Action-20]
 Type=actionrestriction
-Key=action/plasma/allow_configure_when_locked
-Name=Disable Plasma Configuration When Desktop Settings Are Locked
-Description=When desktop settings are locked, this option disables also UI configuration
+Key=action/opengl_screensavers
+Name=Disable OpenGL screen savers
+Description=Legacy KDE Kiosk keys; modern Plasma uses kscreenlocker—may have little effect on Plasma 6 lock UI.
 
 [Action-21]
 Type=actionrestriction
-Key=action/menuedit
-Name=Disable menu editing
-Description=This disables the menu-option to edit the KDE Application Menu. When disabled, users will no longer be able to make changes to their personal application menu.
+Key=action/manipulatescreen_screensavers
+Name=Only full-screen screen savers
+Description=Legacy KDE Kiosk keys; same caveat as OpenGL screen savers.
 
 [Action-22]
-Type=resource restriction
-Key=xdgconf-menu
-Name=Disable menu editing
-Description=This disables the menu-option to edit the KDE Application Menu. When disabled, users will no longer be able to make changes to their personal application menu.
+Type=actionrestriction
+Key=action/start_new_session
+Name=Disable switch user / new session
+Description=SessionManagement::canSwitchUser() uses authorizeAction("start_new_session"); blocks “Switch User” / parallel session where offered.
+
+[Action-23]
+Type=module
+Key=kcm_proxy
+Name=Lock proxy settings
+Description=Hides the proxy KCM in System Settings (plugin id from kcmshell6 --list).
+
+[Action-24]
+Type=module
+Key=kcm_filetypes
+Name=Lock file associations
+Description=Hides file associations module.
 
 [Action-25]
 Type=module
-Key=proxy.desktop
-Name=Lock down Proxy Settings
-Description=When the Proxy settings are locked down the user can no longer change them.
-
-[Action-26]
-Type=module
-Key=filetypes.desktop
-Name=Lock down File Associations Settings
-Description=When the setting for file associations are locked down the user can no longer change the default applications used for opening files.
-
-[Action-27]
-Type=actionrestriction
-Key=action/editfiletype
-Name=Lock down File Associations Settings
-Description=When the setting for file associations are locked down the user can no longer change the default applications used for opening files.
-
+Key=kcm_componentchooser
+Name=Lock default applications
+Description=Hides default application / component chooser module.

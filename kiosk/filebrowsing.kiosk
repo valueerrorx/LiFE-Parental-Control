@@ -1,29 +1,70 @@
 [Group]
 Icon=plasmavault
-Name=Filebrowsing
-Description=Options for file browsing using Dolphin or Konqueror
-
+Name=File browsing
+Description=Dolphin uses these action ids (see dolphinui.rc / DolphinViewActionHandler). Konqueror-only keys are labeled. Hidden files: action/show_hidden_files (not action/show_dot). Terminal: use shell_access in General, not executeshellcommand.
 
 [Action-1]
 Type=actionrestriction
 Key=action/properties
-Name=Disable Properties in context menu
-Description=This option can be used to disable the 'Properties' option in the context menu for files.
+Name=Disable Properties
+Description=Registered as “properties” in Dolphin; opens KPropertiesDialog for the selection.
 
 [Action-2]
 Type=actionrestriction
 Key=action/openwith
-Name=Disable Open With action
-Description=This option can be used to disable the 'Open With' menu option.
+Name=Disable Open With
+Description=KFileItemActions checks authorizeAction("openwith"); applies to Dolphin context menus.
 
 [Action-3]
 Type=actionrestriction
-Key=action/openintab
-Name=Disable Open In New Tab action
-Description=This option can be used to disable the 'Open In New Tab' menu option.
+Key=action/open_in_new_tab
+Name=Disable Open in New Tab
+Description=Dolphin action id open_in_new_tab (not legacy action/openintab).
 
 [Action-4]
-Type=custom
-Key=restrict_file_browsing
-Name=Disable file-browsing outside home directory
-Description=This option can be used to prevent the user from browsing the file system outside his or her own home directory.
+Type=actionrestriction
+Key=action/open_in_new_tabs
+Name=Disable Open in New Tabs
+Description=Dolphin action id for multi-selection.
+
+[Action-5]
+Type=actionrestriction
+Key=action/open_in_new_window
+Name=Disable Open in New Window
+Description=Dolphin action id open_in_new_window.
+
+[Action-6]
+Type=actionrestriction
+Key=action/open_in_split_view
+Name=Disable Open in Split View
+Description=Dolphin action id open_in_split_view.
+
+[Action-7]
+Type=actionrestriction
+Key=action/show_hidden_files
+Name=Disable “Show Hidden Files” toggle
+Description=Dolphin registers show_hidden_files (View menu). KDE doc action/show_dot targets Konqueror/kdesktop RMB.
+
+[Action-8]
+Type=actionrestriction
+Key=action/configdesktop
+Name=[Konqueror] Disable Configure Desktop (RMB)
+Description=Kiosk doc key for desktop-folder context menus; not used by Dolphin’s main window—expect no effect in Dolphin.
+
+[Action-9]
+Type=actionrestriction
+Key=action/executeshellcommand
+Name=[Konqueror] Disable execute shell command (Tools)
+Description=Konqueror Tools menu; Dolphin uses open_terminal / open_terminal_here gated by shell_access—use shell_access in General for Dolphin.
+
+[Action-10]
+Type=actionrestriction
+Key=action/act_as_admin
+Name=Disable “Act as Administrator”
+Description=Dolphin View menu entry to run the folder view with elevated rights (polkit)—high priority for lockdown.
+
+[Action-11]
+Type=actionrestriction
+Key=action/add_to_places
+Name=Disable Add to Places
+Description=Prevents adding locations to the Places panel from the menu.

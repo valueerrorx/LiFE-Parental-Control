@@ -1,402 +1,190 @@
 [Group]
 Icon=homerun
 Name=Actions
-Description=Enable and disable common menu actions found in applications.
-
-[Action-67]
-Type=actionrestriction
-Key=action/file_new
-Name=Disable File -> file_new
-Description=This option can be used to remove the <i>File -> file_new </i> menu-option from all applications.
-
-[Action-66]
-Type=actionrestriction
-Key=action/file_open
-Name=Disable File -> file_open
-Description=This option can be used to remove the <i>File -> file_open </i> menu-option from all applications.
-
-[Action-65]
-Type=actionrestriction
-Key=action/file_open_recent
-Name=Disable File -> file_open_recent
-Description=This option can be used to remove the <i>File -> file_open_recent </i> menu-option from all applications.
-
-[Action-64]
-Type=actionrestriction
-Key=action/file_save
-Name=Disable File -> file_save
-Description=This option can be used to remove the <i>File -> file_save </i> menu-option from all applications.
-
-[Action-63]
-Type=actionrestriction
-Key=action/file_save_as
-Name=Disable File -> file_save_as
-Description=This option can be used to remove the <i>File -> file_save_as </i> menu-option from all applications.
-
-[Action-62]
-Type=actionrestriction
-Key=action/file_revert
-Name=Disable File -> file_revert
-Description=This option can be used to remove the <i>File -> file_revert </i> menu-option from all applications.
-
-[Action-61]
-Type=actionrestriction
-Key=action/file_close
-Name=Disable File -> file_close
-Description=This option can be used to remove the <i>File -> file_close </i> menu-option from all applications.
-
-# Konqueror for whatever reason (probably KParts-related) doesn't use standard names for some actions,
-# so just dupe those
-[Action-60]
-Type=actionrestriction
-Key=action/file_print
-Name=Disable File -> file_print
-Description=This option can be used to remove the <i>File -> file_print </i> menu-option from all applications.
-
-[Action-59]
-Type=actionrestriction
-Key=action/print
-Name=Disable File -> Print
-Description=This option can be used to remove the <i>File -> Print </i> menu-option from all applications.
-
-[Action-58]
-Type=actionrestriction
-Key=action/file_print_preview
-Name=Disable File -> file_print_preview
-Description=This option can be used to remove the <i>File -> file_print_preview </i> menu-option from all applications.
-
-[Action-57]
-Type=actionrestriction
-Key=action/file_mail
-Name=Disable File -> file_mail
-Description=This option can be used to remove the <i>File -> file_mail </i> menu-option from all applications.
-
-[Action-56]
-Type=actionrestriction
-Key=action/file_quit
-Name=Disable File -> file_quit
-Description=This option can be used to remove the <i>File -> file_quit </i> menu-option from all applications.
-
-[Action-55]
-Type=actionrestriction
-Key=action/quit
-Name=Disable File -> Quit
-Description=This option can be used to remove the <i>File -> Quit </i> menu-option from all applications.
-
-[Action-54]
-Type=actionrestriction
-Key=action/edit_undo
-Name=Disable Edit -> edit_undo
-Description=This option can be used to remove the <i>Edit -> edit_undo </i> menu-option from all applications.
-
-[Action-53]
-Type=actionrestriction
-Key=action/undo
-Name=Disable Edit -> Undo
-Description=This option can be used to remove the <i>Edit -> Undo </i> menu-option from all applications.
-
-[Action-52]
-Type=actionrestriction
-Key=action/edit_redo
-Name=Disable Edit -> edit_redo
-Description=This option can be used to remove the <i>Edit -> edit_redo </i> menu-option from all applications.
-
-[Action-51]
-Type=actionrestriction
-Key=action/redo
-Name=Disable Edit -> Redo
-Description=This option can be used to remove the <i>Edit -> Redo </i> menu-option from all applications.
-
-[Action-50]
-Type=actionrestriction
-Key=action/edit_cut
-Name=Disable Edit -> edit_cut
-Description=This option can be used to remove the <i>Edit -> edit_cut </i> menu-option from all applications.
-
-[Action-49]
-Type=actionrestriction
-Key=action/cut
-Name=Disable Edit -> Cut
-Description=This option can be used to remove the <i>Edit -> Cut </i> menu-option from all applications.
-
-[Action-48]
-Type=actionrestriction
-Key=action/edit_copy
-Name=Disable Edit -> edit_copy
-Description=This option can be used to remove the <i>Edit -> edit_copy </i> menu-option from all applications.
-[Action-47]
-Type=actionrestriction
-Key=action/copy
-Name=Disable Edit -> Copy
-Description=This option can be used to remove the <i>Edit -> Copy </i> menu-option from all applications.
-
-[Action-46]
-Type=actionrestriction
-Key=action/edit_paste
-Name=Disable Edit -> edit_paste
-Description=This option can be used to remove the <i>Edit -> edit_paste </i> menu-option from all applications.
-
-[Action-45]
-Type=actionrestriction
-Key=action/paste
-Name=Disable Edit -> Paste
-Description=This option can be used to remove the <i>Edit -> Paste </i> menu-option from all applications.
-
-[Action-44]
-Type=actionrestriction
-Key=action/edit_select_all
-Name=Disable Edit -> edit_select_all
-Description=This option can be used to remove the <i>Edit -> edit_select_all </i> menu-option from all applications.
-
-[Action-43]
-Type=actionrestriction
-Key=action/edit_deselect
-Name=Disable Edit -> edit_deselect
-Description=This option can be used to remove the <i>Edit -> edit_deselect </i> menu-option from all applications.
-
-[Action-42]
-Type=actionrestriction
-Key=action/edit_find
-Name=Disable Edit -> edit_find
-Description=This option can be used to remove the <i>Edit -> edit_find </i> menu-option from all applications.
-
-[Action-41]
-Type=actionrestriction
-Key=action/edit_find_next
-Name=Disable Edit -> edit_find_next
-Description=This option can be used to remove the <i>Edit -> edit_find_next </i> menu-option from all applications.
-
-[Action-40]
-Type=actionrestriction
-Key=action/edit_find_last
-Name=Disable Edit -> Find Last
-Description=This option can be used to remove the <i>Edit -> Find Last </i> menu-option from all applications.
-
-[Action-39]
-Type=actionrestriction
-Key=action/edit_replace
-Name=Disable Edit -> edit_replace
-Description=This option can be used to remove the <i>Edit -> edit_replace </i> menu-option from all applications.
-
-[Action-38]
-Type=actionrestriction
-Key=action/view_actual_size
-Name=Disable View -> view_actual_size
-Description=This option can be used to remove the <i>View -> view_actual_size </i> menu-option from all applications.
-
-[Action-37]
-Type=actionrestriction
-Key=action/view_fit_to_page
-Name=Disable View -> view_fit_to_page
-Description=This option can be used to remove the <i>View -> view_fit_to_page </i> menu-option from all applications.
-
-[Action-36]
-Type=actionrestriction
-Key=action/view_fit_to_width
-Name=Disable View -> view_fit_to_width
-Description=This option can be used to remove the <i>View -> view_fit_to_width </i> menu-option from all applications.
-
-[Action-35]
-Type=actionrestriction
-Key=action/view_fit_to_height
-Name=Disable View -> view_fit_to_height
-Description=This option can be used to remove the <i>View -> view_fit_to_height </i> menu-option from all applications.
-
-[Action-34]
-Type=actionrestriction
-Key=action/view_zoom_in
-Name=Disable View -> view_zoom_in
-Description=This option can be used to remove the <i>View -> view_zoom_in </i> menu-option from all applications.
-
-[Action-33]
-Type=actionrestriction
-Key=action/view_zoom_out
-Name=Disable View -> view_zoom_out
-Description=This option can be used to remove the <i>View -> view_zoom_out </i> menu-option from all applications.
-
-[Action-32]
-Type=actionrestriction
-Key=action/view_zoom
-Name=Disable View -> view_zoom
-Description=This option can be used to remove the <i>View -> view_zoom </i> menu-option from all applications.
-
-[Action-31]
-Type=actionrestriction
-Key=action/view_redisplay
-Name=Disable View -> view_redisplay
-Description=This option can be used to remove the <i>View -> view_redisplay </i> menu-option from all applications.
-
-[Action-30]
-Type=actionrestriction
-Key=action/go_up
-Name=Disable Go -> go_up
-Description=This option can be used to remove the <i>Go -> go_up </i> menu-option from all applications.
-
-[Action-29]
-Type=actionrestriction
-Key=action/go_back
-Name=Disable Go -> go_back
-Description=This option can be used to remove the <i>Go -> go_back </i> menu-option from all applications.
-
-[Action-28]
-Type=actionrestriction
-Key=action/go_forward
-Name=Disable Go -> go_forward
-Description=This option can be used to remove the <i>Go -> go_forward </i> menu-option from all applications.
-
-[Action-27]
-Type=actionrestriction
-Key=action/go_home
-Name=Disable Edit -> go_home
-Description=This option can be used to remove the <i>Edit -> go_home </i> menu-option from all applications.
-
-[Action-26]
-Type=actionrestriction
-Key=action/go_previous
-Name=Disable Go -> go_previous
-Description=This option can be used to remove the <i>Go -> go_previous </i> menu-option from all applications.
-
-[Action-25]
-Type=actionrestriction
-Key=action/go_next
-Name=Disable Go -> go_next
-Description=This option can be used to remove the <i>Go -> go_next </i> menu-option from all applications.
-
-[Action-24]
-Type=actionrestriction
-Key=action/go_goto
-Name=Disable Go -> go_goto
-Description=This option can be used to remove the <i>Go -> go_goto </i> menu-option from all applications.
-
-[Action-23]
-Type=actionrestriction
-Key=action/go_goto_page
-Name=Disable Go -> go_goto_page
-Description=This option can be used to remove the <i>Go -> go_goto_page </i> menu-option from all applications.
-
-[Action-22]
-Type=actionrestriction
-Key=action/go_goto_line
-Name=Disable Go -> go_goto_line
-Description=This option can be used to remove the <i>Go -> go_goto_line </i> menu-option from all applications.
-
-[Action-21]
-Type=actionrestriction
-Key=action/go_first
-Name=Disable Go -> go_first
-Description=This option can be used to remove the <i>Go -> go_first </i> menu-option from all applications.
-
-[Action-20]
-Type=actionrestriction
-Key=action/go_last
-Name=Disable Go -> go_last
-Description=This option can be used to remove the <i>Go -> go_last </i> menu-option from all applications.
-
-[Action-18]
-Type=actionrestriction
-Key=action/bookmark_add
-Name=Disable Bookmarks -> bookmark_add
-Description=This option can be used to remove the <i>Bookmarks -> bookmark_add </i> menu-option from all applications.
-
-[Action-17]
-Type=actionrestriction
-Key=action/bookmark_edit
-Name=Disable Bookmarks -> bookmark_edit
-Description=This option can be used to remove the <i>Bookmarks -> bookmark_edit </i> menu-option from all applications.
-
-[Action-16]
-Type=actionrestriction
-Key=action/tools_spelling
-Name=Disable Tools -> tools_spelling
-Description=This option can be used to remove the <i>Tools -> tools_spelling </i> menu-option from all applications.
-
-[Action-15]
-Type=actionrestriction
-Key=action/options_show_menubar
-Name=Disable Options -> options_show_menubar
-Description=This option can be used to remove the <i>Options -> options_show_menubar </i> menu-option from all applications.
-
-[Action-14]
-Type=actionrestriction
-Key=action/options_show_toolbar
-Name=Disable Options -> options_show_toolbar
-Description=This option can be used to remove the <i>Options -> options_show_toolbar </i> menu-option from all applications.
-
-[Action-13]
-Type=actionrestriction
-Key=action/options_show_statusbar
-Name=Disable Options -> options_show_statusbar
-Description=This option can be used to remove the <i>Options -> options_show_statusbar </i> menu-option from all applications.
-
-[Action-12]
-Type=actionrestriction
-Key=action/options_save_options
-Name=Disable Options -> options_save_options
-Description=This option can be used to remove the <i>Options -> options_save_options </i> menu-option from all applications.
-
-[Action-11]
-Type=actionrestriction
-Key=action/options_configure
-Name=Disable Options -> options_configure
-Description=This option can be used to remove the <i>Options -> options_configure </i> menu-option from all applications.
-
-[Action-10]
-Type=actionrestriction
-Key=action/options_configure_keybinding
-Name=Disable Options -> options_configure_keybinding
-Description=This option can be used to remove the <i>Options -> options_configure_keybinding </i> menu-option from all applications.
-
-[Action-9]
-Type=actionrestriction
-Key=action/options_configure_toolbars
-Name=Disable Options -> options_configure_toolbars
-Description=This option can be used to remove the <i>Options -> options_configure_toolbars </i> menu-option from all applications.
-
-[Action-8]
-Type=actionrestriction
-Key=action/options_configure_notifications
-Name=Disable Edit -> options_configure_notifications
-Description=This option can be used to remove the <i>Edit -> options_configure_notifications </i> menu-option from all applications.
-
-[Action-7]
-Type=actionrestriction
-Key=action/help
-Name=Disable help
-Description=This option can be used to remove the <i> help </i> menu-option from all applications.
-
-[Action-6]
-Type=actionrestriction
-Key=action/help_contents
-Name=Disable Help -> help_contents
-Description=This option can be used to remove the <i>Help -> help_contents </i> menu-option from all applications.
-
-[Action-5]
-Type=actionrestriction
-Key=action/help_whats_this
-Name=Disable Help -> help_whats_this
-Description=This option can be used to remove the <i>Help -> help_whats_this </i> menu-option from all applications.
-
-[Action-4]
-Type=actionrestriction
-Key=action/help_report_bug
-Name=Disable Help -> help_report_bug
-Description=This option can be used to remove the <i>Help -> help_report_bug </i> menu-option from all applications.
-
-[Action-3]
-Type=actionrestriction
-Key=action/help_about_app
-Name=Disable Help -> help_about_app
-Description=This option can be used to remove the <i>Help -> help_about_app </i> menu-option from all applications.
-
-[Action-2]
-Type=actionrestriction
-Key=action/help_about_kde
-Name=Disable Help -> help_about_kde
-Description=This option can be used to remove the <i>Help -> help_about_kde </i> menu-option from all applications.
+Description=Standard application menus (canonical keys from KDE Kiosk docs; duplicates like action/print vs action/file_print removed).
 
 [Action-1]
 Type=actionrestriction
-Key=action/fullscreen
-Name=Disable fullscreen
-Description=This option can be used to remove the <i> fullscreen </i> menu-option from all applications.
+Key=action/file_new
+Name=Disable File → New
+Description=Removes File → New in KXMLGui-based applications.
 
+[Action-2]
+Type=actionrestriction
+Key=action/file_open
+Name=Disable File → Open
+Description=Removes File → Open.
+
+[Action-3]
+Type=actionrestriction
+Key=action/file_open_recent
+Name=Disable File → Open Recent
+Description=Removes File → Open Recent.
+
+[Action-4]
+Type=actionrestriction
+Key=action/file_save
+Name=Disable File → Save
+Description=Removes File → Save.
+
+[Action-5]
+Type=actionrestriction
+Key=action/file_save_as
+Name=Disable File → Save As
+Description=Removes File → Save As.
+
+[Action-6]
+Type=actionrestriction
+Key=action/file_revert
+Name=Disable File → Revert
+Description=Removes File → Revert.
+
+[Action-7]
+Type=actionrestriction
+Key=action/file_close
+Name=Disable File → Close
+Description=Removes File → Close.
+
+[Action-8]
+Type=actionrestriction
+Key=action/file_print
+Name=Disable File → Print
+Description=Removes File → Print (covers apps using this standard action name).
+
+[Action-9]
+Type=actionrestriction
+Key=action/file_print_preview
+Name=Disable File → Print Preview
+Description=Removes File → Print Preview.
+
+[Action-10]
+Type=actionrestriction
+Key=action/file_mail
+Name=Disable File → Email
+Description=Removes File → Email.
+
+[Action-11]
+Type=actionrestriction
+Key=action/file_quit
+Name=Disable File → Quit
+Description=Removes File → Quit.
+
+[Action-12]
+Type=actionrestriction
+Key=action/edit_undo
+Name=Disable Edit → Undo
+Description=Removes Edit → Undo.
+
+[Action-13]
+Type=actionrestriction
+Key=action/edit_redo
+Name=Disable Edit → Redo
+Description=Removes Edit → Redo.
+
+[Action-14]
+Type=actionrestriction
+Key=action/edit_cut
+Name=Disable Edit → Cut
+Description=Removes Edit → Cut.
+
+[Action-15]
+Type=actionrestriction
+Key=action/edit_copy
+Name=Disable Edit → Copy
+Description=Removes Edit → Copy.
+
+[Action-16]
+Type=actionrestriction
+Key=action/edit_paste
+Name=Disable Edit → Paste
+Description=Removes Edit → Paste.
+
+[Action-17]
+Type=actionrestriction
+Key=action/edit_select_all
+Name=Disable Edit → Select All
+Description=Removes Edit → Select All.
+
+[Action-18]
+Type=actionrestriction
+Key=action/edit_find
+Name=Disable Edit → Find
+Description=Removes Edit → Find.
+
+[Action-19]
+Type=actionrestriction
+Key=action/edit_replace
+Name=Disable Edit → Replace
+Description=Removes Edit → Replace.
+
+[Action-20]
+Type=actionrestriction
+Key=action/options_show_menubar
+Name=Disable Settings → Show menubar
+Description=Removes the show/hide menubar toggle.
+
+[Action-21]
+Type=actionrestriction
+Key=action/options_show_toolbar
+Name=Disable Settings → Show toolbar
+Description=Removes the show/hide toolbar toggle (and Toolbars submenu when applicable).
+
+[Action-22]
+Type=actionrestriction
+Key=action/options_show_statusbar
+Name=Disable Settings → Show statusbar
+Description=Removes the show/hide statusbar toggle.
+
+[Action-23]
+Type=actionrestriction
+Key=action/options_save_Settings
+Name=Disable Settings → Save Settings
+Description=Removes Save Settings (canonical key name uses a capital S).
+
+[Action-24]
+Type=actionrestriction
+Key=action/options_configure
+Name=Disable Settings → Configure
+Description=Removes Configure application.
+
+[Action-25]
+Type=actionrestriction
+Key=action/options_configure_keybinding
+Name=Disable Settings → Configure Shortcuts
+Description=Removes Configure Shortcuts.
+
+[Action-26]
+Type=actionrestriction
+Key=action/options_configure_toolbars
+Name=Disable Settings → Configure Toolbars
+Description=Removes Configure Toolbars.
+
+[Action-27]
+Type=actionrestriction
+Key=action/options_configure_notifications
+Name=Disable Settings → Configure Notifications
+Description=Removes Configure Notifications.
+
+[Action-28]
+Type=actionrestriction
+Key=action/fullscreen
+Name=Disable full screen
+Description=Removes Enter full screen mode.
+
+[Action-29]
+Type=actionrestriction
+Key=action/tools_spelling
+Name=Disable Tools → Spelling
+Description=Removes Check Spelling.
+
+[Action-30]
+Type=actionrestriction
+Key=action/help_report_bug
+Name=Disable Help → Report Bug
+Description=Removes Report a bug.
+
+[Action-31]
+Type=actionrestriction
+Key=action/help_about_kde
+Name=Disable Help → About KDE
+Description=Removes About KDE.

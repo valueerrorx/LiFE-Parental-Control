@@ -1,34 +1,118 @@
 [Group]
 Icon=kolourpaint
 Name=Look and feel
-Description=Set up of Fonts Colors and Style
+Description=Appearance, input feel, and related Plasma modules (kcm_* from kcmshell6 --list). Overlaps with “System Settings” are intentional for quick lockdown presets.
+
+[Action-0]
+Type=plasmaLayoutLock
+Key=hard_lock
+Name=Hard-lock Plasma layout
+Description=Locks the system Plasma layout; the user layout is ignored. Does not add lines to kdeglobals.
 
 [Action-1]
 Type=module
-Key=style.desktop
-Name=Lock down style settings
-Description=When the style settings are locked down the user can no longer change them.
+Key=kcm_lookandfeel
+Name=Lock global Look and feel
+Description=Prevents changing global theme / look-and-feel package.
 
 [Action-2]
 Type=module
-Key=colors.desktop
-Name=Lock down color settings
-Description=When the color settings are locked down the user can no longer change them.
+Key=kcm_colors
+Name=Lock color scheme
+Description=Prevents changing color schemes.
 
 [Action-3]
 Type=module
-Key=fonts.desktop
-Name=Lock down font settings
-Description=When the font settings are locked down the user can no longer change them.
+Key=kcm_fonts
+Name=Lock fonts
+Description=Prevents changing UI fonts.
 
 [Action-4]
 Type=module
-Key=kwindecoration.desktop
-Name=Lock down window decoration settings
-Description=When the window decoration settings are locked down the user can no longer change them.
+Key=kcm_style
+Name=Lock application style
+Description=Prevents changing widget style / application style module.
 
 [Action-5]
 Type=module
-Key=screensaver.desktop
-Name=Lock down Screen Saver Settings
-Description=When the Screen Saver settings are locked down the user can no longer change them.
+Key=kcm_desktoptheme
+Name=Lock Plasma theme
+Description=Prevents changing Plasma desktop theme.
+
+[Action-6]
+Type=module
+Key=kcm_icons
+Name=Lock icons
+Description=Prevents changing icon theme.
+
+[Action-7]
+Type=module
+Key=kcm_cursortheme
+Name=Lock cursor theme
+Description=Prevents changing cursor theme.
+
+[Action-8]
+Type=module
+Key=kcm_kwindecoration
+Name=Lock window decorations
+Description=Prevents changing window titlebar/border settings.
+
+[Action-9]
+Type=module
+Key=kcm_screenlocker
+Name=Lock screen locker settings
+Description=Prevents changing screen lock / locker behavior (replaces legacy separate “screensaver” KCM on modern Plasma).
+
+[Action-10]
+Type=module
+Key=kcm_notifications
+Name=Lock notifications
+Description=Prevents changing notification apps, do-not-disturb, and event actions.
+
+[Action-11]
+Type=module
+Key=kcm_keyboard
+Name=Lock keyboard layout & hardware
+Description=Prevents changing layouts and advanced keyboard options.
+
+[Action-12]
+Type=module
+Key=kcm_access
+Name=Lock accessibility settings
+Description=Prevents changing accessibility options (high-contrast, sticky keys, etc.).
+
+[Action-13]
+Type=module
+Key=kcm_splashscreen
+Name=Lock splash screen
+Description=Prevents changing the Plasma splash screen theme.
+
+[Action-14]
+Type=module
+Key=kcm_animations
+Name=Lock animation speed & style
+Description=Prevents changing global animation settings (Plasma performance / feel).
+
+[Action-15]
+Type=module
+Key=kcm_soundtheme
+Name=Lock notification sound theme
+Description=Prevents changing the sound theme used for notifications.
+
+[Action-16]
+Type=module
+Key=kcm_wallpaper
+Name=Lock wallpaper
+Description=Prevents changing desktop wallpaper from System Settings.
+
+[Action-17]
+Type=module
+Key=kcm_workspace
+Name=Lock workspace behavior
+Description=General workspace-related options (behavior varies by Plasma version).
+
+[Action-18]
+Type=module
+Key=kcm_nightlight
+Name=Lock Night Light
+Description=Prevents changing color-temperature / night scheduling for the display.

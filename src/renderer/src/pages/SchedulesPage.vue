@@ -2,7 +2,7 @@
     <div class="pc-page-header d-flex align-items-start justify-content-between">
         <div>
             <h1>Screen Time</h1>
-            <p>Set daily limits and allowed usage hours via system cron</p>
+            <p>Set daily limits and allowed usage hours (enforced by the LiFE app while it runs as root)</p>
         </div>
         <div class="d-flex gap-2 pt-1">
             <span class="status-badge" :class="schedule.enabled ? 'active' : 'inactive'">
@@ -21,7 +21,7 @@
             <div class="pc-card-body d-flex align-items-center justify-content-between">
                 <div>
                     <div class="fw-semibold">Enable Screen Time Controls</div>
-                    <div class="text-muted" style="font-size:12px;">Activates time enforcement via a system cron job at <code>/etc/cron.d/life-parental</code></div>
+                    <div class="text-muted" style="font-size:12px;">When enabled, the LiFE Parental Control process enforces limits every minute (no system cron).</div>
                 </div>
                 <label class="pc-toggle">
                     <input type="checkbox" v-model="schedule.enabled" />
@@ -252,7 +252,7 @@ function applyPreset(kind) {
 }
 
 async function onResetTodayUsage() {
-    if (!window.confirm('Reset today\'s screen time counter to 0? Removes today\'s usage file; counting continues on the next cron run.')) return
+    if (!window.confirm('Reset today\'s screen time counter to 0? Removes today\'s usage file; counting continues on the next enforcement tick.')) return
     saving.value = true
     const result = await window.api.schedules.resetTodayUsage()
     saving.value = false

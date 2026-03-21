@@ -26,7 +26,7 @@ export function registerConfigIpc(ipcMain, kioskDir) {
             const group = parsed.Group ?? {}
             const stripHtml = (str) => (str ?? '').replace(/<[^>]*>/g, '')
             const sections = Object.entries(parsed)
-                .filter(([name, s]) => name !== 'Group' && (s.Type === 'actionrestriction' || s.Type === 'module'))
+                .filter(([name, s]) => name !== 'Group' && (s.Type === 'actionrestriction' || s.Type === 'module' || s.Type === 'resource' || s.Type === 'plasmaLayoutLock'))
                 .map(([, s]) => ({ type: s.Type, key: s.Key, name: s.Name, description: stripHtml(s.Description) }))
             return {
                 filename,

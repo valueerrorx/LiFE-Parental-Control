@@ -1,5 +1,9 @@
+import fs from 'fs'
+import { execFile } from 'child_process'
 import { app } from 'electron'
 import { registerWebFilterIpc, runStartupHageziSync } from './ipc/webFilterIpc.js'
+import { showWarningWindow } from './warningWindow.js'
+import { startEnforcementScheduler } from './enforcementScheduler.js'
 import { registerAppBlockerIpc, refreshAppMonitorCatalog } from './ipc/appBlockerIpc.js'
 import { registerSchedulesIpc } from './ipc/schedulesIpc.js'
 import { registerLifeModeIpc } from './ipc/lifeModeIpc.js'
@@ -12,6 +16,24 @@ import { syncEmbeddedEnforcementIfNeeded } from './ipc/embeddedEnforcementSync.j
 
 // Set true to re-enable CDN fetch + hosts apply on startup (can be slow / block main when persist runs).
 const RUN_STARTUP_HAGEZI_SYNC = false
+
+function cleanupLegacyCronFiles() {
+    const paths = [
+        '/etc/cron.d/life-parental',
+        '/etc/cron.d/life-parental-quota',
+        '/usr/local/bin/life-parental-check',
+        '/usr/local/bin/life-parental-quota'
+    ]
+    for (const p of paths) {
+        try {
+            if (fs.existsSync(p)) fs.unlinkSync(p)
+        } catch {
+            /* ignore */
+        }
+    }
+    execFile('systemctl', ['reload', 'cron'], { timeout: 3000 }, () => {})
+    execFile('systemctl', ['reload', 'crond'], { timeout: 3000 }, () => {})
+}
 
 export function registerHeavyIpc(ipcMain, { appConfigDir, hageziBundledDir, getMainWindow }) {
     registerWebFilterIpc(ipcMain, appConfigDir, { hageziBundledDir })
@@ -40,7 +62,19 @@ export function runDeferredStartupTasks(appConfigDir) {
         try {
             refreshAppMonitorCatalog(appConfigDir)
         } catch {
-            // best-effort: catalog + cron so dashboard app-usage can run without opening App Control first
+            // best-effort: catalog so dashboard app-usage can run without opening App Control first
         }
     })
+    if (typeof process.getuid === 'function' && process.getuid() === 0) {
+        try {
+            cleanupLegacyCronFiles()
+        } catch {
+            /* ignore */
+        }
+        startEnforcementScheduler({
+            configDir: appConfigDir,
+            onScreenTimeWarn: (payload) => showWarningWindow(payload),
+            onAppQuotaWarn: (payload) => showWarningWindow(payload)
+        })
+    }
 }

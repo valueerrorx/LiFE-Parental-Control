@@ -18,6 +18,7 @@ export function registerProfileIpc(ipcMain, profilesDir) {
             const rest = line.slice(sep + 2)
             if (type === 'url') {
                 const hash = rest.lastIndexOf('##')
+                if (hash === -1) return { type: 'url', key: rest, allowed: false }
                 return { type: 'url', key: rest.slice(0, hash), allowed: rest.slice(hash + 2) === 'True' }
             }
             return { type, key: rest, allowed: false }

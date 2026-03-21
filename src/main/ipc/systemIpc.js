@@ -5,12 +5,14 @@ import { appendActivity } from './activityLog.js'
 import { showWarningWindow } from '../warningWindow.js'
 
 const KDEGLOBALS_PATH = '/etc/xdg/kdeglobals'
+const PLASMA_APPLETSRC_PATH = '/etc/xdg/plasma-appletsrc'
 
 // Kiosk lockdown sections written by buildPlasmaConfig (must match kioskStore keys).
 const KIOSK_SECTION_HEADERS = new Set([
     '[KDE Action Restrictions][$i]',
     '[KDE Control Module Restrictions][$i]',
-    '[KDE URL Restrictions][$i]'
+    '[KDE URL Restrictions][$i]',
+    '[KDE Resource Restrictions][$i]'
 ])
 
 function stripLiFEKioskSections(text) {
@@ -140,17 +142,66 @@ function restartKdeSession() {
     })
 }
 
-export function readKioskLockdownSummary() {
+export function readPlasmaLayoutLockActive() {
     try {
-        const text = fs.readFileSync(KDEGLOBALS_PATH, 'utf8')
-        return summarizeKdeglobalsKiosk(text)
+        const text = fs.readFileSync(PLASMA_APPLETSRC_PATH, 'utf8')
+        return (text.split('\n')[0] ?? '').trim() === '[$i]'
     } catch (err) {
-        if (err.code === 'ENOENT') return { active: false, restrictionCount: 0 }
+        if (err.code === 'ENOENT') return false
         throw err
     }
 }
 
-export function persistKioskConfigText(configDir, configText) {
+export function readKioskLockdownSummary() {
+    try {
+        const text = fs.readFileSync(KDEGLOBALS_PATH, 'utf8')
+        const { active, restrictionCount } = summarizeKdeglobalsKiosk(text)
+        return { active, restrictionCount, plasmaLayoutLocked: readPlasmaLayoutLockActive() }
+    } catch (err) {
+        if (err.code === 'ENOENT') {
+            return { active: false, restrictionCount: 0, plasmaLayoutLocked: readPlasmaLayoutLockActive() }
+        }
+        throw err
+    }
+}
+
+function applyPlasmaLayoutHardLock() {
+    let existing = ''
+    try {
+        existing = fs.readFileSync(PLASMA_APPLETSRC_PATH, 'utf8')
+    } catch (e) {
+        if (e.code !== 'ENOENT') throw e
+    }
+    const first = (existing.split('\n')[0] ?? '').trim()
+    if (first === '[$i]') return
+    fs.writeFileSync(PLASMA_APPLETSRC_PATH, existing ? `[$i]\n${existing}` : `[$i]\n`, 'utf8')
+}
+
+function stripPlasmaLayoutHardLock() {
+    let existing = ''
+    try {
+        existing = fs.readFileSync(PLASMA_APPLETSRC_PATH, 'utf8')
+    } catch (e) {
+        if (e.code === 'ENOENT') return
+        throw e
+    }
+    const lines = existing.split('\n')
+    if ((lines[0] ?? '').trim() !== '[$i]') return
+    const rest = lines.slice(1)
+    while (rest.length && rest[0].trim() === '') rest.shift()
+    const next = rest.join('\n')
+    if (!next.trim()) {
+        try {
+            fs.unlinkSync(PLASMA_APPLETSRC_PATH)
+        } catch {
+            /* ignore */
+        }
+    } else {
+        fs.writeFileSync(PLASMA_APPLETSRC_PATH, next, 'utf8')
+    }
+}
+
+export function persistKioskConfigText(configDir, configText, plasmaLayoutHardLock = false) {
     let existing = ''
     try {
         existing = fs.readFileSync(KDEGLOBALS_PATH, 'utf8')
@@ -163,6 +214,13 @@ export function persistKioskConfigText(configDir, configText) {
         ? (stripped ? `${stripped}\n\n${block}\n` : `${block}\n`)
         : (stripped ? `${stripped}\n` : '')
     fs.writeFileSync(KDEGLOBALS_PATH, next, 'utf8')
+    if (block === '') {
+        stripPlasmaLayoutHardLock()
+    } else if (plasmaLayoutHardLock) {
+        applyPlasmaLayoutHardLock()
+    } else {
+        stripPlasmaLayoutHardLock()
+    }
     if (configDir) {
         appendActivity(configDir, { action: block ? 'kiosk_apply' : 'kiosk_strip' })
     }
@@ -229,13 +287,15 @@ export function registerSystemIpc(ipcMain, getWindow, configDir) {
         try {
             return { ok: true, ...readKioskLockdownSummary() }
         } catch (err) {
-            return { ok: false, error: err.message, active: false, restrictionCount: 0 }
+            return { ok: false, error: err.message, active: false, restrictionCount: 0, plasmaLayoutLocked: false }
         }
     })
 
-    ipcMain.handle('system:activateKiosk', async (_, configText) => {
+    ipcMain.handle('system:activateKiosk', async (_, payload) => {
         try {
-            persistKioskConfigText(configDir, configText)
+            const configText = typeof payload === 'string' ? payload : (payload?.configText ?? '')
+            const plasmaLayoutHardLock = typeof payload === 'object' && payload?.plasmaLayoutHardLock === true
+            persistKioskConfigText(configDir, configText, plasmaLayoutHardLock)
             return { ok: true }
         } catch (err) {
             return { error: err.message }

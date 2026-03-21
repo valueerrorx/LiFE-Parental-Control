@@ -92,12 +92,10 @@
                     <div class="pc-card-header"><h6><i class="bi bi-wrench-adjustable me-2" />Maintenance</h6></div>
                     <div class="pc-card-body">
                         <p class="text-muted small mb-3">
-                            Re-deploy cron jobs from JSON on disk if a script or cron file was removed or edited outside the app
-                            (<strong>Save</strong> on Screen Time / App quotas / Quota exemptions already redeploys). Packaged installs also
-                            <strong>auto-redeploy</strong> screen-time and quota cron on first root start after an <strong>app version</strong> bump (see Dashboard
-                            <em>Recent activity</em>: <code>embedded_enforcement_redeploy</code>). <strong>Web filter restore</strong> rebuilds the
-                            <code>/etc/hosts</code> block from <code>webfilter.json</code> (same as <strong>Apply Changes</strong> when the file already matches the UI; use if hosts was edited outside the app).
-                            <strong>Usage logs</strong> removes <code>usage-*</code>, <code>quota-usage-*</code>, and <code>app-usage-*</code> JSON older than 120 days (same rule as automatic cleanup).
+                            Screen time and app quotas are enforced inside the LiFE app (no cron). The buttons below only prune old usage JSON or refresh related state.
+                            Packaged installs may run <code>embedded_enforcement_redeploy</code> on upgrade (see Dashboard <em>Recent activity</em>).
+                            <strong>Web filter restore</strong> rebuilds the <code>/etc/hosts</code> block from <code>webfilter.json</code>.
+                            <strong>Usage logs</strong> removes <code>usage-*</code>, <code>quota-usage-*</code>, and <code>app-usage-*</code> JSON older than 120 days.
                         </p>
                         <div class="d-flex flex-wrap gap-2">
                             <button type="button" class="btn-pc-outline" :disabled="maintBusy" @click="onRedeployScheduleCron">
@@ -187,7 +185,7 @@
                         <div>
                             <div class="fw-semibold mb-1" style="font-size:13px;">Stop and remove all restrictions</div>
                             <p class="text-muted small mb-2">
-                                Disables screen time (removes its cron), clears app quotas and quota cron,
+                                Disables screen time, clears app quotas,
                                 unblocks all apps, removes web-filter rules from <code>/etc/hosts</code> (LiFE block),
                                 turns off quota exemptions list, and removes KDE kiosk sections from
                                 <code>kdeglobals</code> (only if kiosk rules are active — triggers a Plasma session restart then).
@@ -344,7 +342,7 @@ async function onDeleteAllUsageHistory() {
 }
 
 async function onRedeployScheduleCron() {
-    if (!window.confirm('Rewrite /usr/local/bin/life-parental-check and /etc/cron.d/life-parental from saved schedules.json?')) return
+    if (!window.confirm('Prune old screen-time usage archives under /etc/life-parental/? (Enforcement runs in the LiFE app; there is no cron script to rewrite.)')) return
     maintBusy.value = true
     maintMsg.value = ''
     const r = await window.api.schedules.redeploy()
@@ -353,13 +351,13 @@ async function onRedeployScheduleCron() {
         maintMsg.value = r.error
         maintError.value = true
     } else {
-        maintMsg.value = 'Screen time cron and check script updated.'
+        maintMsg.value = 'Usage archive cleanup completed.'
         maintError.value = false
     }
 }
 
 async function onRedeployQuotaCron() {
-    if (!window.confirm('Rewrite /usr/local/bin/life-parental-quota and /etc/cron.d/life-parental-quota from quota.json?')) return
+    if (!window.confirm('Prune old quota usage archives under /etc/life-parental/? (Enforcement runs in the LiFE app.)')) return
     maintBusy.value = true
     maintMsg.value = ''
     const r = await window.api.quota.redeploy()
@@ -368,7 +366,7 @@ async function onRedeployQuotaCron() {
         maintMsg.value = r.error
         maintError.value = true
     } else {
-        maintMsg.value = 'App quota cron and script updated.'
+        maintMsg.value = 'Usage archive cleanup completed.'
         maintError.value = false
     }
 }
@@ -443,7 +441,7 @@ async function onBackupExport() {
 async function onBackupImport() {
     backupMsg.value = ''
     if (!window.confirm(
-        'Import from the selected backup? Only top-level sections present in the file are applied (/etc/hosts + mirror when webFilter is included; cron when schedules, quotas, or processWhitelist change). Omitted sections are left unchanged.'
+        'Import from the selected backup? Only top-level sections present in the file are applied (/etc/hosts + mirror when webFilter is included; schedules, quotas, processWhitelist JSON when present). Omitted sections are left unchanged.'
     )) return
     backupBusy.value = true
     const r = await window.api.backup.import()

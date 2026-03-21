@@ -8,6 +8,15 @@ export const useKioskStore = defineStore('kiosk', () => {
     const urlItems = ref([])
     const statusMessage = ref('')
 
+    function plasmaLayoutLockSection() {
+        const themes = configFiles.value.find(f => f.filename === 'themes.kiosk')
+        return themes?.sections.find(s => s.type === 'plasmaLayoutLock' && s.key === 'hard_lock')
+    }
+
+    function getPlasmaLayoutHardLock() {
+        return Boolean(plasmaLayoutLockSection()?.checked)
+    }
+
     async function init() {
         try {
             const data = await window.api.config.readFiles()
@@ -29,7 +38,11 @@ export const useKioskStore = defineStore('kiosk', () => {
         unloadProfile()
         for (const entry of entries) {
             if (entry.type === 'url') {
-                urlItems.value.push({ path: entry.key, allowed: entry.allowed })
+                if (entry.allowed) continue
+                urlItems.value.push({ path: entry.key })
+            } else if (entry.type === 'plasmaLayoutHardLock') {
+                const s = plasmaLayoutLockSection()
+                if (s && (entry.key === '1' || entry.key === 'true')) s.checked = true
             } else {
                 for (const cfg of configFiles.value)
                     for (const section of cfg.sections)
@@ -51,10 +64,9 @@ export const useKioskStore = defineStore('kiosk', () => {
         const lines = []
         for (const cfg of configFiles.value)
             for (const s of cfg.sections)
-                if (s.checked && (s.type === 'actionrestriction' || s.type === 'module'))
+                if (s.checked && (s.type === 'actionrestriction' || s.type === 'module' || s.type === 'resource' || s.type === 'plasmaLayoutLock'))
                     lines.push(`${s.type}::${s.key}`)
-        for (const item of urlItems.value)
-            lines.push(`url::${item.path}##${item.allowed ? 'True' : 'False'}`)
+        for (const item of urlItems.value) lines.push(`url::${item.path}`)
         await window.api.profile.save(profileName, lines.join('\n'))
         loadedProfile.value = profileName
         statusMessage.value = `Saved to ${profileName}`
@@ -67,27 +79,29 @@ export const useKioskStore = defineStore('kiosk', () => {
         statusMessage.value = 'Profile deleted'
     }
 
-    function addUrl(path, allowed = false) { urlItems.value.push({ path, allowed }) }
+    function addUrl(path) { urlItems.value.push({ path }) }
     function removeUrl(index) { urlItems.value.splice(index, 1) }
 
     function buildPlasmaConfig() {
-        const actions = [], modules = []
+        const actions = [], modules = [], resources = []
         for (const cfg of configFiles.value)
             for (const s of cfg.sections) {
                 if (!s.checked) continue
                 if (s.type === 'actionrestriction') actions.push(s.key)
                 else if (s.type === 'module') modules.push(s.key)
+                else if (s.type === 'resource') resources.push(s.key)
             }
         let text = ''
         if (actions.length) { text += '\n[KDE Action Restrictions][$i]\n'; for (const k of actions) text += `${k} = false\n` }
         if (modules.length) { text += '\n[KDE Control Module Restrictions][$i]\n'; for (const k of modules) text += `${k} = false\n` }
+        if (resources.length) { text += '\n[KDE Resource Restrictions][$i]\n'; for (const k of resources) text += `${k} = false\n` }
         if (urlItems.value.length) {
             text += '\n[KDE URL Restrictions][$i]\n'
             text += `rule_count=${urlItems.value.length * 2}\n`
             let i = 1
-            for (const { path, allowed } of urlItems.value) {
-                text += `rule_${i}=open,,,,file,,${path},${allowed ? 'true' : 'false'}\n`; i++
-                text += `rule_${i}=list,,,,file,,${path},${allowed ? 'true' : 'false'}\n`; i++
+            for (const { path } of urlItems.value) {
+                text += `rule_${i}=open,,,,file,,${path},false\n`; i++
+                text += `rule_${i}=list,,,,file,,${path},false\n`; i++
             }
         }
         return text
@@ -95,7 +109,7 @@ export const useKioskStore = defineStore('kiosk', () => {
 
     async function prepareActivation() {
         await saveProfile(loadedProfile.value)
-        return buildPlasmaConfig()
+        return { configText: buildPlasmaConfig(), plasmaLayoutHardLock: getPlasmaLayoutHardLock() }
     }
 
     return {

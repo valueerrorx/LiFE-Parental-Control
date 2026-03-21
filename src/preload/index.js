@@ -15,7 +15,7 @@ contextBridge.exposeInMainWorld('api', {
     },
     system: {
         getAppInfo: () => ipcRenderer.invoke('system:getAppInfo'),
-        activateKiosk: (configText) => ipcRenderer.invoke('system:activateKiosk', configText),
+        activateKiosk: (payload) => ipcRenderer.invoke('system:activateKiosk', payload),
         getKioskStatus: () => ipcRenderer.invoke('system:getKioskStatus'),
         openDirectory: () => ipcRenderer.invoke('dialog:openDirectory'),
         showError: (payload) => ipcRenderer.invoke('dialog:showError', payload),
@@ -64,7 +64,8 @@ contextBridge.exposeInMainWorld('api', {
         resetTodayUsage: () => ipcRenderer.invoke('quota:resetTodayUsage'),
         setEntry: (entry) => ipcRenderer.invoke('quota:setEntry', entry),
         removeEntry: (appId) => ipcRenderer.invoke('quota:removeEntry', appId),
-        redeploy: () => ipcRenderer.invoke('quota:redeploy')
+        redeploy: () => ipcRenderer.invoke('quota:redeploy'),
+        grantAppBonus: (payload) => ipcRenderer.invoke('quota:grantAppBonus', payload)
     },
     activity: {
         list: (limit) => ipcRenderer.invoke('activity:list', limit)

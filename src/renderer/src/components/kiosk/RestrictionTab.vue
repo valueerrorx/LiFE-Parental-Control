@@ -26,7 +26,9 @@ defineProps({ config: { type: Object, required: true } })
 
 const kdeIconMap = {
     kdeapp: 'bi-app-indicator', homerun: 'bi-grid-3x3-gap',
-    'preferences-desktop-plasma': 'bi-gear', kolourpaint: 'bi-palette', plasmavault: 'bi-folder-lock'
+    'preferences-desktop-plasma': 'bi-gear', kolourpaint: 'bi-palette', plasmavault: 'bi-folder-lock',
+    'security-high': 'bi-shield-lock', 'utilities-terminal': 'bi-terminal',
+    printer: 'bi-printer', 'preferences-system': 'bi-hdd-stack'
 }
 const kdeIconToBootstrap = (name) => kdeIconMap[name] ?? 'bi-gear'
 </script>

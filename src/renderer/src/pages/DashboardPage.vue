@@ -264,8 +264,11 @@ const blockedCount = computed(() => store.blockedApps.length)
 const quotaCount = computed(() => store.appQuotas.length)
 const quotaSummaryRows = computed(() => {
     const usage = store.appQuotaUsage || {}
+    const extra = store.appQuotaExtra || {}
     const rows = store.appQuotas.map(q => {
-        const limit = Math.max(1, Number(q.minutesPerDay) || 1)
+        const base = Math.max(1, Number(q.minutesPerDay) || 1)
+        const bonus = Number(extra[q.appId]) || 0
+        const limit = base + bonus
         const rawUsed = Number(usage[q.appId]) || 0
         const used = Math.max(0, rawUsed)
         const ratio = used / limit
@@ -424,8 +427,8 @@ async function onApplyLifeMode(key) {
     }
     if (profileIncludeKiosk.value) {
         detail += key === 'leisure'
-            ? ' KDE: remove LiFE kiosk sections from kdeglobals and restart the session.'
-            : ' KDE: merge current Kiosk tab profile into kdeglobals and restart the session.'
+            ? ' KDE kiosk: clear and restart the session.'
+            : ' KDE kiosk: apply current profile and restart the session.'
     }
     const ok = await confirm(
         `Apply ${label} profile?`,
@@ -446,8 +449,8 @@ async function onApplyLifeMode(key) {
             if (kr?.error) window.alert(`KDE kiosk: ${kr.error}`)
         } else {
             await kioskStore.init()
-            const configText = await kioskStore.prepareActivation()
-            const kr = await window.api.system.activateKiosk(configText)
+            const { configText, plasmaLayoutHardLock } = await kioskStore.prepareActivation()
+            const kr = await window.api.system.activateKiosk({ configText, plasmaLayoutHardLock })
             if (kr?.error) window.alert(`KDE kiosk: ${kr.error}`)
         }
     }
@@ -494,9 +497,11 @@ async function onApplyLifeMode(key) {
 }
 .donut-chart-side {
     flex: 1 1 auto;
-    min-width: 0;
+    min-width: 200px; /* match .donut-wrap; min-width:0 was allowing flex to squash the ring */
+    flex-shrink: 0;
 }
 .donut-wrap {
+    flex-shrink: 0;
     width: 200px;
     height: 200px;
     border-radius: 50%;

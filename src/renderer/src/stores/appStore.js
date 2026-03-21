@@ -10,9 +10,10 @@ export const useAppStore = defineStore('app', () => {
     const schedule = ref(null)
     const todayUsageMinutes = ref(0)
     const todayExtraAllowanceMinutes = ref(0)
-    const kioskStatus = ref({ active: false, restrictionCount: 0, ok: true })
+    const kioskStatus = ref({ active: false, restrictionCount: 0, plasmaLayoutLocked: false, ok: true })
     const appQuotas = ref([])
     const appQuotaUsage = ref({})
+    const appQuotaExtra = ref({})
     const appMonitorUsage = ref({})
     const appMonitorLabels = ref({})
     const statusMessage = ref('')
@@ -69,6 +70,7 @@ export const useAppStore = defineStore('app', () => {
         kioskStatus.value = {
             active: result.active ?? false,
             restrictionCount: result.restrictionCount ?? 0,
+            plasmaLayoutLocked: result.plasmaLayoutLocked ?? false,
             ok: result.ok !== false,
             error: result.error
         }
@@ -82,7 +84,13 @@ export const useAppStore = defineStore('app', () => {
             window.api.quota.getAppMonitorUsage()
         ])
         appQuotas.value = Array.isArray(list) ? list : []
-        appQuotaUsage.value = usage && typeof usage === 'object' ? usage : {}
+        if (usage && typeof usage === 'object' && Object.hasOwn(usage, 'usage')) {
+            appQuotaUsage.value = usage.usage && typeof usage.usage === 'object' ? usage.usage : {}
+            appQuotaExtra.value = usage.appExtra && typeof usage.appExtra === 'object' ? usage.appExtra : {}
+        } else {
+            appQuotaUsage.value = usage && typeof usage === 'object' ? usage : {}
+            appQuotaExtra.value = {}
+        }
         appMonitorUsage.value = mon?.usage && typeof mon.usage === 'object' ? mon.usage : {}
         appMonitorLabels.value = mon?.labels && typeof mon.labels === 'object' ? mon.labels : {}
     }
@@ -109,7 +117,7 @@ export const useAppStore = defineStore('app', () => {
 
     return {
         webFilterEntries, webFilterFeedState, webFilterHostRuleCount, webFilterAllowlist, blockedApps, schedule, todayUsageMinutes, todayExtraAllowanceMinutes, kioskStatus,
-        appQuotas, appQuotaUsage, appMonitorUsage, appMonitorLabels, statusMessage, whitelistEnabled, runningAsRoot, xdgCurrentDesktop,
+        appQuotas, appQuotaUsage, appQuotaExtra, appMonitorUsage, appMonitorLabels, statusMessage, whitelistEnabled, runningAsRoot, xdgCurrentDesktop,
         webFilterEnabled,
         loadWebFilter, saveWebFilter, persistWebFilterAllowlist, loadBlockedApps, loadSchedule, loadKioskStatus, loadAppQuotas,
         loadProcessWhitelist, applyLifeMode, refreshProtectionsState
