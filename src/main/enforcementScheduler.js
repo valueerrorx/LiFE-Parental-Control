@@ -1,6 +1,7 @@
 import { execFile } from 'child_process'
 import { promisify } from 'util'
 import { localIsoDate } from './ipc/localCalendarDay.js'
+import { getActiveGraphicalSessions } from './graphicalSessionDetect.js'
 import { readSchedule, readUsage, writeUsage } from './ipc/schedulesIpc.js'
 import {
     readQuotaEntries,
@@ -11,55 +12,21 @@ import {
     writeAppMonitorUsage,
     readAppMonitorUsage
 } from './ipc/quotaIpc.js'
+import { normalizeQuotaLinuxUser, quotaUsageKey, quotaUsedMinutes, quotaBonusMinutes } from '@shared/quotaUsageKey.js'
 
 const execFileAsync = promisify(execFile)
 
-const TICK_MS = 60_000
+/** Enforcement interval (pgrep, kill, lock); 60_000 % TICK_MS must be 0 so usage minutes match real minutes. */
+const TICK_MS = 10_000
+const TICKS_PER_LOGGED_MINUTE = 60_000 / TICK_MS
 const ALLOWED_HOURS_WARN_INTERVAL_MS = 5 * 60 * 1000
 
 let timerId = null
+/** 0..TICKS_PER_LOGGED_MINUTE-1; when advance returns true, one real minute elapsed for usage tallies. */
+let tickInMinute = 0
 let quotaWarnDate = ''
 const appQuotaWarnOnce = new Set()
 let lastAllowedHoursWarnAt = 0
-
-function parseLoginctlSession(text) {
-    const props = {}
-    for (const line of String(text || '').trim().split('\n')) {
-        const eq = line.indexOf('=')
-        if (eq === -1) continue
-        props[line.slice(0, eq).trim()] = line.slice(eq + 1).trim()
-    }
-    return props
-}
-
-async function getActiveGraphicalSessions() {
-    try {
-        const { stdout } = await execFileAsync('loginctl', ['list-sessions', '--no-legend'], { timeout: 5000 })
-        const sessions = []
-        for (const line of stdout.trim().split('\n').filter(Boolean)) {
-            const parts = line.trim().split(/\s+/)
-            if (parts.length < 3) continue
-            const sid = parts[0]
-            const user = parts[2]
-            try {
-                const { stdout: out2 } = await execFileAsync(
-                    'loginctl',
-                    ['show-session', sid, '-p', 'Type', '-p', 'State', '-p', 'Class'],
-                    { timeout: 3000 }
-                )
-                const p = parseLoginctlSession(out2)
-                if (p.Class === 'greeter' || p.Class === 'background') continue
-                const live = p.State === 'active' || p.State === 'online'
-                if ((p.Type === 'x11' || p.Type === 'wayland') && live) sessions.push({ user, sid })
-            } catch {
-                /* skip session */
-            }
-        }
-        return sessions
-    } catch {
-        return []
-    }
-}
 
 function uniqueUsers(sessions) {
     const seen = new Set()
@@ -122,7 +89,12 @@ function isWithinAllowedHours(s, now) {
     return nowT >= start || nowT <= end
 }
 
-async function tickScreenTime(configDir, { onScreenTimeWarn }) {
+function atLoggedMinuteBoundary() {
+    tickInMinute = (tickInMinute + 1) % TICKS_PER_LOGGED_MINUTE
+    return tickInMinute === 0
+}
+
+async function tickScreenTime(configDir, { onScreenTimeWarn }, logMinute) {
     const s = readSchedule(configDir)
     const now = new Date()
     const today = localIsoDate(now)
@@ -143,7 +115,7 @@ async function tickScreenTime(configDir, { onScreenTimeWarn }) {
     }
 
     let minutes = Math.max(0, Number(usage.minutes) || 0)
-    if (hasSession) minutes += 1
+    if (hasSession && logMinute) minutes += 1
     usage.minutes = minutes
     usage.date = today
 
@@ -236,7 +208,7 @@ function resetAppQuotaWarnIfNewDay() {
     }
 }
 
-async function tickAppQuotas(configDir, { onAppQuotaWarn }) {
+async function tickAppQuotas(configDir, { onAppQuotaWarn }, logMinute) {
     resetAppQuotaWarnIfNewDay()
     const quotas = readQuotaEntries(configDir)
     const exempt = loadQuotaExemptAppIds(configDir)
@@ -259,16 +231,19 @@ async function tickAppQuotas(configDir, { onAppQuotaWarn }) {
         const proc = String(q.processName || '').trim()
         const baseLimit = Math.max(1, Math.floor(Number(q.minutesPerDay) || 60))
         const name = q.appName || proc
+        const lu = normalizeQuotaLinuxUser(q.linuxUser)
         if (!proc || !appId) continue
 
-        const isRunning = await anyUserRunningProcess(activeUsers, proc)
-        const bonus = Math.max(0, Number(appExtra[appId]) || 0)
+        const usersForQuota = lu ? activeUsers.filter(u => u === lu) : activeUsers
+        const isRunning = usersForQuota.length > 0 && await anyUserRunningProcess(usersForQuota, proc)
+        const uk = quotaUsageKey(appId, lu)
+        const bonus = quotaBonusMinutes(appExtra, appId, lu)
         const limit = baseLimit + bonus
-        const usedBefore = Math.max(0, Number(appUsage[appId]) || 0)
+        const usedBefore = quotaUsedMinutes(appUsage, appId, lu)
 
         if (isRunning) {
             if (!exempt.has(appId) && usedBefore >= limit) {
-                const key = `${appId}:kill`
+                const key = `${uk}:kill`
                 if (!appQuotaWarnOnce.has(key)) {
                     appQuotaWarnOnce.add(key)
                     onAppQuotaWarn({
@@ -277,30 +252,34 @@ async function tickAppQuotas(configDir, { onAppQuotaWarn }) {
                         appName: name,
                         processName: proc,
                         effectiveLimit: limit,
-                        usedMinutes: usedBefore
+                        usedMinutes: usedBefore,
+                        linuxUser: lu || undefined
                     })
                 }
-                await pkillAllUsers(activeUsers, proc)
+                await pkillAllUsers(usersForQuota, proc)
             } else if (!exempt.has(appId) && usedBefore === limit - 1) {
-                appUsage[appId] = limit
-                const k = `${appId}:final`
-                if (!appQuotaWarnOnce.has(k)) {
-                    appQuotaWarnOnce.add(k)
-                    onAppQuotaWarn({
-                        type: 'app-final',
-                        appId,
-                        appName: name,
-                        processName: proc,
-                        effectiveLimit: limit,
-                        usedMinutes: usedBefore
-                    })
+                if (logMinute) {
+                    appUsage[uk] = limit
+                    const k = `${uk}:final`
+                    if (!appQuotaWarnOnce.has(k)) {
+                        appQuotaWarnOnce.add(k)
+                        onAppQuotaWarn({
+                            type: 'app-final',
+                            appId,
+                            appName: name,
+                            processName: proc,
+                            effectiveLimit: limit,
+                            usedMinutes: usedBefore,
+                            linuxUser: lu || undefined
+                        })
+                    }
                 }
-            } else {
-                appUsage[appId] = usedBefore + 1
+            } else if (logMinute) {
+                appUsage[uk] = usedBefore + 1
             }
         }
 
-        const used = Math.max(0, Number(appUsage[appId]) || 0)
+        const used = quotaUsedMinutes(appUsage, appId, lu)
         const remaining = limit - used
 
         if (
@@ -309,7 +288,7 @@ async function tickAppQuotas(configDir, { onAppQuotaWarn }) {
             && !exempt.has(appId)
             && limit >= 3
         ) {
-            const k = `${appId}:2`
+            const k = `${uk}:2`
             if (!appQuotaWarnOnce.has(k)) {
                 appQuotaWarnOnce.add(k)
                 onAppQuotaWarn({
@@ -319,11 +298,12 @@ async function tickAppQuotas(configDir, { onAppQuotaWarn }) {
                     processName: proc,
                     effectiveLimit: limit,
                     usedMinutes: used,
-                    remaining: 2
+                    remaining: 2,
+                    linuxUser: lu || undefined
                 })
             }
         } else if (remaining === 5 && isRunning) {
-            const k = `${appId}:5`
+            const k = `${uk}:5`
             if (!appQuotaWarnOnce.has(k)) {
                 appQuotaWarnOnce.add(k)
                 onAppQuotaWarn({
@@ -333,7 +313,8 @@ async function tickAppQuotas(configDir, { onAppQuotaWarn }) {
                     processName: proc,
                     effectiveLimit: limit,
                     usedMinutes: used,
-                    remaining: 5
+                    remaining: 5,
+                    linuxUser: lu || undefined
                 })
             }
         }
@@ -344,7 +325,7 @@ async function tickAppQuotas(configDir, { onAppQuotaWarn }) {
     writeQuotaUsageState(configDir, state)
 }
 
-async function tickAppMonitor(configDir) {
+async function tickAppMonitor(configDir, logMinute) {
     const entries = readMonitorCatalogEntries(configDir)
     if (!Array.isArray(entries) || entries.length === 0) return
 
@@ -361,25 +342,26 @@ async function tickAppMonitor(configDir) {
         const proc = String(entry.processName || '').trim()
         if (!appId || !proc) continue
         const running = await anyUserRunningProcess(activeUsers, proc)
-        if (running) track[appId] = (track[appId] || 0) + 1
+        if (running && logMinute) track[appId] = (track[appId] || 0) + 1
     }
 
     writeAppMonitorUsage(configDir, track)
 }
 
 async function tick(configDir, callbacks) {
+    const logMinute = atLoggedMinuteBoundary()
     try {
-        await tickScreenTime(configDir, callbacks)
+        await tickScreenTime(configDir, callbacks, logMinute)
     } catch (e) {
         console.error('[LiFE Parental Control] enforcement tick (screen time):', e)
     }
     try {
-        await tickAppQuotas(configDir, callbacks)
+        await tickAppQuotas(configDir, callbacks, logMinute)
     } catch (e) {
         console.error('[LiFE Parental Control] enforcement tick (quotas):', e)
     }
     try {
-        await tickAppMonitor(configDir)
+        await tickAppMonitor(configDir, logMinute)
     } catch (e) {
         console.error('[LiFE Parental Control] enforcement tick (app monitor):', e)
     }
@@ -394,6 +376,7 @@ async function tick(configDir, callbacks) {
  */
 export function startEnforcementScheduler(options) {
     stopEnforcementScheduler()
+    tickInMinute = 0
     const { configDir, onScreenTimeWarn, onAppQuotaWarn } = options
     const callbacks = {
         onScreenTimeWarn: onScreenTimeWarn ?? (() => {}),

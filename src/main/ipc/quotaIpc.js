@@ -1,5 +1,6 @@
 import fs from 'fs'
 import path from 'path'
+import { normalizeQuotaLinuxUser, quotaUsageKey, quotaBonusMinutes } from '@shared/quotaUsageKey.js'
 import { pruneUsageArchives } from './usageArchivePrune.js'
 import { localIsoDate } from './localCalendarDay.js'
 import { appendActivity } from './activityLog.js'
@@ -16,6 +17,23 @@ function readQuotas(configDir) {
 
 function saveQuotas(configDir, quotas) {
     fs.writeFileSync(path.join(configDir, QUOTA_FILE), JSON.stringify(quotas, null, 2), 'utf8')
+}
+
+export function normalizeQuotaEntry(e) {
+    if (!e || typeof e !== 'object') return null
+    if (typeof e.appId !== 'string' || !e.appId.endsWith('.desktop')) return null
+    if (typeof e.processName !== 'string' || !e.processName.trim()) return null
+    const mp = Number(e.minutesPerDay)
+    const minutesPerDay = Math.max(1, Math.min(24 * 60, Math.floor(Number.isFinite(mp) && mp > 0 ? mp : 60)))
+    const appName = typeof e.appName === 'string' && e.appName.length ? e.appName : e.processName
+    const linuxUser = normalizeQuotaLinuxUser(e.linuxUser)
+    const out = { appId: e.appId, appName, processName: e.processName.trim(), minutesPerDay }
+    if (linuxUser) out.linuxUser = linuxUser
+    return out
+}
+
+function quotaRowKey(appId, linuxUser) {
+    return `${appId}\0${normalizeQuotaLinuxUser(linuxUser)}`
 }
 
 /** Full quota usage file shape for enforcement + IPC. */
@@ -41,7 +59,7 @@ export function writeQuotaUsageState(configDir, state) {
     fs.writeFileSync(file, JSON.stringify(state, null, 2), 'utf8')
 }
 
-/** IPC: { usage: { appId: minutes }, appExtra: { appId: bonus } } */
+/** IPC: raw usage maps (keys: appId or user:appId). */
 export function readQuotaUsageForIpc(configDir) {
     const st = readQuotaUsageState(configDir)
     return { usage: st.usage, appExtra: st.appExtra }
@@ -101,7 +119,13 @@ export function loadQuotaExemptAppIds(configDir) {
 
 export function readQuotaEntries(configDir) {
     const raw = readQuotas(configDir)
-    return Array.isArray(raw) ? raw : []
+    if (!Array.isArray(raw)) return []
+    const out = []
+    for (const e of raw) {
+        const n = normalizeQuotaEntry(e)
+        if (n) out.push(n)
+    }
+    return out
 }
 
 export function redeployQuotaFromDisk(configDir) {
@@ -119,12 +143,7 @@ export function replaceQuotaEntries(configDir, entries) {
                 && typeof e.processName === 'string' && e.processName.length > 0
                 && Number.isFinite(Number(e.minutesPerDay)))
         : []
-    const normalized = list.map(e => ({
-        appId: e.appId,
-        appName: typeof e.appName === 'string' && e.appName.length ? e.appName : e.processName,
-        processName: e.processName,
-        minutesPerDay: Math.max(1, Math.min(24 * 60, Math.floor(Number(e.minutesPerDay))))
-    }))
+    const normalized = list.map(e => normalizeQuotaEntry(e)).filter(Boolean)
     saveQuotas(configDir, normalized)
     try {
         pruneUsageArchives(configDir)
@@ -169,22 +188,32 @@ export function registerQuotaIpc(ipcMain, configDir) {
             const bonus = Number.isFinite(raw) && raw > 0
                 ? Math.min(BONUS_MAX, Math.max(BONUS_MIN, Math.floor(raw)))
                 : BONUS_DEFAULT
+            const lu = normalizeQuotaLinuxUser(payload?.linuxUser)
             const st = readQuotaUsageState(configDir)
-            const prev = Math.max(0, Number(st.appExtra[appId]) || 0)
-            st.appExtra[appId] = prev + bonus
+            const key = quotaUsageKey(appId, lu)
+            const prev = quotaBonusMinutes(st.appExtra, appId, lu)
+            st.appExtra[key] = prev + bonus
             writeQuotaUsageState(configDir, st)
-            appendActivity(configDir, { action: 'quota_app_bonus', appId, granted: bonus })
-            return { ok: true, appExtra: st.appExtra[appId] }
+            appendActivity(configDir, { action: 'quota_app_bonus', appId, granted: bonus, linuxUser: lu || undefined })
+            return { ok: true, appExtra: st.appExtra[key] }
         } catch (e) {
             return { error: e.message }
         }
     })
 
-    ipcMain.handle('quota:setEntry', (_, { appId, appName, processName, minutesPerDay }) => {
+    ipcMain.handle('quota:setEntry', (_, payload) => {
         try {
+            const { appId, appName, processName, minutesPerDay, linuxUser: rawLu } = payload || {}
+            const entry = normalizeQuotaEntry({
+                appId,
+                appName,
+                processName,
+                minutesPerDay,
+                linuxUser: rawLu
+            })
+            if (!entry) return { error: 'Invalid quota entry.' }
             const quotas = readQuotaEntries(configDir)
-            const idx = quotas.findIndex(q => q.appId === appId)
-            const entry = { appId, appName, processName, minutesPerDay }
+            const idx = quotas.findIndex(q => quotaRowKey(q.appId, q.linuxUser) === quotaRowKey(entry.appId, entry.linuxUser))
             if (idx >= 0) quotas[idx] = entry
             else quotas.push(entry)
             saveQuotas(configDir, quotas)
@@ -195,9 +224,15 @@ export function registerQuotaIpc(ipcMain, configDir) {
         } catch (e) { return { error: e.message } }
     })
 
-    ipcMain.handle('quota:removeEntry', (_, appId) => {
+    ipcMain.handle('quota:removeEntry', (_, payload) => {
         try {
-            const quotas = readQuotaEntries(configDir).filter(q => q.appId !== appId)
+            const appId = typeof payload === 'string' ? payload : payload?.appId
+            const rawLu = typeof payload === 'object' && payload ? payload.linuxUser : undefined
+            if (typeof appId !== 'string' || !appId) return { error: 'Missing app id.' }
+            const lu = normalizeQuotaLinuxUser(rawLu)
+            const quotas = readQuotaEntries(configDir).filter(
+                q => !(q.appId === appId && normalizeQuotaLinuxUser(q.linuxUser) === lu)
+            )
             saveQuotas(configDir, quotas)
             try {
                 pruneUsageArchives(configDir)

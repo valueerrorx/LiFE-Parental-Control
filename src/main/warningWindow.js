@@ -69,7 +69,7 @@ document.getElementById('dismiss').onclick = () => window.close()
 
     const payloadJson = escapeForInlineScriptJson(p)
     const grantCall = isApp
-        ? `ipcRenderer.invoke('quota:grantAppBonus', { password: pw.value, minutes: +mins.value, appId: payload.appId })`
+        ? `ipcRenderer.invoke('quota:grantAppBonus', { password: pw.value, minutes: +mins.value, appId: payload.appId, linuxUser: payload.linuxUser || '' })`
         : `ipcRenderer.invoke('schedules:grantBonusMinutes', { password: pw.value, minutes: +mins.value })`
 
     return `<!DOCTYPE html>

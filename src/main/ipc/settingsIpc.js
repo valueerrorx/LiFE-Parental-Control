@@ -3,6 +3,7 @@ import path from 'path'
 import crypto from 'crypto'
 import { app } from 'electron'
 import { normalizedLockIdleMinutesOrUndefined } from '@shared/lockIdleMinutes.js'
+import { normalizeQuotaLinuxUser } from '@shared/quotaUsageKey.js'
 import { pruneUsageArchives } from './usageArchivePrune.js'
 import { appendActivity } from './activityLog.js'
 import {
@@ -33,6 +34,8 @@ export function readPreferencesForBackup(configDir) {
     const m = normalizedLockIdleMinutesOrUndefined(cfg.lockIdleMinutes)
     if (m !== undefined) out.lockIdleMinutes = m
     if (cfg.autostartEnabled === true) out.autostartEnabled = true
+    const qv = typeof cfg.quotaViewLinuxUser === 'string' ? normalizeQuotaLinuxUser(cfg.quotaViewLinuxUser) : ''
+    if (qv) out.quotaViewLinuxUser = qv
     return out
 }
 
@@ -47,6 +50,11 @@ export function mergePreferencesFromBackup(configDir, prefs) {
     if (Object.hasOwn(prefs, 'autostartEnabled')) {
         if (prefs.autostartEnabled === true) next.autostartEnabled = true
         else delete next.autostartEnabled
+    }
+    if (Object.hasOwn(prefs, 'quotaViewLinuxUser')) {
+        const v = normalizeQuotaLinuxUser(prefs.quotaViewLinuxUser)
+        if (v) next.quotaViewLinuxUser = v
+        else delete next.quotaViewLinuxUser
     }
     saveConfig(configDir, next)
 }
@@ -132,6 +140,8 @@ export function registerSettingsIpc(ipcMain, configDir) {
         }
         safe.autostartEnabled = cfg.autostartEnabled === true
         safe.autostartFilePresent = systemAutostartDesktopPresent()
+        const qv = typeof cfg.quotaViewLinuxUser === 'string' ? normalizeQuotaLinuxUser(cfg.quotaViewLinuxUser) : ''
+        if (qv) safe.quotaViewLinuxUser = qv
         return safe
     })
 
@@ -148,6 +158,15 @@ export function registerSettingsIpc(ipcMain, configDir) {
         if (Object.hasOwn(data, 'autostartEnabled')) {
             if (data.autostartEnabled === true) next.autostartEnabled = true
             else delete next.autostartEnabled
+        }
+        if (Object.hasOwn(data, 'quotaViewLinuxUser')) {
+            const raw = data.quotaViewLinuxUser
+            if (raw === '' || raw == null) delete next.quotaViewLinuxUser
+            else {
+                const v = normalizeQuotaLinuxUser(String(raw))
+                if (v) next.quotaViewLinuxUser = v
+                else delete next.quotaViewLinuxUser
+            }
         }
         saveConfig(configDir, next)
     })

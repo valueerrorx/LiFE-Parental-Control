@@ -3,6 +3,7 @@ import { execFile } from 'child_process'
 import fs from 'fs'
 import { appendActivity } from './activityLog.js'
 import { showWarningWindow } from '../warningWindow.js'
+import { getActiveGraphicalSessions } from '../graphicalSessionDetect.js'
 
 const KDEGLOBALS_PATH = '/etc/xdg/kdeglobals'
 const PLASMA_APPLETSRC_PATH = '/etc/xdg/plasma-appletsrc'
@@ -47,46 +48,13 @@ export function summarizeKdeglobalsKiosk(text) {
     return { active: restrictionCount > 0, restrictionCount }
 }
 
-function parseLoginctlShowSession(text) {
-    const props = {}
-    for (const line of String(text || '').trim().split('\n')) {
-        const eq = line.indexOf('=')
-        if (eq === -1) continue
-        props[line.slice(0, eq).trim()] = line.slice(eq + 1).trim()
-    }
-    return props
-}
-
 function listGraphicalUsers(cb) {
-    execFile('loginctl', ['list-sessions', '--no-legend'], { timeout: 5000 }, (err, stdout) => {
-        if (err || !stdout) return cb([])
-        const lines = stdout.trim().split('\n').filter(Boolean)
-        const users = new Set()
-        const step = (i) => {
-            if (i >= lines.length) return cb([...users])
-            const parts = lines[i].trim().split(/\s+/)
-            if (parts.length < 3) return step(i + 1)
-            const sid = parts[0]
-            const user = parts[2]
-            execFile(
-                'loginctl',
-                ['show-session', sid, '-p', 'Type', '-p', 'State', '-p', 'Class'],
-                { timeout: 3000 },
-                (e, out) => {
-                    const p = parseLoginctlShowSession(out)
-                    const t = p.Type || ''
-                    const s = p.State || ''
-                    const cls = p.Class || ''
-                    if (cls === 'greeter' || cls === 'background') return step(i + 1)
-                    // Only one session is typically active; other X11/Wayland seats often report online.
-                    const live = s === 'active' || s === 'online'
-                    if ((t === 'x11' || t === 'wayland') && live) users.add(user)
-                    step(i + 1)
-                }
-            )
-        }
-        step(0)
-    })
+    getActiveGraphicalSessions()
+        .then(sessions => {
+            const users = new Set(sessions.map(s => s.user))
+            cb([...users])
+        })
+        .catch(() => cb([]))
 }
 
 function restartKdeSession() {
@@ -280,7 +248,12 @@ export function registerSystemIpc(ipcMain, getWindow, configDir) {
         electron: process.versions.electron,
         node: process.versions.node,
         runningAsRoot: typeof process.getuid === 'function' ? process.getuid() === 0 : null,
-        xdgCurrentDesktop: process.env.XDG_CURRENT_DESKTOP ?? ''
+        xdgCurrentDesktop: process.env.XDG_CURRENT_DESKTOP ?? '',
+        invokingLinuxUser: (() => {
+            if (typeof process.getuid !== 'function') return ''
+            if (process.getuid() !== 0) return process.env.USER || ''
+            return (process.env.SUDO_USER || '').trim() || (process.env.USER || '').trim() || ''
+        })()
     }))
 
     ipcMain.handle('system:getKioskStatus', async () => {

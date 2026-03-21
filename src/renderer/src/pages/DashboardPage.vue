@@ -105,9 +105,9 @@
                 <RouterLink to="/apps" class="small text-decoration-none">App Control</RouterLink>
             </div>
             <div class="pc-card-body pt-2">
-                <div v-for="row in quotaSummaryRows" :key="row.appId" class="mb-3">
+                <div v-for="row in quotaSummaryRows" :key="row.key" class="mb-3">
                     <div class="d-flex justify-content-between align-items-baseline small mb-1">
-                        <span>{{ row.appName }}</span>
+                        <span>{{ row.appName }}<small class="text-muted">{{ row.userSuffix }}</small></span>
                         <span class="text-muted">{{ row.used }} / {{ row.limit }} min</span>
                     </div>
                     <div class="progress" style="height:7px;">
@@ -235,6 +235,7 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
+import { normalizeQuotaLinuxUser, quotaUsedMinutes, quotaBonusMinutes } from '@shared/quotaUsageKey.js'
 import { useAppStore } from '../stores/appStore.js'
 import { useKioskStore } from '../stores/kioskStore.js'
 import { useModal } from '../composables/useModal.js'
@@ -261,19 +262,45 @@ const weekUsage = ref([])
 
 const filterCount = computed(() => store.webFilterHostRuleCount)
 const blockedCount = computed(() => store.blockedApps.length)
-const quotaCount = computed(() => store.appQuotas.length)
+const quotaCount = computed(() => {
+    const f = normalizeQuotaLinuxUser(store.quotaViewLinuxUser)
+    const list = f
+        ? store.appQuotas.filter((q) => {
+            const lu = normalizeQuotaLinuxUser(q.linuxUser)
+            return !lu || lu === f
+        })
+        : store.appQuotas
+    return list.length
+})
 const quotaSummaryRows = computed(() => {
     const usage = store.appQuotaUsage || {}
     const extra = store.appQuotaExtra || {}
-    const rows = store.appQuotas.map(q => {
+    const f = normalizeQuotaLinuxUser(store.quotaViewLinuxUser)
+    const quotas = f
+        ? store.appQuotas.filter((q) => {
+            const lu = normalizeQuotaLinuxUser(q.linuxUser)
+            return !lu || lu === f
+        })
+        : store.appQuotas
+    const rows = quotas.map((q) => {
         const base = Math.max(1, Number(q.minutesPerDay) || 1)
-        const bonus = Number(extra[q.appId]) || 0
+        const bonus = quotaBonusMinutes(extra, q.appId, q.linuxUser)
         const limit = base + bonus
-        const rawUsed = Number(usage[q.appId]) || 0
-        const used = Math.max(0, rawUsed)
+        const used = quotaUsedMinutes(usage, q.appId, q.linuxUser)
         const ratio = used / limit
         const pct = Math.min(100, Math.round(ratio * 100))
-        return { appId: q.appId, appName: q.appName || q.processName, used, limit, ratio, pct }
+        const lu = normalizeQuotaLinuxUser(q.linuxUser)
+        const userSuffix = lu ? ` · ${lu}` : ' · all accounts'
+        return {
+            key: `${q.appId}\0${lu || ''}`,
+            appId: q.appId,
+            appName: q.appName || q.processName,
+            userSuffix,
+            used,
+            limit,
+            ratio,
+            pct
+        }
     })
     rows.sort((a, b) => b.ratio - a.ratio)
     return rows

@@ -60,21 +60,37 @@
             <div class="pc-card-header d-flex align-items-center justify-content-between flex-wrap gap-2">
                 <h6 class="mb-0">Daily time limits for individual apps</h6>
                 <div class="d-flex align-items-center gap-2 flex-wrap">
+                    <div class="d-flex align-items-center gap-1">
+                        <label class="small text-muted mb-0">Show limits for</label>
+                        <select
+                            class="pc-input pc-input-sm"
+                            style="min-width:140px;"
+                            :value="store.quotaViewLinuxUser"
+                            @change="onQuotaViewUserChange($event.target.value)"
+                        >
+                            <option value="">All accounts</option>
+                            <option v-for="u in quotaFilterUserOptions" :key="u" :value="u">{{ u }}</option>
+                        </select>
+                    </div>
                     <button type="button" class="btn btn-sm btn-outline-secondary" :disabled="quotaBusy" @click="onResetQuotaTodayUsage">
                         Reset today’s quota usage
                     </button>
-                    <span class="status-badge" :class="quotas.length > 0 ? 'active' : 'inactive'">
+                    <span class="status-badge" :class="filteredQuotas.length > 0 ? 'active' : 'inactive'">
                         <i class="bi bi-circle-fill" style="font-size:7px;" />
-                        {{ quotas.length }} app quota(s)
+                        {{ filteredQuotas.length }}<template v-if="quotaViewFilterActive"> / {{ quotas.length }}</template> app quota(s)
                     </span>
                 </div>
             </div>
             <div class="pc-card-body">
                 <div v-if="quotas.length" class="table-responsive mb-0">
-                    <table class="table table-sm align-middle mb-0">
+                    <p v-if="quotaViewFilterActive && filteredQuotas.length === 0" class="small text-muted mb-2">
+                        No quotas apply to this Linux account (or add a limit with this account below). “All accounts” limits always apply when that user is signed in.
+                    </p>
+                    <table v-if="filteredQuotas.length" class="table table-sm align-middle mb-0">
                         <thead>
                             <tr>
                                 <th>Application</th>
+                                <th>Linux account</th>
                                 <th>Process</th>
                                 <th>Limit (min/day)</th>
                                 <th>Used today</th>
@@ -82,17 +98,18 @@
                             </tr>
                         </thead>
                         <tbody>
-                            <tr v-for="q in quotas" :key="q.appId">
+                            <tr v-for="q in filteredQuotas" :key="quotaRowKey(q)">
                                 <td>{{ q.appName }}</td>
+                                <td class="text-nowrap">{{ q.linuxUser || '— (all accounts)' }}</td>
                                 <td style="min-width:120px;">
                                     <input v-model="q.editProcess" type="text" class="pc-input pc-input-sm" style="width:100%;" autocomplete="off" />
                                 </td>
                                 <td style="width:110px;">
                                     <input v-model.number="q.editLimit" type="number" min="1" max="1440" class="pc-input pc-input-sm" style="width:100%;" />
                                 </td>
-                                <td>{{ store.appQuotaUsage[q.appId] ?? 0 }} min</td>
+                                <td>{{ quotaUsedForRow(q) }} min</td>
                                 <td class="text-nowrap">
-                                    <button type="button" class="btn btn-sm btn-outline-danger" :disabled="quotaBusy" @click="onRemoveQuota(q.appId)">
+                                    <button type="button" class="btn btn-sm btn-outline-danger" :disabled="quotaBusy" @click="onRemoveQuota(q.appId, q.linuxUser)">
                                         Remove
                                     </button>
                                 </td>
@@ -114,6 +131,18 @@
                         </select>
                     </div>
                     <div>
+                        <label class="form-label small text-muted mb-1 d-block">Linux account</label>
+                        <input
+                            v-model="addLinuxUser"
+                            type="text"
+                            class="pc-input"
+                            style="width:140px;"
+                            placeholder="empty = all"
+                            title="Leave empty to enforce for every signed-in user; set to a login name (e.g. child) for a per-user limit."
+                            autocomplete="username"
+                        />
+                    </div>
+                    <div>
                         <label class="form-label small text-muted mb-1 d-block">Minutes / day</label>
                         <input v-model.number="addMinutes" type="number" min="1" max="1440" class="pc-input" style="width:100px;" />
                     </div>
@@ -132,6 +161,7 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
+import { normalizeQuotaLinuxUser, quotaUsedMinutes } from '@shared/quotaUsageKey.js'
 import { useAppStore } from '../stores/appStore.js'
 import AppListItemIcon from '../components/AppListItemIcon.vue'
 
@@ -144,6 +174,7 @@ const quotaBusy = ref(false)
 const addAppId = ref('')
 const addMinutes = ref(60)
 const addProcessOverride = ref('')
+const addLinuxUser = ref('')
 
 const filtered = computed(() => {
     const q = search.value.toLowerCase()
@@ -155,8 +186,48 @@ const filtered = computed(() => {
 )
 const blockedCount = computed(() => apps.value.filter(a => a.blocked).length)
 
+function quotaRowKey(q) {
+    return `${q.appId}\0${q.linuxUser || ''}`
+}
+
+const quotaViewFilterActive = computed(() => Boolean(normalizeQuotaLinuxUser(store.quotaViewLinuxUser)))
+
+const filteredQuotas = computed(() => {
+    const f = normalizeQuotaLinuxUser(store.quotaViewLinuxUser)
+    if (!f) return quotas.value
+    return quotas.value.filter((q) => {
+        const lu = normalizeQuotaLinuxUser(q.linuxUser)
+        return !lu || lu === f
+    })
+})
+
+const quotaFilterUserOptions = computed(() => {
+    const set = new Set()
+    for (const q of quotas.value) {
+        const u = normalizeQuotaLinuxUser(q.linuxUser)
+        if (u) set.add(u)
+    }
+    const inv = normalizeQuotaLinuxUser(store.invokingLinuxUser)
+    if (inv) set.add(inv)
+    const cur = normalizeQuotaLinuxUser(store.quotaViewLinuxUser)
+    if (cur) set.add(cur)
+    return [...set].sort()
+})
+
+function quotaUsedForRow(q) {
+    return quotaUsedMinutes(store.appQuotaUsage || {}, q.appId, q.linuxUser)
+}
+
+async function onQuotaViewUserChange(raw) {
+    await store.setQuotaViewLinuxUser(typeof raw === 'string' ? raw : '')
+}
+
 const appsForQuota = computed(() =>
-    apps.value.filter(a => !quotas.value.some(q => q.appId === a.id))
+    apps.value.filter(a => !quotas.value.some((q) => {
+        const ql = normalizeQuotaLinuxUser(q.linuxUser)
+        const al = normalizeQuotaLinuxUser(addLinuxUser.value)
+        return q.appId === a.id && ql === al
+    }))
 )
 
 const canAddQuota = computed(() => {
@@ -193,6 +264,7 @@ async function loadQuotas() {
         appId: q.appId,
         appName: q.appName,
         processName: q.processName,
+        linuxUser: q.linuxUser || '',
         minutesPerDay: q.minutesPerDay,
         editLimit: q.minutesPerDay,
         editProcess: q.processName || ''
@@ -209,7 +281,8 @@ async function onAddQuota() {
         appId: app.id,
         appName: app.name,
         processName: proc,
-        minutesPerDay: Math.max(1, Math.min(1440, Number(addMinutes.value) || 60))
+        minutesPerDay: Math.max(1, Math.min(1440, Number(addMinutes.value) || 60)),
+        linuxUser: addLinuxUser.value
     })
     quotaBusy.value = false
     if (r?.error) {
@@ -240,7 +313,8 @@ async function onApplyAllQuotas() {
             appId: q.appId,
             appName: q.appName,
             processName: proc,
-            minutesPerDay: minutes
+            minutesPerDay: minutes,
+            linuxUser: q.linuxUser
         })
         if (r?.error) {
             quotaBusy.value = false
@@ -255,9 +329,9 @@ async function onApplyAllQuotas() {
     quotaBusy.value = false
 }
 
-async function onRemoveQuota(appId) {
+async function onRemoveQuota(appId, linuxUser) {
     quotaBusy.value = true
-    const r = await window.api.quota.removeEntry(appId)
+    const r = await window.api.quota.removeEntry({ appId, linuxUser: linuxUser || '' })
     quotaBusy.value = false
     if (r?.error) {
         await window.api.system.showError({ title: 'LiFE Parental Control', message: r.error })

@@ -63,7 +63,7 @@ contextBridge.exposeInMainWorld('api', {
         getAppMonitorUsage: () => ipcRenderer.invoke('quota:getAppMonitorUsage'),
         resetTodayUsage: () => ipcRenderer.invoke('quota:resetTodayUsage'),
         setEntry: (entry) => ipcRenderer.invoke('quota:setEntry', entry),
-        removeEntry: (appId) => ipcRenderer.invoke('quota:removeEntry', appId),
+        removeEntry: (payload) => ipcRenderer.invoke('quota:removeEntry', typeof payload === 'string' ? { appId: payload } : payload),
         redeploy: () => ipcRenderer.invoke('quota:redeploy'),
         grantAppBonus: (payload) => ipcRenderer.invoke('quota:grantAppBonus', payload)
     },
