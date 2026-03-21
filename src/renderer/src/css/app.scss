@@ -31,7 +31,8 @@ html, body, #app {
 }
 
 // Fills viewport and lets .pc-lockscreen flex-center immediately (avoids card stuck top-left before layout settles).
-#app:has(.pc-lockscreen) {
+#app:has(.pc-lockscreen),
+#app:has(.pc-app-shell) {
     display: flex;
     flex-direction: column;
     min-height: 100vh;
@@ -475,7 +476,7 @@ html, body, #app {
     .stat-sub   { font-size: 12px; color: var(--pc-text-secondary); margin-top: auto; }
 }
 
-// --- Password lock screen ---
+// --- Password lock screen & session overlay card ---
 .pc-lockscreen {
     flex: 1;
     min-height: 0;
@@ -484,29 +485,62 @@ html, body, #app {
     align-items: center;
     justify-content: center;
     background: var(--pc-bg);
+}
 
-    .lock-card {
-        background: var(--pc-surface);
-        border-radius: 16px;
-        box-shadow: 0 8px 32px rgba(0,0,0,0.15);
-        padding: 48px 40px 40px;
-        width: 380px;
-        text-align: center;
+.pc-lockscreen .lock-card,
+.pc-session-overlay .lock-card {
+    background: var(--pc-surface);
+    border-radius: 16px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.15);
+    padding: 48px 40px 40px;
+    width: 380px;
+    text-align: center;
 
-        .lock-icon {
-            width: 72px;
-            height: 72px;
-            border-radius: 50%;
-            background: #E3F2FD;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin: 0 auto 20px;
-            font-size: 32px;
-            color: var(--pc-primary);
-        }
-
-        h2 { font-size: 20px; font-weight: 700; margin-bottom: 6px; }
-        p  { font-size: 13.5px; color: var(--pc-text-secondary); margin-bottom: 24px; }
+    .lock-icon {
+        width: 72px;
+        height: 72px;
+        border-radius: 50%;
+        background: #E3F2FD;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto 20px;
+        font-size: 32px;
+        color: var(--pc-primary);
     }
+
+    h2 { font-size: 20px; font-weight: 700; margin-bottom: 6px; }
+    p  { font-size: 13.5px; color: var(--pc-text-secondary); margin-bottom: 24px; }
+}
+
+// Session lock: dashboard stays visible behind a pale overlay (see App.vue).
+.pc-app-shell {
+    position: relative;
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.pc-app-shell-main {
+    flex: 1;
+    min-height: 0;
+}
+
+.pc-app-shell-main--locked {
+    pointer-events: none;
+    user-select: none;
+}
+
+.pc-session-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 100000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255, 255, 255, 0.88);
+    backdrop-filter: blur(2px);
+    -webkit-backdrop-filter: blur(2px);
+    pointer-events: auto;
 }

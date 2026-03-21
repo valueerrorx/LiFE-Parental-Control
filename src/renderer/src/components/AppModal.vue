@@ -48,7 +48,7 @@ watch(() => state.visible, async (v) => {
     position: fixed; inset: 0;
     background: rgba(0,0,0,0.45);
     display: flex; align-items: center; justify-content: center;
-    z-index: 9999;
+    z-index: 100100; /* above .pc-session-overlay (100000) so quit/password modals work when locked */
 }
 .pc-modal {
     background: #fff;

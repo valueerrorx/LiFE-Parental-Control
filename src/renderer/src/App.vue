@@ -1,45 +1,58 @@
 <template>
     <AppModal />
-    <!-- Password gate — shown before router-view -->
-    <div v-if="!unlocked" class="pc-lockscreen">
+    <!-- First-run: no password yet — full gate, no dashboard -->
+    <div v-if="!passwordSet" class="pc-lockscreen">
         <Transition name="pc-lock-fade" appear>
             <div class="lock-card">
                 <div class="lock-icon">
                     <i class="bi bi-shield-lock-fill" />
                 </div>
                 <h2>LiFE Parental Control</h2>
-
-                <Transition name="pc-lock-inner" mode="out-in">
-                    <div v-if="!passwordSet" key="setup" class="lock-card-phase">
-                        <p>Create a password to protect parental control settings.</p>
-                        <div class="text-start mb-3">
-                            <label class="form-label small text-muted">New password</label>
-                            <input v-model="pw1" type="password" class="pc-input mb-2" placeholder="Enter password"
-                                   @keyup.enter="onSetPassword" />
-                            <label class="form-label small text-muted">Confirm password</label>
-                            <input v-model="pw2" type="password" class="pc-input" placeholder="Repeat password"
-                                   @keyup.enter="onSetPassword" />
-                        </div>
-                        <p v-if="error" class="text-danger small">{{ error }}</p>
-                        <button class="btn-pc-primary w-100" @click="onSetPassword">Set Password & Continue</button>
+                <div class="lock-card-phase">
+                    <p>Create a password to protect parental control settings.</p>
+                    <div class="text-start mb-3">
+                        <label class="form-label small text-muted">New password</label>
+                        <input v-model="pw1" type="password" class="pc-input mb-2" placeholder="Enter password"
+                               @keyup.enter="onSetPassword" />
+                        <label class="form-label small text-muted">Confirm password</label>
+                        <input v-model="pw2" type="password" class="pc-input" placeholder="Repeat password"
+                               @keyup.enter="onSetPassword" />
                     </div>
-                    <div v-else key="unlock" class="lock-card-phase">
-                        <p>Enter your parental control password to continue.</p>
-                        <div class="text-start mb-3">
-                            <input v-model="password" type="password" class="pc-input" placeholder="Password"
-                                   autofocus @keyup.enter="onUnlock" />
-                        </div>
-                        <p v-if="error" class="text-danger small">{{ error }}</p>
-                        <button class="btn-pc-primary w-100" @click="onUnlock" :disabled="busy">Unlock</button>
-                        <button class="btn-pc-outline w-100 mt-2" @click="onExit">Exit</button>
-                    </div>
-                </Transition>
+                    <p v-if="error" class="text-danger small">{{ error }}</p>
+                    <button class="btn-pc-primary w-100" @click="onSetPassword">Set Password & Continue</button>
+                </div>
             </div>
         </Transition>
     </div>
 
-    <div v-else @pointerdown="onUserActivity">
-        <router-view />
+    <!-- Password set: dashboard always mounted; session lock is a pale overlay -->
+    <div v-else class="pc-app-shell">
+        <div
+            class="pc-app-shell-main"
+            :class="{ 'pc-app-shell-main--locked': !unlocked }"
+            :inert="!unlocked"
+            @pointerdown="onUserActivity"
+        >
+            <router-view />
+        </div>
+        <Transition name="pc-session-overlay-fade">
+            <div v-if="!unlocked" class="pc-session-overlay">
+                <div class="lock-card">
+                    <div class="lock-icon">
+                        <i class="bi bi-shield-lock-fill" />
+                    </div>
+                    <h2>LiFE Parental Control</h2>
+                    <p>Enter your parental control password to continue.</p>
+                    <div class="text-start mb-3">
+                        <input v-model="password" type="password" class="pc-input" placeholder="Password"
+                               autofocus @keyup.enter="onUnlock" />
+                    </div>
+                    <p v-if="error" class="text-danger small">{{ error }}</p>
+                    <button class="btn-pc-primary w-100" @click="onUnlock" :disabled="busy">Unlock</button>
+                    <button class="btn-pc-outline w-100 mt-2" @click="onExit">Exit</button>
+                </div>
+            </div>
+        </Transition>
     </div>
 </template>
 
@@ -48,6 +61,7 @@ import { ref, onMounted, onUnmounted, watch } from 'vue'
 import { normalizedLockIdleMinutesOrUndefined } from '@shared/lockIdleMinutes.js'
 import AppModal from './components/AppModal.vue'
 import { useModal } from './composables/useModal.js'
+import { quitWithParentPassword } from './parentQuit.js'
 
 const { prompt } = useModal()
 
@@ -64,6 +78,14 @@ let idleTimer = null
 function trayQuitListener() {
     void handleQuitFromTray()
 }
+
+function sessionLockListener() {
+    if (!passwordSet.value) return
+    unlocked.value = false
+    password.value = ''
+    error.value = ''
+}
+
 
 function idleMsFromConfig(cfg) {
     const m = normalizedLockIdleMinutesOrUndefined(cfg?.lockIdleMinutes)
@@ -99,6 +121,7 @@ onMounted(async () => {
     window.addEventListener('keydown', onUserActivity)
     window.addEventListener('life-parental-lock-prefs', onLockPrefsChanged)
     window.api.system.onQuitFromTray(trayQuitListener)
+    window.api.system.onSessionLockRequest(sessionLockListener)
 })
 
 onUnmounted(() => {
@@ -106,6 +129,7 @@ onUnmounted(() => {
     window.removeEventListener('keydown', onUserActivity)
     window.removeEventListener('life-parental-lock-prefs', onLockPrefsChanged)
     window.api.system.offQuitFromTray(trayQuitListener)
+    window.api.system.offSessionLockRequest(sessionLockListener)
     clearIdleLockTimer()
 })
 
@@ -151,39 +175,11 @@ async function onUnlock() {
 }
 
 async function handleQuitFromTray() {
-    const hasPw = await window.api.settings.isPasswordSet()
-    if (!hasPw) {
-        const ok = await window.api.system.showConfirm({
-            title: 'Quit LiFE Parental Control',
-            message: 'Quit the application?',
-            okLabel: 'Quit',
-            cancelLabel: 'Cancel'
-        })
-        if (ok) await window.api.system.quit()
-        return
-    }
-    const pw = await prompt(
-        'Quit application',
-        'Parent password',
-        { inputType: 'password', ok: 'Quit', cancel: 'Cancel' }
-    )
-    if (!pw) return
-    const matches = await window.api.settings.checkPassword(pw)
-    if (!matches) {
-        await window.api.system.showError({ title: 'LiFE Parental Control', message: 'Incorrect password.' })
-        return
-    }
-    await window.api.system.quit()
+    await quitWithParentPassword(prompt)
 }
 
 async function onExit() {
-    const ok = await window.api.system.showConfirm({
-        title: 'Quit LiFE Parental Control',
-        message: 'Quit the application?',
-        okLabel: 'Quit',
-        cancelLabel: 'Cancel'
-    })
-    if (ok) await window.api.system.quit()
+    await quitWithParentPassword(prompt)
 }
 </script>
 
@@ -200,17 +196,17 @@ async function onExit() {
     transform: translateY(12px);
 }
 
-.pc-lock-inner-enter-active,
-.pc-lock-inner-leave-active {
+.lock-card-phase {
+    min-height: 4.5rem;
+}
+
+.pc-session-overlay-fade-enter-active,
+.pc-session-overlay-fade-leave-active {
     transition: opacity 0.28s ease;
 }
 
-.pc-lock-inner-enter-from,
-.pc-lock-inner-leave-to {
+.pc-session-overlay-fade-enter-from,
+.pc-session-overlay-fade-leave-to {
     opacity: 0;
-}
-
-.lock-card-phase {
-    min-height: 4.5rem;
 }
 </style>

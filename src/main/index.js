@@ -235,6 +235,19 @@ if (process.env.LIFE_TRAY_SPAWN === '1') {
             }
         })
 
+        // Lock UI on any focus loss — covers minimize, hide, click-away on all platforms including KDE/Wayland.
+        let rendererLoaded = false
+        mainWindow.webContents.once('did-finish-load', () => {
+            rendererLoaded = true
+        })
+        const sendSessionLock = () => {
+            if (!rendererLoaded || !mainWindow || mainWindow.isDestroyed()) return
+            mainWindow.webContents.send('app:session-lock-request')
+        }
+        mainWindow.on('blur', sendSessionLock)
+        mainWindow.on('minimize', sendSessionLock)
+        mainWindow.on('hide', sendSessionLock)
+
         mainWindow.on('close', e => {
             if (allowAppTermination) return
             e.preventDefault()

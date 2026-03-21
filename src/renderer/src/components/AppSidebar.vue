@@ -78,7 +78,10 @@
 import { computed } from 'vue'
 import { useAppStore } from '../stores/appStore.js'
 import { useApplicationLogModal } from '../composables/useApplicationLogModal.js'
+import { useModal } from '../composables/useModal.js'
+import { quitWithParentPassword } from '../parentQuit.js'
 
+const { prompt } = useModal()
 const store = useAppStore()
 const { openApplicationLog } = useApplicationLogModal()
 const filterCount = computed(() => store.webFilterHostRuleCount)
@@ -106,13 +109,7 @@ const footerTitle = computed(() => {
 })
 
 async function onExit() {
-    const ok = await window.api.system.showConfirm({
-        title: 'Quit LiFE Parental Control',
-        message: 'Quit the application?',
-        okLabel: 'Quit',
-        cancelLabel: 'Cancel'
-    })
-    if (ok) await window.api.system.quit()
+    await quitWithParentPassword(prompt)
 }
 </script>
 

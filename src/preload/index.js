@@ -24,6 +24,8 @@ contextBridge.exposeInMainWorld('api', {
         quit: () => ipcRenderer.invoke('app:quit'),
         onQuitFromTray: (cb) => ipcRenderer.on('app:quit-from-tray', cb),
         offQuitFromTray: (cb) => ipcRenderer.removeListener('app:quit-from-tray', cb),
+        onSessionLockRequest: (cb) => ipcRenderer.on('app:session-lock-request', cb),
+        offSessionLockRequest: (cb) => ipcRenderer.removeListener('app:session-lock-request', cb),
         isWindowObscured: () => ipcRenderer.invoke('window:isObscured'),
         showNativeNotification: (payload) => ipcRenderer.invoke('window:showNativeNotification', payload),
         beginUrgentPresent: () => ipcRenderer.invoke('window:beginUrgentPresent'),
