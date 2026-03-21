@@ -53,6 +53,20 @@ function normalizeTraySize(img) {
     })
 }
 
+/** Tray helper process: load PNG path and normalize size for Linux panel / StatusNotifier. */
+export function createTrayNativeImageFromPath(iconPath) {
+    try {
+        if (!iconPath || !fs.existsSync(iconPath)) return null
+        const buf = fs.readFileSync(iconPath)
+        let img = nativeImage.createFromBuffer(buf)
+        if (img.isEmpty()) img = nativeImage.createFromPath(iconPath)
+        if (img.isEmpty()) return null
+        return normalizeTraySize(img)
+    } catch {
+        return null
+    }
+}
+
 export function loadTrayNativeImage(imagesDir) {
     for (const filename of TRAY_ONLY_PNGS) {
         for (const iconPath of orderedPaths(imagesDir, filename)) {
