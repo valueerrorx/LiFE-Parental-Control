@@ -12,8 +12,8 @@
             <button
                 type="button"
                 class="btn-pc-primary"
-                :disabled="quotaBusy || quotas.length === 0"
-                title="Apply all quota limits and process names in the table below"
+                :disabled="quotaBusy"
+                title="Apply blocked apps and quota limits"
                 @click="onApplyAllQuotas"
             >
                 <i class="bi bi-floppy me-1" />{{ quotaBusy ? 'Saving…' : 'Apply Changes' }}
@@ -47,6 +47,7 @@
                         <div class="item-name">{{ app.name }}</div>
                         <div class="item-sub text-truncate" style="max-width:360px;">{{ app.exec }}</div>
                     </div>
+                    <span v-if="pendingBlocked.has(app.id)" class="text-muted me-2" style="font-size:11px;">unsaved</span>
                     <label class="pc-toggle">
                         <input type="checkbox" :checked="app.blocked" @change="onToggle(app)" />
                         <span class="slider" />
@@ -180,6 +181,7 @@ const quotas = ref([])
 const quotaBusy = ref(false)
 const applyMsg = ref('')
 const applyError = ref(false)
+const pendingBlocked = ref(new Set()) // appIds with unsaved block-state changes
 const addAppId = ref('')
 const addMinutes = ref(60)
 const addProcessOverride = ref('')
@@ -315,9 +317,33 @@ async function onAddQuota() {
 }
 
 async function onApplyAllQuotas() {
-    if (!quotas.value.length) return
     applyMsg.value = ''
     quotaBusy.value = true
+
+    // Apply pending app block changes first
+    for (const appId of pendingBlocked.value) {
+        const app = apps.value.find(a => a.id === appId)
+        if (!app) continue
+        const r = await window.api.apps.setBlocked(appId, app.blocked)
+        if (r?.error) {
+            quotaBusy.value = false
+            applyMsg.value = r.error
+            applyError.value = true
+            setTimeout(() => { applyMsg.value = '' }, 5000)
+            return
+        }
+        if (app.blocked) { if (!store.blockedApps.includes(appId)) store.blockedApps.push(appId) }
+        else store.blockedApps.splice(store.blockedApps.indexOf(appId), 1)
+    }
+    pendingBlocked.value = new Set()
+
+    if (!quotas.value.length) {
+        quotaBusy.value = false
+        applyMsg.value = 'Changes saved.'
+        applyError.value = false
+        setTimeout(() => { applyMsg.value = '' }, 4000)
+        return
+    }
     for (const q of quotas.value) {
         const minutes = Math.max(1, Math.min(1440, Number(q.editLimit) || 1))
         const proc = (q.editProcess || '').trim()
@@ -366,13 +392,12 @@ async function onRemoveQuota(appId, linuxUser) {
     if (!addAppId.value) addAppId.value = appsForQuota.value[0]?.id ?? ''
 }
 
-async function onToggle(app) {
-    const newState = !app.blocked
-    const result = await window.api.apps.setBlocked(app.id, newState)
-    if (!result?.error) {
-        app.blocked = newState
-        if (newState) store.blockedApps.push(app.id)
-        else store.blockedApps.splice(store.blockedApps.indexOf(app.id), 1)
-    }
+function onToggle(app) {
+    app.blocked = !app.blocked
+    // Track as pending: if toggled back to original state, remove from pending
+    const orig = store.blockedApps.includes(app.id)
+    if (app.blocked !== orig) pendingBlocked.value.add(app.id)
+    else pendingBlocked.value.delete(app.id)
+    pendingBlocked.value = new Set(pendingBlocked.value)
 }
 </script>

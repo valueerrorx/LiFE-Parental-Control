@@ -6,8 +6,8 @@
 
     <div class="pc-content">
         <!-- Status cards row -->
-        <div class="row g-3 mb-4">
-            <div class="col-6 col-xl-3 d-flex">
+        <div class="row g-3 mb-4 row-cols-2 row-cols-xl-5">
+            <div class="col d-flex">
                 <div class="stat-card h-100 w-100">
                     <div class="stat-icon" style="background:#E3F2FD; color:#1565C0;">
                         <i class="bi bi-shield-x" />
@@ -22,7 +22,7 @@
                     </div>
                 </div>
             </div>
-            <div class="col-6 col-xl-3 d-flex">
+            <div class="col d-flex">
                 <div class="stat-card h-100 w-100">
                     <div class="stat-icon" style="background:#FFF3E0; color:#E65100;">
                         <i class="bi bi-app-indicator" />
@@ -38,7 +38,7 @@
                     </div>
                 </div>
             </div>
-            <div class="col-6 col-xl-3 d-flex">
+            <div class="col d-flex">
                 <div class="stat-card h-100 w-100">
                     <div class="stat-icon" style="background:#E8F5E9; color:#2E7D32;">
                         <i class="bi bi-clock-history" />
@@ -53,7 +53,7 @@
                     </div>
                 </div>
             </div>
-            <div class="col-6 col-xl-3 d-flex">
+            <div class="col d-flex">
                 <div class="stat-card h-100 w-100">
                     <div class="stat-icon" style="background:#F3E5F5; color:#6A1B9A;">
                         <i class="bi bi-lock-fill" />
@@ -68,7 +68,7 @@
                     </div>
                 </div>
             </div>
-            <div class="col-6 col-xl-3 d-flex">
+            <div class="col d-flex">
                 <div class="stat-card h-100 w-100" :class="{ 'stat-card--warn': daemonBadgeClass === 'inactive' }">
                     <div class="stat-icon" :style="daemonIconStyle">
                         <i class="bi bi-cpu" />

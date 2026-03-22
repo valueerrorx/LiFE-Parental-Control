@@ -23,8 +23,8 @@ const ALLOWED_HOURS_WARN_INTERVAL_MS = 5 * 60 * 1000;
 const WD_INPUT_WINDOW_MS   = 8_000;  // user counts as "active" if input in last 8s
 const WD_CPU_MIN_JIFFIES   = 5;      // minimum CPU jiffies delta to consider app "responsive"
 const WD_WARN_MAX          = 4;      // number of notifications before hard logout
-const WD_WARN_INTERVAL_MS  = 30_000; // 30s between each notification
-const WD_GRACE_MS          = 120_000; // 2 minutes total grace before logout
+const WD_WARN_INTERVAL_MS  = 15_000; // 15s between each notification (test)
+const WD_GRACE_MS          = 60_000; // 1 minute total grace before logout (test)
 
 // --- File logger ---
 
@@ -329,22 +329,25 @@ async function terminateSessionsForPolicy(sessions, targetUser) {
     const toTerminate = sessions.filter(({ user }) => !targetUser || user === targetUser);
     if (toTerminate.length === 0) return;
 
-    // Ask SDDM to switch to the greeter BEFORE terminating so the user lands on the login screen
-    // instead of a black VT. Best-effort: we still terminate even if this call fails.
-    try {
-        await execFileAsync('dbus-send', [
-            '--system', '--dest=org.freedesktop.DisplayManager',
-            '/org/freedesktop/DisplayManager/Seat0',
-            'org.freedesktop.DisplayManager.SwitchToGreeter'
-        ], { timeout: 3000 });
-        log.info('SwitchToGreeter → SDDM OK');
-    } catch (e) { log.warn(`SwitchToGreeter failed (non-SDDM or no seat0?): ${e.message}`); }
-
     for (const { user, sid } of toTerminate) {
         try {
             await execFileAsync('loginctl', ['terminate-session', String(sid)], { timeout: 5000 });
             log.info(`terminate-session sid=${sid} user=${user} OK`);
         } catch (e) { log.error(`terminate-session sid=${sid} user=${user} FAILED: ${e.message}`); }
+    }
+
+    // After killing the session, restart the display manager so the greeter reappears.
+    // On Wayland the session and greeter share the same VT — without a DM restart the
+    // screen stays black. Try display-manager.service (distro-agnostic alias), then
+    // fall back to sddm/gdm/lightdm by name.
+    await new Promise(r => setTimeout(r, 800));
+    const dmServices = ['display-manager', 'sddm', 'gdm', 'lightdm'];
+    for (const svc of dmServices) {
+        try {
+            await execFileAsync('systemctl', ['restart', svc], { timeout: 8000 });
+            log.info(`display manager restarted via systemctl restart ${svc}`);
+            break;
+        } catch { /* try next */ }
     }
 }
 
