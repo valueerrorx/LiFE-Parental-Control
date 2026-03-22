@@ -30,7 +30,8 @@ contextBridge.exposeInMainWorld('api', {
         showNativeNotification: (payload) => ipcRenderer.invoke('window:showNativeNotification', payload),
         beginUrgentPresent: () => ipcRenderer.invoke('window:beginUrgentPresent'),
         endUrgentPresent: () => ipcRenderer.invoke('window:endUrgentPresent'),
-        showUrgentWarning: (payload) => ipcRenderer.invoke('window:showUrgentWarning', payload)
+        showUrgentWarning: (payload) => ipcRenderer.invoke('window:showUrgentWarning', payload),
+        openExternal: (url) => ipcRenderer.invoke('shell:openExternal', url)
     },
     webFilter: {
         getList: () => ipcRenderer.invoke('webfilter:getList'),

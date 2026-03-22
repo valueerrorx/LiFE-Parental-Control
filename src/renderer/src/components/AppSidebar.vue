@@ -64,6 +64,9 @@
             <button type="button" class="nav-item-link" @click="openApplicationLog">
                 <i class="bi bi-journal-text" /> Application log
             </button>
+            <button type="button" class="nav-item-link about-btn" @click="onAbout">
+                <span class="copyleft-icon">🄯</span> v{{ version }}
+            </button>
             <div class="pc-sidebar-footer-meta d-flex align-items-center justify-content-between">
                 <span :title="footerTitle">{{ footerLabel }}</span>
                 <button type="button" class="nav-item-link nav-item-link-icon-only" @click="onExit" title="Exit">
@@ -76,10 +79,13 @@
 
 <script setup>
 import { computed } from 'vue'
+import Swal from 'sweetalert2'
 import { useAppStore } from '../stores/appStore.js'
 import { useApplicationLogModal } from '../composables/useApplicationLogModal.js'
 import { useModal } from '../composables/useModal.js'
 import { quitWithParentPassword } from '../parentQuit.js'
+import ososSvg from '../../../../images/osos.svg?raw'
+import { version } from '../../../../package.json'
 
 const { prompt } = useModal()
 const store = useAppStore()
@@ -111,9 +117,42 @@ const footerTitle = computed(() => {
 async function onExit() {
     await quitWithParentPassword(prompt)
 }
+
+async function onAbout() {
+    await Swal.fire({
+        icon: 'info',
+        html: `
+            <div style="text-align:center;padding:4px 0;">
+                <div style="font-size:17px;font-weight:700;margin-bottom:4px;">LiFE Parental Control</div>
+                <div style="color:#64748b;font-size:13px;margin-bottom:2px;">Version ${version}</div>
+                <div style="color:#64748b;font-size:13px;margin-bottom:20px;">🄯 2026 · Mag. Thomas Michael Weissel</div>
+                <div style="max-width:150px;margin:0 auto;display:flex;align-items:center;justify-content:center;">${ososSvg.replace('<svg', '<svg style="width:100%;height:auto;"')}</div>
+                <a href="https://linux-bildung.at" target="_blank" style="display:inline-block;margin-top:14px;font-size:12px;color:#1565C0;text-decoration:none;">🌐 linux-bildung.at</a>
+            </div>
+        `,
+        showConfirmButton: true,
+        confirmButtonText: 'OK',
+        confirmButtonColor: '#1565C0',
+        width: 320
+    })
+}
 </script>
 
 <style scoped>
+.about-btn {
+    opacity: 0.6;
+}
+.about-btn:hover {
+    opacity: 1;
+}
+.copyleft-icon {
+    font-size: 1.2em;
+    line-height: 1;
+    vertical-align: -0.15em;
+    display: inline-block;
+    width: 1em;
+    text-align: center;
+}
 .badge-count {
     background: rgba(255,255,255,0.25);
     color: #fff;

@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, Menu } from 'electron'
+import { app, BrowserWindow, ipcMain, Menu, shell } from 'electron'
 import path from 'path'
 import fs, { mkdirSync } from 'fs'
 import { spawn } from 'child_process'
@@ -218,10 +218,30 @@ app.whenReady().then(async () => {
     mainWindow.on('minimize', sendSessionLock)
     mainWindow.on('hide', sendSessionLock)
 
+    // Open target="_blank" links in a new Electron window, never in the same window.
+    mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+        if (url.startsWith('https://') || url.startsWith('http://')) {
+            return {
+                action: 'allow',
+                overrideBrowserWindowOptions: {
+                    width: 1200,
+                    height: 800,
+                    autoHideMenuBar: true,
+                    webPreferences: { nodeIntegration: false, contextIsolation: true, sandbox: true }
+                }
+            }
+        }
+        return { action: 'deny' }
+    })
+
     mainWindow.on('close', e => {
         if (allowAppTermination) return
         e.preventDefault()
         if (!mainWindow.isDestroyed()) mainWindow.webContents.send('app:quit-from-tray')
+    })
+
+    ipcMain.handle('shell:openExternal', (_, url) => {
+        if (typeof url === 'string' && url.startsWith('https://')) shell.openExternal(url)
     })
 
     ipcMain.handle('app:quit', () => {

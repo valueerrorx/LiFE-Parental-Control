@@ -74,14 +74,14 @@
                         <i class="bi bi-cpu" />
                     </div>
                     <div class="stat-label">Daemon</div>
-                    <div class="stat-value" style="font-size:1rem;">{{ daemonServiceLabel }}</div>
-                    <div class="stat-sub d-flex flex-column gap-1">
+                    <div class="stat-value d-flex align-items-center">
+                        <span style="font-size:16px;font-weight:600;line-height:1;">{{ daemonServiceLabel }}</span>
+                    </div>
+                    <div class="stat-sub">
                         <span class="status-badge" :class="daemonBadgeClass">
                             <i class="bi bi-circle-fill" style="font-size:7px;" />
                             {{ daemonBadgeLabel }}
                         </span>
-                        <span v-if="daemonSocketConnected" class="text-muted" style="font-size:10px;">Socket verbunden</span>
-                        <span v-else class="text-muted" style="font-size:10px;">Socket getrennt</span>
                     </div>
                 </div>
             </div>
@@ -261,17 +261,16 @@ const daemonServiceActive = ref(null) // 'active' | 'inactive' | null
 const daemonSocketConnected = ref(false)
 
 const daemonServiceLabel = computed(() => {
-    if (daemonServiceActive.value === null) return '—'
-    return daemonServiceActive.value === 'active' ? 'active' : daemonServiceActive.value
+    if (daemonServiceActive.value !== 'active') return '—'
+    return daemonSocketConnected.value ? 'Socket connected' : 'No socket'
 })
 const daemonBadgeClass = computed(() => {
     if (daemonServiceActive.value === 'active') return 'active'
-    if (daemonServiceActive.value === null) return 'inactive'
     return 'inactive'
 })
 const daemonBadgeLabel = computed(() => {
-    if (daemonServiceActive.value === null) return 'Unbekannt'
-    return daemonServiceActive.value === 'active' ? 'Aktiv' : 'Inaktiv'
+    if (daemonServiceActive.value === null) return 'Unknown'
+    return daemonServiceActive.value === 'active' ? 'Active' : 'Inactive'
 })
 const daemonIconStyle = computed(() => {
     if (daemonServiceActive.value === 'active') return 'background:#E8F5E9; color:#2E7D32;'
