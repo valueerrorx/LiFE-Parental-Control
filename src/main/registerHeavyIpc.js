@@ -70,15 +70,15 @@ export function registerHeavyIpc(ipcMain, { appConfigDir, hageziBundledDir, getM
         // install: copy daemon + service files then enable + start
         if (action === 'install') {
             const resBase = app.isPackaged ? process.resourcesPath : app.getAppPath()
-            const daemonSrc = path.join(resBase, 'daemon', 'next-exam-daemon.js')
+            const daemonSrc = path.join(resBase, 'daemon', 'parental-control-daemon.js')
             const serviceSrc = app.isPackaged
                 ? path.join(resBase, 'systemd', 'parental-control.service')
                 : path.join(resBase, 'packaging', 'systemd', 'parental-control.service')
             try {
                 if (!fs.existsSync(daemonSrc)) return { error: `Daemon-Datei nicht gefunden: ${daemonSrc}` }
                 if (!fs.existsSync(serviceSrc)) return { error: `Service-Datei nicht gefunden: ${serviceSrc}` }
-                fs.copyFileSync(daemonSrc, '/usr/bin/next-exam-daemon.js')
-                fs.chmodSync('/usr/bin/next-exam-daemon.js', 0o755)
+                fs.copyFileSync(daemonSrc, '/usr/bin/parental-control-daemon.js')
+                fs.chmodSync('/usr/bin/parental-control-daemon.js', 0o755)
                 fs.mkdirSync('/etc/systemd/system', { recursive: true })
                 fs.copyFileSync(serviceSrc, '/etc/systemd/system/parental-control.service')
                 await execFileAsync('systemctl', ['daemon-reload'], { timeout: 10_000 })

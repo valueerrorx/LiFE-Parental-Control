@@ -7,7 +7,7 @@ Wants=graphical.target
 [Service]
 Type=simple
 User=root
-ExecStart=/usr/bin/node /usr/bin/next-exam-daemon.js
+ExecStart=/usr/bin/node /usr/bin/parental-control-daemon.js
 Restart=always
 RestartSec=5
 StandardOutput=journal

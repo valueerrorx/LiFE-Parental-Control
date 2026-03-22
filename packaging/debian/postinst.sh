@@ -8,8 +8,8 @@ esac
 PKG=life-parental-control
 POLICY_DST=/usr/share/polkit-1/actions/org.tuxfamily.life-parental-control.policy
 RULES_DST=/usr/share/polkit-1/rules.d/50-org.tuxfamily.life-kiosk.rules
-DAEMON_DST=/usr/bin/next-exam-daemon.js
-SERVICE_DST=/etc/systemd/system/next-exam.service
+DAEMON_DST=/usr/bin/parental-control-daemon.js
+SERVICE_DST=/etc/systemd/system/parental-control.service
 
 # Find package resource directory
 pkg_res=""
@@ -32,18 +32,18 @@ if [ -f "$policy_src" ]; then install -D -m 644 "$policy_src" "$POLICY_DST"; fi
 if [ -f "$rules_src" ]; then install -D -m 644 "$rules_src" "$RULES_DST"; fi
 
 # Install next-exam daemon script
-daemon_src="${pkg_res}/daemon/next-exam-daemon.js"
+daemon_src="${pkg_res}/daemon/parental-control-daemon.js"
 if [ -f "$daemon_src" ]; then
     install -D -m 755 "$daemon_src" "$DAEMON_DST"
 fi
 
 # Install and enable the systemd service
-service_src="${pkg_res}/systemd/next-exam.service"
+service_src="${pkg_res}/systemd/parental-control.service"
 if [ -f "$service_src" ] && command -v systemctl >/dev/null 2>&1; then
     install -D -m 644 "$service_src" "$SERVICE_DST"
     systemctl daemon-reload 2>/dev/null || true
-    systemctl enable next-exam.service 2>/dev/null || true
-    systemctl start next-exam.service 2>/dev/null || true
+    systemctl enable parental-control.service 2>/dev/null || true
+    systemctl start parental-control.service 2>/dev/null || true
 fi
 
 if command -v systemctl >/dev/null 2>&1; then
