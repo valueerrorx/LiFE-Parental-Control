@@ -62,6 +62,7 @@ const exemptAppJiffies = {};  // processName → last CPU jiffies total
 let wdWarnCount = 0;          // warnings sent in current grace-period cycle
 let wdFirstWarnAt = 0;        // timestamp when the warning cycle started (0 = not started)
 let wdLastWarnAt  = 0;        // timestamp of the most recent warning notification
+let wdExemptActiveTicks = 0;  // consecutive ticks where exempt app was actively used
 
 // Connected socket clients (Electron UI instances)
 const clients = new Set();
@@ -449,13 +450,16 @@ async function runExemptWatchdog(processNames) {
     const activelyUsed = isExemptAppActivelyUsed(processNames);
 
     if (activelyUsed) {
-        // User is in the exempt app — block logout and reset any active warning cycle
-        if (wdFirstWarnAt !== 0) {
+        wdExemptActiveTicks++;
+        // Only reset the warning cycle after 2 consecutive ticks of genuine exempt-app usage
+        // to prevent background CPU blips from spuriously restarting the countdown.
+        if (wdFirstWarnAt !== 0 && wdExemptActiveTicks >= 2) {
             log.info('exempt watchdog: activity resumed in exempt app — logout blocked, warning cycle reset');
             wdWarnCount = 0; wdFirstWarnAt = 0; wdLastWarnAt = 0;
         }
         return true;
     }
+    wdExemptActiveTicks = 0;
 
     const now = Date.now();
     const recentInput = (now - lastInputTimestamp) < WD_INPUT_WINDOW_MS;
@@ -764,7 +768,7 @@ async function tickScreenTime(logMinute) {
         }
     } else {
         // Time still available: reset watchdog warning cycle so it fires fresh next expiry
-        if (wdFirstWarnAt !== 0) { wdWarnCount = 0; wdFirstWarnAt = 0; wdLastWarnAt = 0; }
+        if (wdFirstWarnAt !== 0) { wdWarnCount = 0; wdFirstWarnAt = 0; wdLastWarnAt = 0; wdExemptActiveTicks = 0; }
         if (usage.warnedScreenTimeExhausted) usage.warnedScreenTimeExhausted = false;
         if (remaining >= 1 && remaining <= 5 && !usage.warnedLowScreenTime && hasSessionForLimit) {
             usage.warnedLowScreenTime = true;

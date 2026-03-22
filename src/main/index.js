@@ -218,9 +218,10 @@ app.whenReady().then(async () => {
     mainWindow.on('minimize', sendSessionLock)
     mainWindow.on('hide', sendSessionLock)
 
-    mainWindow.on('close', () => {
-        allowAppTermination = true
-        app.quit()
+    mainWindow.on('close', e => {
+        if (allowAppTermination) return
+        e.preventDefault()
+        if (!mainWindow.isDestroyed()) mainWindow.webContents.send('app:quit-from-tray')
     })
 
     ipcMain.handle('app:quit', () => {

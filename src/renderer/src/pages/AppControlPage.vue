@@ -151,6 +151,15 @@
                 </div>
             </div>
         </div>
+        <div
+            v-if="applyMsg"
+            class="alert mt-3 mb-0 py-2 px-3"
+            style="font-size:13px;"
+            :class="applyError ? 'alert-danger' : 'alert-success'"
+            role="status"
+        >
+            <i class="bi me-1" :class="applyError ? 'bi-exclamation-circle' : 'bi-check-circle'" />{{ applyMsg }}
+        </div>
     </div>
 </template>
 
@@ -169,6 +178,8 @@ const search = ref('')
 const loading = ref(true)
 const quotas = ref([])
 const quotaBusy = ref(false)
+const applyMsg = ref('')
+const applyError = ref(false)
 const addAppId = ref('')
 const addMinutes = ref(60)
 const addProcessOverride = ref('')
@@ -305,16 +316,16 @@ async function onAddQuota() {
 
 async function onApplyAllQuotas() {
     if (!quotas.value.length) return
+    applyMsg.value = ''
     quotaBusy.value = true
     for (const q of quotas.value) {
         const minutes = Math.max(1, Math.min(1440, Number(q.editLimit) || 1))
         const proc = (q.editProcess || '').trim()
         if (!proc) {
             quotaBusy.value = false
-            await window.api.system.showError({
-                title: 'LiFE Parental Control',
-                message: 'Process name is required for each row (must match a running command name for pgrep -x -i).'
-            })
+            applyMsg.value = 'Process name is required for each row.'
+            applyError.value = true
+            setTimeout(() => { applyMsg.value = '' }, 5000)
             return
         }
         const r = await window.api.quota.setEntry({
@@ -326,7 +337,9 @@ async function onApplyAllQuotas() {
         })
         if (r?.error) {
             quotaBusy.value = false
-            await window.api.system.showError({ title: 'LiFE Parental Control', message: r.error })
+            applyMsg.value = r.error
+            applyError.value = true
+            setTimeout(() => { applyMsg.value = '' }, 5000)
             return
         }
         q.minutesPerDay = minutes
@@ -335,6 +348,9 @@ async function onApplyAllQuotas() {
     await loadQuotas()
     await store.loadAppQuotas()
     quotaBusy.value = false
+    applyMsg.value = 'Quota limits saved.'
+    applyError.value = false
+    setTimeout(() => { applyMsg.value = '' }, 4000)
 }
 
 async function onRemoveQuota(appId, linuxUser) {
