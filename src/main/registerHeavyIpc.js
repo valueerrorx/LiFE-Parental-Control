@@ -62,7 +62,7 @@ export function registerHeavyIpc(ipcMain, { appConfigDir, hageziBundledDir, getM
         }
     })
 
-    // Control and install the next-exam systemd service (app runs as root — no password needed)
+    // Control and install the parental-control systemd service (app runs as root — no password needed)
     ipcMain.handle('daemon:serviceControl', async (_, { action } = {}) => {
         const allowed = ['start', 'stop', 'restart', 'enable', 'disable', 'status', 'install']
         if (!allowed.includes(action)) return { error: 'Ungültige Aktion.' }
@@ -72,18 +72,18 @@ export function registerHeavyIpc(ipcMain, { appConfigDir, hageziBundledDir, getM
             const resBase = app.isPackaged ? process.resourcesPath : app.getAppPath()
             const daemonSrc = path.join(resBase, 'daemon', 'next-exam-daemon.js')
             const serviceSrc = app.isPackaged
-                ? path.join(resBase, 'systemd', 'next-exam.service')
-                : path.join(resBase, 'packaging', 'systemd', 'next-exam.service')
+                ? path.join(resBase, 'systemd', 'parental-control.service')
+                : path.join(resBase, 'packaging', 'systemd', 'parental-control.service')
             try {
                 if (!fs.existsSync(daemonSrc)) return { error: `Daemon-Datei nicht gefunden: ${daemonSrc}` }
                 if (!fs.existsSync(serviceSrc)) return { error: `Service-Datei nicht gefunden: ${serviceSrc}` }
                 fs.copyFileSync(daemonSrc, '/usr/bin/next-exam-daemon.js')
                 fs.chmodSync('/usr/bin/next-exam-daemon.js', 0o755)
                 fs.mkdirSync('/etc/systemd/system', { recursive: true })
-                fs.copyFileSync(serviceSrc, '/etc/systemd/system/next-exam.service')
+                fs.copyFileSync(serviceSrc, '/etc/systemd/system/parental-control.service')
                 await execFileAsync('systemctl', ['daemon-reload'], { timeout: 10_000 })
-                await execFileAsync('systemctl', ['enable', 'next-exam.service'], { timeout: 10_000 })
-                await execFileAsync('systemctl', ['start', 'next-exam.service'], { timeout: 10_000 })
+                await execFileAsync('systemctl', ['enable', 'parental-control.service'], { timeout: 10_000 })
+                await execFileAsync('systemctl', ['start', 'parental-control.service'], { timeout: 10_000 })
                 return { ok: true }
             } catch (e) {
                 return { error: e.message }
@@ -92,10 +92,10 @@ export function registerHeavyIpc(ipcMain, { appConfigDir, hageziBundledDir, getM
 
         try {
             if (action === 'status') {
-                const { stdout } = await execFileAsync('systemctl', ['is-active', 'next-exam.service'], { timeout: 5000 })
+                const { stdout } = await execFileAsync('systemctl', ['is-active', 'parental-control.service'], { timeout: 5000 })
                 return { ok: true, status: stdout.trim() }
             }
-            await execFileAsync('systemctl', [action, 'next-exam.service'], { timeout: 10_000 })
+            await execFileAsync('systemctl', [action, 'parental-control.service'], { timeout: 10_000 })
             return { ok: true }
         } catch (e) {
             // is-active exits with code 3 when inactive — still return the status text

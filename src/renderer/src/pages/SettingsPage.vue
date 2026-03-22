@@ -58,7 +58,7 @@
                         <p v-if="daemonCtrlMsg" class="small mb-2" :class="daemonCtrlError ? 'text-danger' : 'text-success'">{{ daemonCtrlMsg }}</p>
                         <p class="text-muted small mb-0">
                             <strong>Installieren &amp; starten</strong> kopiert <code>/usr/bin/next-exam-daemon.js</code> und
-                            <code>/etc/systemd/system/next-exam.service</code> aus dem App-Paket, führt
+                            <code>/etc/systemd/system/parental-control.service</code> aus dem App-Paket, führt
                             <code>systemctl enable &amp;&amp; start</code> aus. Erfordert <code>/usr/bin/node</code>.
                         </p>
                     </div>
