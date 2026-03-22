@@ -93,5 +93,13 @@ contextBridge.exposeInMainWorld('api', {
         pruneUsageArchives: () => ipcRenderer.invoke('settings:pruneUsageArchives'),
         stopAllProtections: () => ipcRenderer.invoke('settings:stopAllProtections'),
         deleteAllUsageHistory: () => ipcRenderer.invoke('settings:deleteAllUsageHistory')
+    },
+    daemon: {
+        isConnected: () => ipcRenderer.invoke('daemon:isConnected'),
+        getStatus: () => ipcRenderer.invoke('daemon:getStatus'),
+        extend: (payload) => ipcRenderer.invoke('daemon:extend', payload),
+        extendApp: (payload) => ipcRenderer.invoke('daemon:extendApp', payload),
+        serviceControl: (payload) => ipcRenderer.invoke('daemon:serviceControl', payload),
+        nodeCheck: () => ipcRenderer.invoke('daemon:nodeCheck')
     }
 })

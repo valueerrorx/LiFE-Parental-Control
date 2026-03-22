@@ -156,6 +156,7 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
+import { confirm } from '../composables/useConfirm.js'
 import { normalizeQuotaLinuxUser, quotaUsedMinutes } from '@shared/quotaUsageKey.js'
 import { useAppStore } from '../stores/appStore.js'
 import { useDesktopLoginUsers, loadDesktopLoginUsers } from '../composables/useDesktopLoginUsers.js'
@@ -253,7 +254,7 @@ onMounted(async () => {
 })
 
 async function onResetQuotaTodayUsage() {
-    if (!window.confirm('Delete today’s quota-usage file? All “used today” minutes reset to 0; counting resumes on the next enforcement tick.')) return
+    if (!await confirm({ title: "Reset today's quota", message: 'Delete today\'s quota-usage file? All "used today" minutes reset to 0; counting resumes on the next enforcement tick.', okLabel: 'Reset', danger: true })) return
     quotaBusy.value = true
     const r = await window.api.quota.resetTodayUsage()
     quotaBusy.value = false

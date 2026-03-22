@@ -178,11 +178,11 @@
                         >
                             <template v-if="feedOn(categoryFeedId(cat))">
                                 <i class="bi bi-check-lg me-2" />
-                                Disable {{ cat }}
+                                {{ cat }} Enabled
                             </template>
                             <template v-else>
                                 <i class="bi me-2" :class="categoryIcon(cat)" />
-                                Enable {{ cat }}
+                                {{ cat }} Disabled
                             </template>
                         </button>
                         <hr class="my-1" />
@@ -198,6 +198,7 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
+import { confirm } from '../composables/useConfirm.js'
 import { useAppStore } from '../stores/appStore.js'
 
 const store = useAppStore()
@@ -317,7 +318,7 @@ async function onSave() {
 
 async function onClearAll() {
     const n = entries.value.length + Object.values(store.webFilterFeedState).filter(Boolean).length
-    if (!window.confirm(`Clear all custom domains and disable all category lists (${n} sources)? This writes immediately to /etc/hosts and webfilter.json.`)) return
+    if (!await confirm({ title: 'Clear all rules', message: `Clear all custom domains and disable all category lists (${n} sources)? This writes immediately to /etc/hosts and webfilter.json.`, okLabel: 'Clear', danger: true })) return
     saving.value = true
     const r = await window.api.webFilter.clearAll()
     saving.value = false

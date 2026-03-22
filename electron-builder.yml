@@ -29,6 +29,10 @@ extraResources:
   - from: "packaging/polkit"
     to: "polkit"
     filter: ["**/*.policy", "**/*.rules"]
+  - from: "daemon/next-exam-daemon.js"
+    to: "daemon/next-exam-daemon.js"
+  - from: "packaging/systemd/next-exam.service"
+    to: "systemd/next-exam.service"
 
 linux:
   executableName: life-parental-control
