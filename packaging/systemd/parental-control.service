@@ -1,0 +1,20 @@
+[Unit]
+Description=LiFE Parental Control enforcement daemon
+Documentation=https://github.com/valueerror/LiFE-Parental-Control
+After=graphical.target
+Wants=graphical.target
+
+[Service]
+Type=simple
+User=root
+ExecStart=/usr/bin/node /usr/bin/parental-control-daemon.js
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=parental-control-daemon
+# Keep daemon running even on logout; it is the source of truth for all timekeeping
+KillMode=process
+
+[Install]
+WantedBy=graphical.target

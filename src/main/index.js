@@ -1,80 +1,22 @@
-import { app, BrowserWindow, ipcMain, Menu, Tray } from 'electron'
+import { app, BrowserWindow, ipcMain, Menu } from 'electron'
 import path from 'path'
 import fs, { mkdirSync } from 'fs'
-import { tmpdir } from 'os'
 import { spawn } from 'child_process'
 import { registerConfigIpc } from './ipc/configIpc.js'
 import { registerProfileIpc } from './ipc/profileIpc.js'
 import { registerSystemIpc } from './ipc/systemIpc.js'
 import { registerSettingsIpc, repairInvalidLockIdleInConfig } from './ipc/settingsIpc.js'
 import { pruneUsageArchives } from './ipc/usageArchivePrune.js'
-import { loadTrayNativeImage, resolveTrayIconPath, resolveWindowIconPath } from './trayIcon.js'
-import { startUserTrayHelper } from './trayUserHelper.js'
+import { resolveWindowIconPath } from './trayIcon.js'
 import { initWarningWindow } from './warningWindow.js'
-import { stopEnforcementScheduler } from './enforcementScheduler.js'
 import { resolveElevatedExecutablePath } from './appImageResolve.js'
-import { getActiveGraphicalSessions } from './graphicalSessionDetect.js'
-import { getUidForLinuxUser, readDesktopSessionEnvForUid, isSessionGnomeShell } from './desktopSessionEnviron.js'
-import { trayDebugLog } from './trayDebugLog.js'
-
-// __dirname = out/main/ after electron-vite compilation
+import { isSessionGnomeShell } from './desktopSessionEnviron.js'
 
 const APP_CONFIG_DIR = '/etc/life-parental'
 
 let mainWindow = null
-let tray = null
-let trayUserHelper = null
 let allowAppTermination = false
 let deferredHeavyWorkStarted = false
-// GNOME: hide() removes the dash icon; minimize() keeps the running app in the dock without a tray.
-let gnomeCloseMinimizesToDock = false
-
-function readProcLoginUid() {
-    try {
-        const t = fs.readFileSync('/proc/self/loginuid', 'utf8').trim()
-        const n = Number(t)
-        if (!Number.isFinite(n) || n <= 0 || n >= 4294967295) return null
-        return String(n)
-    } catch {
-        return null
-    }
-}
-
-function firstNonRootUserBusUid() {
-    try {
-        const names = fs.readdirSync('/run/user')
-        const uids = []
-        for (const name of names) {
-            if (!/^\d+$/.test(name) || name === '0') continue
-            const bus = path.join('/run/user', name, 'bus')
-            try {
-                fs.accessSync(bus, fs.constants.R_OK)
-                uids.push(Number(name))
-            } catch {
-                /* skip */
-            }
-        }
-        uids.sort((a, b) => a - b)
-        return uids.length ? String(uids[0]) : null
-    } catch {
-        return null
-    }
-}
-
-function applyLinuxUserSessionBusIfRoot() {
-    if (process.platform !== 'linux') return
-    if (typeof process.getuid !== 'function' || process.getuid() !== 0) return
-    const cur = process.env.DBUS_SESSION_BUS_ADDRESS || ''
-    if (cur && !cur.includes('/run/user/0/')) return
-    const fromRt = (() => {
-        const m = String(process.env.XDG_RUNTIME_DIR || '').match(/^\/run\/user\/(\d+)$/)
-        return m ? m[1] : null
-    })()
-    const uid = process.env.SUDO_UID || process.env.PKEXEC_UID || readProcLoginUid()
-        || (fromRt && fromRt !== '0' ? fromRt : null) || firstNonRootUserBusUid()
-    if (!uid || uid === '0') return
-    process.env.DBUS_SESSION_BUS_ADDRESS = `unix:path=/run/user/${uid}/bus`
-}
 
 function buildPkexecForwardEnvPairs() {
     const envPairs = []
@@ -105,7 +47,6 @@ function spawnPkexecRelaunch() {
         envPairs.push('APPIMAGE_EXTRACT_AND_RUN=1')
         if (!process.env.APPIMAGE) envPairs.push(`APPIMAGE=${self}`)
     }
-    // Root Electron exits immediately unless Chromium sandbox is disabled (same as autostart --no-sandbox).
     const childArgs = [...process.argv.slice(1)]
     const hasNoSandbox = childArgs.some(a => a === '--no-sandbox' || a.startsWith('--no-sandbox='))
     if (!hasNoSandbox) childArgs.push('--no-sandbox')
@@ -127,13 +68,16 @@ function spawnPkexecRelaunch() {
         if (code !== 0 && code !== null) {
             appendElevateDebug(`pkexec exit code=${code} signal=${signal ?? ''}`)
         }
-        // Quit only after pkexec (or the elevated app replacing its PID) exits — never while the auth dialog is open.
         app.quit()
     })
 }
 
+// Detect warning mode (spawned by daemon as the desktop user, no root)
+const warningModeArg = process.argv.find(a => a.startsWith('--warning-mode='))
+const isWarningMode = Boolean(warningModeArg)
+
 // Suppress Chromium D-Bus connection attempts when running as root (harmless but noisy stderr errors).
-if (process.env.LIFE_TRAY_SPAWN !== '1' && typeof process.getuid === 'function' && process.getuid() === 0) {
+if (!isWarningMode && typeof process.getuid === 'function' && process.getuid() === 0) {
     if (process.platform === 'linux') {
         app.commandLine.appendSwitch('no-sandbox')
     }
@@ -141,296 +85,172 @@ if (process.env.LIFE_TRAY_SPAWN !== '1' && typeof process.getuid === 'function' 
     app.commandLine.appendSwitch('disable-dbus')
 }
 
-if (process.env.LIFE_TRAY_SPAWN === '1') {
-    app.setName('LiFE Parental Control')
-    if (process.platform === 'linux') {
-        app.commandLine.appendSwitch('ozone-platform-hint', 'x11')
+// Single-instance lock — warning-mode windows are exempt (each is a separate short-lived process)
+if (!isWarningMode) {
+    const gotLock = app.requestSingleInstanceLock()
+    if (!gotLock) {
+        app.quit()
+    } else {
+        app.on('second-instance', () => {
+            if (mainWindow) {
+                if (mainWindow.isMinimized()) mainWindow.restore()
+                mainWindow.show()
+                mainWindow.focus()
+            }
+        })
     }
-    Menu.setApplicationMenu(null)
-    void import('./trayHelperMain.js')
-} else {
-    app.whenReady().then(() => {
+}
+
+app.whenReady().then(async () => {
+    // Warning mode: spawned by daemon as desktop user, shows bonus-time dialog only
+    if (isWarningMode) {
+        let payload = {}
+        try { payload = JSON.parse(warningModeArg.slice('--warning-mode='.length)) } catch { /* ignore */ }
+        const { runWarningMode } = await import('./warningModeMain.js')
+        runWarningMode(payload)
+        return
+    }
+
     // Linux: require root; non-root processes only relaunch via pkexec (Polkit) and exit.
-        if (process.platform === 'linux' && typeof process.getuid === 'function' && process.getuid() !== 0) {
-            spawnPkexecRelaunch()
-            return
-        }
+    if (process.platform === 'linux' && typeof process.getuid === 'function' && process.getuid() !== 0) {
+        spawnPkexecRelaunch()
+        return
+    }
 
-        const kioskDir = app.isPackaged
-            ? path.join(process.resourcesPath, 'kiosk')
-            : path.join(__dirname, '../../kiosk')
+    const kioskDir = app.isPackaged
+        ? path.join(process.resourcesPath, 'kiosk')
+        : path.join(__dirname, '../../kiosk')
 
-        const imagesDir = app.isPackaged
-            ? path.join(process.resourcesPath, 'images')
-            : path.join(__dirname, '../../images')
+    const imagesDir = app.isPackaged
+        ? path.join(process.resourcesPath, 'images')
+        : path.join(__dirname, '../../images')
 
-        const profilesDir = (() => {
-            if (!app.isPackaged) return path.join(__dirname, '../../profiles')
-            if (process.env.APPIMAGE) return path.join(path.dirname(process.env.APPIMAGE), 'profiles')
-            return path.join(process.resourcesPath, 'profiles')
-        })()
+    const profilesDir = (() => {
+        if (!app.isPackaged) return path.join(__dirname, '../../profiles')
+        if (process.env.APPIMAGE) return path.join(path.dirname(process.env.APPIMAGE), 'profiles')
+        return path.join(process.resourcesPath, 'profiles')
+    })()
 
-        initWarningWindow(imagesDir)
-        mkdirSync(profilesDir, { recursive: true })
-        mkdirSync(APP_CONFIG_DIR, { recursive: true })
+    initWarningWindow(imagesDir)
+    mkdirSync(profilesDir, { recursive: true })
+    mkdirSync(APP_CONFIG_DIR, { recursive: true })
+    // Store own executable path so the daemon can spawn the warning window
+    // Only write when packaged — in dev, process.execPath is the bare Electron binary
+    // which would open the wrong app when spawned by the daemon standalone.
+    if (app.isPackaged) {
         try {
-            repairInvalidLockIdleInConfig(APP_CONFIG_DIR)
-        } catch {
+            const execPath = process.env.APPIMAGE || process.execPath
+            fs.writeFileSync(path.join(APP_CONFIG_DIR, '.electron-exec'), execPath, 'utf8')
+        } catch { /* best-effort */ }
+    }
+    try {
+        repairInvalidLockIdleInConfig(APP_CONFIG_DIR)
+    } catch {
         // best-effort
-        }
-        try {
-            pruneUsageArchives(APP_CONFIG_DIR)
-        } catch {
+    }
+    try {
+        pruneUsageArchives(APP_CONFIG_DIR)
+    } catch {
         // best-effort cleanup
-        }
-        registerConfigIpc(ipcMain, kioskDir)
-        registerProfileIpc(ipcMain, profilesDir)
-        registerSystemIpc(ipcMain, () => mainWindow, APP_CONFIG_DIR)
-        registerSettingsIpc(ipcMain, APP_CONFIG_DIR)
+    }
+    registerConfigIpc(ipcMain, kioskDir)
+    registerProfileIpc(ipcMain, profilesDir)
+    registerSystemIpc(ipcMain, () => mainWindow, APP_CONFIG_DIR)
+    registerSettingsIpc(ipcMain, APP_CONFIG_DIR)
 
-        Menu.setApplicationMenu(null)
+    Menu.setApplicationMenu(null)
 
-        let heavyIpcReadyResolve
-        const heavyIpcReady = new Promise((resolve) => {
-            heavyIpcReadyResolve = resolve
-        })
-        let heavyIpcScheduled = false
-        const scheduleHeavyIpcRegistration = () => {
-            if (heavyIpcScheduled) return
-            heavyIpcScheduled = true
-            globalThis.setImmediate(async () => {
-                try {
-                    const { registerHeavyIpc } = await import('./registerHeavyIpc.js')
-                    const hageziBundledDir = app.isPackaged
-                        ? path.join(process.resourcesPath, 'hagezi')
-                        : path.resolve(path.join(__dirname, '../../hagezi'))
-                    registerHeavyIpc(ipcMain, {
-                        appConfigDir: APP_CONFIG_DIR,
-                        hageziBundledDir,
-                        getMainWindow: () => mainWindow
-                    })
-                } catch (e) {
-                    console.error('[LiFE Parental Control] Heavy IPC registration failed:', e)
-                } finally {
-                    heavyIpcReadyResolve()
-                }
-            })
-        }
-
-        const windowIconPath = resolveWindowIconPath(imagesDir)
-
-        mainWindow = new BrowserWindow({
-            width: 1600,
-            height: 860,
-            minWidth: 1100,
-            minHeight: 700,
-            title: 'LiFE Parental Control',
-            ...(windowIconPath ? { icon: windowIconPath } : {}),
-            webPreferences: {
-                preload: path.join(__dirname, '../preload/index.js'),
-                contextIsolation: true,
-                nodeIntegration: false,
-                sandbox: false,
-                devTools: false
-            }
-        })
-
-        // Lock UI on any focus loss — covers minimize, hide, click-away on all platforms including KDE/Wayland.
-        let rendererLoaded = false
-        mainWindow.webContents.once('did-finish-load', () => {
-            rendererLoaded = true
-        })
-        const sendSessionLock = () => {
-            if (!rendererLoaded || !mainWindow || mainWindow.isDestroyed()) return
-            mainWindow.webContents.send('app:session-lock-request')
-        }
-        mainWindow.on('blur', sendSessionLock)
-        mainWindow.on('minimize', sendSessionLock)
-        mainWindow.on('hide', sendSessionLock)
-
-        mainWindow.on('close', e => {
-            if (allowAppTermination) return
-            e.preventDefault()
-            if (mainWindow.isDestroyed()) return
-            const useMinimize =
-                gnomeCloseMinimizesToDock
-                || (process.platform === 'linux'
-                    && isSessionGnomeShell({
-                        XDG_CURRENT_DESKTOP: process.env.XDG_CURRENT_DESKTOP,
-                        XDG_SESSION_DESKTOP: process.env.XDG_SESSION_DESKTOP,
-                        DESKTOP_SESSION: process.env.DESKTOP_SESSION
-                    }))
-            if (useMinimize) mainWindow.minimize()
-            else mainWindow.hide()
-        })
-
-        const showMainWindow = () => {
-            if (!mainWindow || mainWindow.isDestroyed()) return
-            if (mainWindow.isMinimized()) mainWindow.restore()
-            mainWindow.show()
-            mainWindow.focus()
-        }
-        const quitFromTray = () => {
-            showMainWindow()
-            if (!mainWindow.isDestroyed()) mainWindow.webContents.send('app:quit-from-tray')
-        }
-
-        let trayIconForHelper = resolveTrayIconPath(imagesDir)
-        if (!trayIconForHelper) {
+    let heavyIpcReadyResolve
+    const heavyIpcReady = new Promise((resolve) => {
+        heavyIpcReadyResolve = resolve
+    })
+    let heavyIpcScheduled = false
+    const scheduleHeavyIpcRegistration = () => {
+        if (heavyIpcScheduled) return
+        heavyIpcScheduled = true
+        globalThis.setImmediate(async () => {
             try {
-                const img = loadTrayNativeImage(imagesDir)
-                const p = path.join(tmpdir(), `life-parental-tray-fallback-${process.pid}.png`)
-                fs.writeFileSync(p, img.toPNG())
-                trayIconForHelper = p
+                const { registerHeavyIpc } = await import('./registerHeavyIpc.js')
+                const hageziBundledDir = app.isPackaged
+                    ? path.join(process.resourcesPath, 'hagezi')
+                    : path.resolve(path.join(__dirname, '../../hagezi'))
+                registerHeavyIpc(ipcMain, {
+                    appConfigDir: APP_CONFIG_DIR,
+                    hageziBundledDir,
+                    getMainWindow: () => mainWindow
+                })
             } catch (e) {
-                console.warn('[LiFE Parental Control] Tray: could not create icon file for helper', e?.message)
+                console.error('[LiFE Parental Control] Heavy IPC registration failed:', e)
+            } finally {
+                heavyIpcReadyResolve()
             }
-        }
-        const fromRtUid = (() => {
-            const m = String(process.env.XDG_RUNTIME_DIR || '').match(/^\/run\/user\/(\d+)$/)
-            return m ? m[1] : null
-        })()
-        const desktopUidForTray =
-        process.env.SUDO_UID || process.env.PKEXEC_UID || readProcLoginUid()
-        || (fromRtUid && fromRtUid !== '0' ? fromRtUid : null) || firstNonRootUserBusUid()
-
-        const startTrayAfterUiReady = async () => {
-            gnomeCloseMinimizesToDock = false
-            trayDebugLog('main', 'startTrayAfterUiReady', {
-                uid: typeof process.getuid === 'function' ? process.getuid() : null,
-                packaged: app.isPackaged,
-                execPath: process.execPath,
-                argv0: process.argv[0],
-                hasAPPIMAGE: Boolean(process.env.APPIMAGE),
-                NODE_ENV: process.env.NODE_ENV || '',
-                SUDO_UID: process.env.SUDO_UID || '',
-                PKEXEC_UID: process.env.PKEXEC_UID || '',
-                desktopUidForTray: desktopUidForTray || '',
-                imagesDir,
-                trayIconForHelper: trayIconForHelper || ''
-            })
-            let trayTargetUser = desktopUidForTray
-            try {
-                const sessions = await getActiveGraphicalSessions()
-                trayDebugLog('main', 'getActiveGraphicalSessions', { count: sessions.length, sessions })
-                if (sessions.length > 0) {
-                    const sudo = process.env.SUDO_UID || process.env.PKEXEC_UID
-                    let pick = sessions[0]
-                    if (sudo) {
-                        const hit = sessions.find(s => getUidForLinuxUser(s.user) === String(sudo))
-                        if (hit) pick = hit
-                    }
-                    trayTargetUser = pick.user
-                }
-            } catch (e) {
-                trayDebugLog('main', 'getActiveGraphicalSessions error', e?.message || String(e))
-                console.warn('[LiFE Parental Control] Tray: session list failed', e?.message)
-            }
-            const desktopEnvForTray = readDesktopSessionEnvForUid(String(trayTargetUser || ''))
-            if (process.platform === 'linux' && isSessionGnomeShell(desktopEnvForTray)) {
-                gnomeCloseMinimizesToDock = true
-                trayDebugLog('main', 'skip tray on GNOME Shell (close minimizes to dock; restore from dash)', {
-                    trayTargetUser: trayTargetUser || ''
-                })
-                return
-            }
-            // Set D-Bus address late so Chromium does not inherit it at window creation (avoids multi-second D-Bus timeouts).
-            applyLinuxUserSessionBusIfRoot()
-            trayDebugLog('main', 'trayTargetUser resolved', { trayTargetUser: trayTargetUser || '', willTryHelper: Boolean(
-                process.platform === 'linux' && process.getuid?.() === 0 && trayTargetUser && trayTargetUser !== '0' && trayIconForHelper
-            ) })
-            if (process.platform === 'linux' && process.getuid?.() === 0 && trayTargetUser && trayTargetUser !== '0' && trayIconForHelper) {
-                trayUserHelper = await startUserTrayHelper({
-                    uidS: String(trayTargetUser),
-                    trayIconPath: trayIconForHelper,
-                    mainDir: __dirname,
-                    electronExec: process.execPath,
-                    onShow: showMainWindow,
-                    onQuitFromTray: quitFromTray
-                })
-                trayDebugLog('main', 'startUserTrayHelper result', { ok: Boolean(trayUserHelper) })
-            }
-            if (!trayUserHelper) {
-                trayDebugLog('main', 'using root fallback Tray (no user helper)')
-                const trayPath = trayIconForHelper || resolveTrayIconPath(imagesDir)
-                try {
-                    tray = trayPath ? new Tray(trayPath) : new Tray(loadTrayNativeImage(imagesDir))
-                } catch (err) {
-                    console.error('[LiFE Parental Control] Tray init failed:', err)
-                    tray = new Tray(loadTrayNativeImage(imagesDir))
-                }
-                tray.setToolTip('LiFE Parental Control')
-                tray.on('click', showMainWindow)
-                tray.setContextMenu(Menu.buildFromTemplate([
-                    { label: 'Show window', click: showMainWindow },
-                    { type: 'separator' },
-                    { label: 'Quit…', click: quitFromTray }
-                ]))
-            }
-            if (process.platform === 'linux' && process.getuid?.() === 0) {
-                trayDebugLog('main', 'summary', {
-                    userHelper: Boolean(trayUserHelper),
-                    DBUS_SESSION_BUS_ADDRESS: process.env.DBUS_SESSION_BUS_ADDRESS || '(unset)',
-                    logFile: '/tmp/life-parental-tray-debug.log'
-                })
-                console.warn(
-                    '[LiFE Parental Control] Tray: root main; userHelper=',
-                    Boolean(trayUserHelper),
-                    'DBUS_SESSION_BUS_ADDRESS=',
-                    process.env.DBUS_SESSION_BUS_ADDRESS || '(unset)',
-                    '| tray debug:',
-                    '/tmp/life-parental-tray-debug.log'
-                )
-            }
-        }
-
-        ipcMain.handle('app:quit', () => {
-            allowAppTermination = true
-            app.quit()
         })
+    }
 
-        ipcMain.handle('app:deferredHeavyWork', async () => {
-            if (deferredHeavyWorkStarted) return { ok: true }
-            deferredHeavyWorkStarted = true
-            scheduleHeavyIpcRegistration()
-            await heavyIpcReady
-            const { runDeferredStartupTasks } = await import('./registerHeavyIpc.js')
-            globalThis.setImmediate(() => runDeferredStartupTasks(APP_CONFIG_DIR))
-            return { ok: true }
-        })
+    const windowIconPath = resolveWindowIconPath(imagesDir)
 
-        if (process.env.NODE_ENV === 'development') {
-            mainWindow.loadURL(process.env.ELECTRON_RENDERER_URL)
-        } else {
-            mainWindow.loadFile(path.join(__dirname, '../renderer/index.html'))
+    mainWindow = new BrowserWindow({
+        width: 1600,
+        height: 860,
+        minWidth: 1100,
+        minHeight: 700,
+        title: 'LiFE Parental Control',
+        ...(windowIconPath ? { icon: windowIconPath } : {}),
+        webPreferences: {
+            preload: path.join(__dirname, '../preload/index.js'),
+            contextIsolation: true,
+            nodeIntegration: false,
+            sandbox: false,
+            devTools: false
         }
-        mainWindow.webContents.once('did-finish-load', () => {
-            globalThis.setImmediate(() => {
-                void startTrayAfterUiReady().catch(err => {
-                    console.error('[LiFE Parental Control] Tray startup failed:', err)
-                })
-            })
-        })
     })
 
-    app.on('before-quit', () => {
+    // Lock UI on any focus loss — covers minimize, hide, click-away on all platforms including KDE/Wayland.
+    let rendererLoaded = false
+    mainWindow.webContents.once('did-finish-load', () => {
+        rendererLoaded = true
+    })
+    const sendSessionLock = () => {
+        if (!rendererLoaded || !mainWindow || mainWindow.isDestroyed()) return
+        mainWindow.webContents.send('app:session-lock-request')
+    }
+    mainWindow.on('blur', sendSessionLock)
+    mainWindow.on('minimize', sendSessionLock)
+    mainWindow.on('hide', sendSessionLock)
+
+    mainWindow.on('close', e => {
+        if (allowAppTermination) return
+        e.preventDefault()
+        if (!mainWindow.isDestroyed()) mainWindow.webContents.send('app:quit-from-tray')
+    })
+
+    ipcMain.handle('app:quit', () => {
         allowAppTermination = true
-    })
-
-    app.on('will-quit', () => {
-        stopEnforcementScheduler()
-        if (trayUserHelper) {
-            trayUserHelper.stop()
-            trayUserHelper = null
-        }
-        if (tray) {
-            tray.destroy()
-            tray = null
-        }
-    })
-
-    app.on('window-all-closed', () => {
-        if (process.platform !== 'darwin') return
         app.quit()
     })
-}
+
+    ipcMain.handle('app:deferredHeavyWork', async () => {
+        if (deferredHeavyWorkStarted) return { ok: true }
+        deferredHeavyWorkStarted = true
+        scheduleHeavyIpcRegistration()
+        await heavyIpcReady
+        const { runDeferredStartupTasks } = await import('./registerHeavyIpc.js')
+        globalThis.setImmediate(() => runDeferredStartupTasks(APP_CONFIG_DIR))
+        return { ok: true }
+    })
+
+    if (process.env.NODE_ENV === 'development') {
+        mainWindow.loadURL(process.env.ELECTRON_RENDERER_URL)
+    } else {
+        mainWindow.loadFile(path.join(__dirname, '../renderer/index.html'))
+    }
+})
+
+app.on('before-quit', () => {
+    allowAppTermination = true
+})
+
+app.on('window-all-closed', () => {
+    if (process.platform !== 'darwin') return
+    app.quit()
+})

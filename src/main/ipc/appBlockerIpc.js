@@ -1,6 +1,6 @@
 import fs from 'fs'
 import path from 'path'
-import { execFile } from 'child_process'
+import { execFile, spawnSync } from 'child_process'
 import { desktopIconToDataUrl } from './desktopIconResolve.js'
 import { redeployQuotaFromDisk } from './quotaIpc.js'
 import { appendActivity } from './activityLog.js'
@@ -204,6 +204,90 @@ export function refreshAppMonitorCatalog(configDir) {
     redeployQuotaFromDisk(configDir)
 }
 
+// --- AppArmor blocking ---
+
+const APPARMOR_PROFILE = '/etc/apparmor.d/life-parental-blocked'
+
+// Extract the real executable absolute path from a .desktop Exec= line.
+// Returns null for flatpak/snap (AppArmor can't reliably block them).
+function execLineToFullPath(execLine) {
+    if (!execLine) return null
+    // Strip field codes (%U, %F, %i, …)
+    const clean = execLine.trim().replace(/%[a-zA-Z]/g, '').trim()
+    const tokens = clean.split(/\s+/).filter(Boolean)
+    if (!tokens.length) return null
+
+    // Skip leading env, dbus-run-session, env-var assignments
+    let i = 0
+    while (i < tokens.length) {
+        const t = tokens[i]
+        if (['env', 'dbus-run-session', 'gdbus'].includes(t.toLowerCase())) { i++; continue }
+        if (/^[A-Za-z_][A-Za-z0-9_]*=/.test(t)) { i++; continue }
+        break
+    }
+    if (i >= tokens.length) return null
+    const cmd = tokens[i]
+
+    // Skip flatpak / snap — they use namespaces AppArmor can't cleanly block this way
+    const base = cmd.includes('/') ? path.basename(cmd) : cmd
+    if (base === 'flatpak' || base === 'snap') return null
+
+    // Absolute path → use directly
+    if (cmd.startsWith('/')) return cmd
+
+    // Relative name → resolve via `which`
+    try {
+        const r = spawnSync('which', [cmd], { encoding: 'utf8', timeout: 2000 })
+        const found = (r.stdout || '').trim()
+        if (found && found.startsWith('/')) return found
+    } catch { /* which not available */ }
+    return null
+}
+
+function buildApparmorProfile(entries) {
+    // entries: Array of { execPath, appId }
+    const header = '# Managed by LiFE Parental Control — do not edit manually\n' +
+                   '# Rewritten automatically on block/unblock. Do not edit by hand.\n\n'
+    if (entries.length === 0) return header
+    return header + entries.map(({ execPath, appId }) =>
+        `${execPath} {\n  # ${appId} — blocked by parental controls\n  deny /** rwxl,\n}\n`
+    ).join('\n')
+}
+
+// Sync the AppArmor profile file with the current blocked list and reload.
+// Silently skips if apparmor_parser is not installed.
+export function syncAppArmor(configDir) {
+    // Build exec-path list from current blocked app list
+    const blocked = readBlocked(configDir)
+    const apps = readAllDesktopApps()
+    const appMap = new Map(apps.map(a => [a.id, a]))
+
+    const entries = []
+    const seen = new Set()
+    for (const id of blocked) {
+        const app = appMap.get(id)
+        if (!app) continue
+        const execPath = execLineToFullPath(app.exec)
+        if (!execPath || seen.has(execPath)) continue
+        seen.add(execPath)
+        entries.push({ execPath, appId: id })
+    }
+
+    // Remove all previously loaded profiles from this file before rewriting
+    if (fs.existsSync(APPARMOR_PROFILE)) {
+        spawnSync('apparmor_parser', ['-R', APPARMOR_PROFILE], { timeout: 5000, stdio: 'ignore' })
+    }
+
+    // Write new profile file
+    try { fs.mkdirSync(path.dirname(APPARMOR_PROFILE), { recursive: true }) } catch { /* exists */ }
+    fs.writeFileSync(APPARMOR_PROFILE, buildApparmorProfile(entries), 'utf8')
+
+    // Load new profiles (skip if file is now empty / no blocked apps)
+    if (entries.length > 0) {
+        spawnSync('apparmor_parser', ['-a', APPARMOR_PROFILE], { timeout: 5000, stdio: 'ignore' })
+    }
+}
+
 function applyDesktopOverride(configDir, appId, block) {
     fs.mkdirSync(OVERRIDE_DIR, { recursive: true })
     const overridePath = path.join(OVERRIDE_DIR, appId)
@@ -283,6 +367,7 @@ export function registerAppBlockerIpc(ipcMain, configDir) {
             }
             saveBlocked(configDir, list)
             applyDesktopOverride(configDir, appId, block)
+            syncAppArmor(configDir)
             appendActivity(configDir, { action: block ? 'app_blocked' : 'app_unblocked', appId })
             return { ok: true }
         } catch (e) {

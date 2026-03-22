@@ -9,6 +9,62 @@
             <!-- Change password -->
             <div class="col-6">
                 <div class="pc-card">
+                    <div class="pc-card-header"><h6><i class="bi bi-cpu me-2" />Systemd Daemon</h6></div>
+                    <div class="pc-card-body">
+                        <div class="d-flex flex-wrap align-items-center gap-3 mb-3">
+                            <div>
+                                <div class="small text-muted mb-1">Service</div>
+                                <span class="status-badge" :class="daemonServiceStatus === 'active' ? 'active' : 'inactive'">
+                                    <i class="bi bi-circle-fill" style="font-size:7px;" />
+                                    {{ daemonServiceStatus ?? 'Unbekannt' }}
+                                </span>
+                            </div>
+                            <div>
+                                <div class="small text-muted mb-1">Socket</div>
+                                <span class="status-badge" :class="daemonSocketConnected ? 'active' : 'inactive'">
+                                    <i class="bi bi-circle-fill" style="font-size:7px;" />
+                                    {{ daemonSocketConnected ? 'Verbunden' : 'Getrennt' }}
+                                </span>
+                            </div>
+                            <div>
+                                <div class="small text-muted mb-1">Node.js</div>
+                                <span class="status-badge" :class="nodeVersion ? 'active' : 'warning'">
+                                    <i class="bi bi-circle-fill" style="font-size:7px;" />
+                                    {{ nodeVersion ?? 'Nicht gefunden' }}
+                                </span>
+                            </div>
+                            <button type="button" class="btn-pc-outline ms-auto" style="font-size:12px;" :disabled="daemonRefreshing" @click="loadDaemonInfo">
+                                <i class="bi bi-arrow-repeat me-1" :class="{ 'spin': daemonRefreshing }" />Aktualisieren
+                            </button>
+                        </div>
+                        <p v-if="!nodeVersion" class="small text-danger mb-3">
+                            <i class="bi bi-exclamation-triangle me-1" /><strong>/usr/bin/node nicht gefunden</strong> — der Daemon benötigt Node.js.
+                            Paket <code>nodejs</code> installieren, dann Daemon installieren.
+                        </p>
+                        <div class="d-flex flex-wrap gap-2 mb-3">
+                            <button type="button" class="btn-pc-primary" :disabled="daemonCtrlBusy" @click="onDaemonControl('install')" title="Kopiert Daemon + Service-Datei, aktiviert und startet den Service">
+                                <i class="bi bi-download me-1" />Installieren &amp; starten
+                            </button>
+                            <button type="button" class="btn-pc-outline" :disabled="daemonCtrlBusy" @click="onDaemonControl('start')">
+                                <i class="bi bi-play me-1" />Start
+                            </button>
+                            <button type="button" class="btn-pc-outline" :disabled="daemonCtrlBusy" @click="onDaemonControl('stop')">
+                                <i class="bi bi-stop me-1" />Stop
+                            </button>
+                            <button type="button" class="btn-pc-outline" :disabled="daemonCtrlBusy" @click="onDaemonControl('restart')">
+                                <i class="bi bi-arrow-repeat me-1" />Neustart
+                            </button>
+                        </div>
+                        <p v-if="daemonCtrlMsg" class="small mb-2" :class="daemonCtrlError ? 'text-danger' : 'text-success'">{{ daemonCtrlMsg }}</p>
+                        <p class="text-muted small mb-0">
+                            <strong>Installieren &amp; starten</strong> kopiert <code>/usr/bin/parental-control-daemon.js</code> und
+                            <code>/etc/systemd/system/parental-control.service</code> aus dem App-Paket, führt
+                            <code>systemctl enable &amp;&amp; start</code> aus. Erfordert <code>/usr/bin/node</code>.
+                        </p>
+                    </div>
+                </div>
+
+                <div class="pc-card mt-3">
                     <div class="pc-card-header">
                         <h6><i class="bi bi-key me-2" />Change Password</h6>
                     </div>
@@ -31,36 +87,13 @@
                 </div>
 
                 <div class="pc-card mt-3">
-                    <div class="pc-card-header"><h6><i class="bi bi-box-arrow-in-right me-2" />Startup</h6></div>
-                    <div class="pc-card-body">
-                        <div class="form-check form-switch">
-                            <input
-                                id="life-autostart"
-                                v-model="autostartEnabled"
-                                class="form-check-input"
-                                type="checkbox"
-                                role="switch"
-                                :disabled="!appInfo?.packaged || autostartBusy"
-                                @change="onAutostartChange"
-                            />
-                            <label class="form-check-label" for="life-autostart">Start automatically at login</label>
-                        </div>
-                        <p v-if="autostartMismatch" class="small text-warning mb-0 mt-2">
-                            Preference is on but the autostart file is missing — toggle off and on to restore, or check permissions.
-                        </p>
-                        <p v-if="autostartMsg" class="small mt-2 mb-0" :class="autostartError ? 'text-danger' : 'text-success'">{{ autostartMsg }}</p>
-                        <p v-if="appInfo && !appInfo.packaged" class="small text-warning mb-0 mt-2">Not available in development builds.</p>
-                    </div>
-                </div>
-
-                <div class="pc-card mt-3">
                     <div class="pc-card-header"><h6><i class="bi bi-shield-lock me-2" />Session lock</h6></div>
                     <div class="pc-card-body">
                         <p class="text-muted small mb-3">
                             After unlocking with a password, the app locks again after inactivity (mouse, keyboard, scroll).
                         </p>
-                        <label class="form-label small text-muted">Auto-lock after idle</label>
-                        <select v-model.number="sessionPrefs.lockIdleMinutes" class="pc-input mb-3" style="max-width:220px;">
+                        <label class="form-label small text-muted mt-2">Auto-lock after idle</label>
+                        <select v-model.number="sessionPrefs.lockIdleMinutes" class="pc-input mb-3 mt-1" style="max-width:220px;">
                             <option v-for="opt in LOCK_IDLE_OPTIONS" :key="opt.value" :value="opt.value">
                                 {{ opt.label }}
                             </option>
@@ -92,8 +125,7 @@
                     <div class="pc-card-header"><h6><i class="bi bi-wrench-adjustable me-2" />Maintenance</h6></div>
                     <div class="pc-card-body">
                         <p class="text-muted small mb-3">
-                            Screen time and app quotas are enforced inside the LiFE app (no cron). The buttons below only prune old usage JSON or refresh related state.
-                            Packaged installs may run <code>embedded_enforcement_redeploy</code> on upgrade (see Dashboard <em>Recent activity</em>).
+                            Screen time and app quotas are enforced by the systemd daemon (no cron). The buttons below only prune old usage JSON or refresh related state.
                             <strong>Web filter restore</strong> rebuilds the <code>/etc/hosts</code> block from <code>webfilter.json</code>.
                             <strong>Usage logs</strong> removes <code>usage-*</code>, <code>quota-usage-*</code>, and <code>app-usage-*</code> JSON older than 120 days.
                         </p>
@@ -213,7 +245,8 @@
 </template>
 
 <script setup>
-import { reactive, ref, computed, onMounted } from 'vue'
+import { reactive, ref, onMounted } from 'vue'
+import { confirm } from '../composables/useConfirm.js'
 import { normalizedLockIdleMinutesOrUndefined, LOCK_IDLE_OPTIONS } from '@shared/lockIdleMinutes.js'
 import { useAppStore } from '../stores/appStore.js'
 
@@ -235,44 +268,57 @@ const maintError = ref(false)
 const dangerBusy = ref(false)
 const dangerMsg = ref('')
 const dangerError = ref(false)
-const autostartEnabled = ref(false)
-const autostartFilePresent = ref(false)
-const autostartBusy = ref(false)
-const autostartMsg = ref('')
-const autostartError = ref(false)
+const daemonServiceStatus = ref(null)
+const daemonSocketConnected = ref(false)
+const nodeVersion = ref(null)
+const daemonRefreshing = ref(false)
+const daemonCtrlBusy = ref(false)
+const daemonCtrlMsg = ref('')
+const daemonCtrlError = ref(false)
 
-const autostartMismatch = computed(() => autostartEnabled.value && !autostartFilePresent.value)
+async function loadDaemonInfo() {
+    daemonRefreshing.value = true
+    const [result] = await Promise.allSettled([
+        Promise.all([
+            window.api.daemon.serviceControl({ action: 'status' }),
+            window.api.daemon.isConnected(),
+            window.api.daemon.nodeCheck()
+        ]),
+        new Promise(r => setTimeout(r, 600))
+    ])
+    if (result.status === 'fulfilled') {
+        const [svc, connected, nodeCheck] = result.value
+        daemonServiceStatus.value = svc?.status ?? null
+        daemonSocketConnected.value = Boolean(connected)
+        nodeVersion.value = nodeCheck?.ok ? nodeCheck.version : null
+    } else {
+        daemonServiceStatus.value = null
+    }
+    daemonRefreshing.value = false
+}
+
+async function onDaemonControl(action) {
+    daemonCtrlMsg.value = ''
+    daemonCtrlBusy.value = true
+    const r = await window.api.daemon.serviceControl({ action })
+    daemonCtrlBusy.value = false
+    if (r?.error) {
+        daemonCtrlMsg.value = r.error
+        daemonCtrlError.value = true
+    } else {
+        daemonCtrlMsg.value = action === 'install' ? 'Daemon installiert und gestartet.' : `Service ${action} ausgeführt.`
+        daemonCtrlError.value = false
+        await loadDaemonInfo()
+    }
+    setTimeout(() => { daemonCtrlMsg.value = '' }, 6000)
+}
 
 onMounted(async () => {
     appInfo.value = await window.api.system.getAppInfo()
     const cfg = await window.api.settings.getConfig()
     sessionPrefs.lockIdleMinutes = normalizedLockIdleMinutesOrUndefined(cfg.lockIdleMinutes) ?? 15
-    autostartEnabled.value = cfg.autostartEnabled === true
-    autostartFilePresent.value = cfg.autostartFilePresent === true
+    await loadDaemonInfo()
 })
-
-async function onAutostartChange() {
-    autostartMsg.value = ''
-    autostartBusy.value = true
-    const r = await window.api.settings.setAutostart(autostartEnabled.value)
-    autostartBusy.value = false
-    if (r?.error) {
-        autostartError.value = true
-        autostartMsg.value = r.error
-        autostartEnabled.value = !autostartEnabled.value
-    } else {
-        autostartError.value = false
-        autostartMsg.value = autostartEnabled.value
-            ? 'Autostart installed under /etc/xdg/autostart.'
-            : 'Autostart desktop file removed.'
-        if (typeof r?.autostartFilePresent === 'boolean') autostartFilePresent.value = r.autostartFilePresent
-        else {
-            const cfg = await window.api.settings.getConfig()
-            autostartFilePresent.value = cfg.autostartFilePresent === true
-        }
-    }
-    setTimeout(() => { autostartMsg.value = '' }, 6000)
-}
 
 async function onSaveSessionPrefs() {
     sessionPrefsMsg.value = ''
@@ -304,9 +350,7 @@ async function onChangePassword() {
 }
 
 async function onStopAllProtections() {
-    if (!window.confirm(
-        'Stop and remove ALL LiFE protections? This clears schedules (screen time off), quotas, blocks, web filter hosts block, quota exemptions, and KDE kiosk (if active — session will restart).'
-    )) return
+    if (!await confirm({ title: 'Stop all protections', message: 'Stop and remove ALL LiFE protections? This clears schedules (screen time off), quotas, blocks, web filter hosts block, quota exemptions, and KDE kiosk (if active — session will restart).', okLabel: 'Stop all', danger: true })) return
     dangerBusy.value = true
     dangerMsg.value = ''
     const r = await window.api.settings.stopAllProtections()
@@ -323,9 +367,7 @@ async function onStopAllProtections() {
 }
 
 async function onDeleteAllUsageHistory() {
-    if (!window.confirm(
-        'Delete ALL screen-time and app-usage daily log files (usage-*.json, quota-usage-*.json, app-usage-*.json)? This cannot be undone.'
-    )) return
+    if (!await confirm({ title: 'Delete all usage history', message: 'Delete ALL screen-time and app-usage daily log files (usage-*.json, quota-usage-*.json, app-usage-*.json)? This cannot be undone.', okLabel: 'Delete', danger: true })) return
     dangerBusy.value = true
     dangerMsg.value = ''
     const r = await window.api.settings.deleteAllUsageHistory()
@@ -342,7 +384,7 @@ async function onDeleteAllUsageHistory() {
 }
 
 async function onRedeployScheduleCron() {
-    if (!window.confirm('Prune old screen-time usage archives under /etc/life-parental/? (Enforcement runs in the LiFE app; there is no cron script to rewrite.)')) return
+    if (!await confirm({ title: 'Screen time cleanup', message: 'Prune old screen-time usage archives under /etc/life-parental/? (Enforcement runs in the LiFE app; there is no cron script to rewrite.)' })) return
     maintBusy.value = true
     maintMsg.value = ''
     const r = await window.api.schedules.redeploy()
@@ -357,7 +399,7 @@ async function onRedeployScheduleCron() {
 }
 
 async function onRedeployQuotaCron() {
-    if (!window.confirm('Prune old quota usage archives under /etc/life-parental/? (Enforcement runs in the LiFE app.)')) return
+    if (!await confirm({ title: 'App quota cleanup', message: 'Prune old quota usage archives under /etc/life-parental/? (Enforcement runs in the LiFE app.)' })) return
     maintBusy.value = true
     maintMsg.value = ''
     const r = await window.api.quota.redeploy()
@@ -372,9 +414,7 @@ async function onRedeployQuotaCron() {
 }
 
 async function onRedeployKillCron() {
-    if (!window.confirm(
-        'Re-deploy /usr/local/bin/life-parental-quota from disk (pick up process-whitelist.json) and remove legacy life-parental-kill files if present?'
-    )) return
+    if (!await confirm({ title: 'Quota exemptions', message: 'Re-deploy /usr/local/bin/life-parental-quota from disk (pick up process-whitelist.json) and remove legacy life-parental-kill files if present?' })) return
     maintBusy.value = true
     maintMsg.value = ''
     const r = await window.api.processWhitelist.redeploy()
@@ -389,9 +429,7 @@ async function onRedeployKillCron() {
 }
 
 async function onPruneUsageArchives() {
-    if (!window.confirm(
-        'Delete usage-*.json, quota-usage-*.json, and app-usage-*.json in /etc/life-parental/ older than 120 days (by date in the filename)?'
-    )) return
+    if (!await confirm({ title: 'Prune old usage logs', message: 'Delete usage-*.json, quota-usage-*.json, and app-usage-*.json in /etc/life-parental/ older than 120 days (by date in the filename)?', okLabel: 'Delete', danger: true })) return
     maintBusy.value = true
     maintMsg.value = ''
     const r = await window.api.settings.pruneUsageArchives()
@@ -406,9 +444,7 @@ async function onPruneUsageArchives() {
 }
 
 async function onReapplyWebHosts() {
-    if (!window.confirm(
-        'Restore web filter: rebuild the /etc/hosts block from /etc/life-parental/webfilter.json?'
-    )) return
+    if (!await confirm({ title: 'Web filter restore', message: 'Restore web filter: rebuild the /etc/hosts block from /etc/life-parental/webfilter.json?' })) return
     maintBusy.value = true
     maintMsg.value = ''
     const r = await window.api.webFilter.reapplyMirror()
@@ -440,9 +476,7 @@ async function onBackupExport() {
 
 async function onBackupImport() {
     backupMsg.value = ''
-    if (!window.confirm(
-        'Import from the selected backup? Only top-level sections present in the file are applied (/etc/hosts + mirror when webFilter is included; schedules, quotas, processWhitelist JSON when present). Omitted sections are left unchanged.'
-    )) return
+    if (!await confirm({ title: 'Import backup', message: 'Import from the selected backup? Only top-level sections present in the file are applied (/etc/hosts + mirror when webFilter is included; schedules, quotas, processWhitelist JSON when present). Omitted sections are left unchanged.' })) return
     backupBusy.value = true
     const r = await window.api.backup.import()
     backupBusy.value = false
@@ -460,3 +494,13 @@ async function onBackupImport() {
     }
 }
 </script>
+
+<style scoped>
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+.spin {
+    display: inline-block;
+    animation: spin 0.7s linear infinite;
+}
+</style>

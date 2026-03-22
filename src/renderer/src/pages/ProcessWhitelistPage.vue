@@ -128,11 +128,17 @@ const appsWithProcess = computed(() =>
 
 const filteredApps = computed(() => {
     const q = search.value.toLowerCase()
-    if (!q) return appsWithProcess.value
-    return appsWithProcess.value.filter(a =>
-        a.name.toLowerCase().includes(q) ||
-        (a.processName || '').toLowerCase().includes(q)
-    )
+    const list = q
+        ? appsWithProcess.value.filter(a =>
+            a.name.toLowerCase().includes(q) ||
+            (a.processName || '').toLowerCase().includes(q)
+        )
+        : appsWithProcess.value
+    return [...list].sort((a, b) => {
+        const aOn = allowedIds.value.has(a.id) ? 0 : 1
+        const bOn = allowedIds.value.has(b.id) ? 0 : 1
+        return aOn - bOn
+    })
 })
 
 onMounted(async () => {

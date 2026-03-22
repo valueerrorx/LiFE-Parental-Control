@@ -29,6 +29,10 @@ extraResources:
   - from: "packaging/polkit"
     to: "polkit"
     filter: ["**/*.policy", "**/*.rules"]
+  - from: "daemon/parental-control-daemon.js"
+    to: "daemon/parental-control-daemon.js"
+  - from: "packaging/systemd/parental-control.service"
+    to: "systemd/parental-control.service"
 
 linux:
   executableName: life-parental-control

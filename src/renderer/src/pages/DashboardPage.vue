@@ -6,8 +6,8 @@
 
     <div class="pc-content">
         <!-- Status cards row -->
-        <div class="row g-3 mb-4">
-            <div class="col-6 col-xl-3 d-flex">
+        <div class="row g-3 mb-4 row-cols-2 row-cols-xl-5">
+            <div class="col d-flex">
                 <div class="stat-card h-100 w-100">
                     <div class="stat-icon" style="background:#E3F2FD; color:#1565C0;">
                         <i class="bi bi-shield-x" />
@@ -22,7 +22,7 @@
                     </div>
                 </div>
             </div>
-            <div class="col-6 col-xl-3 d-flex">
+            <div class="col d-flex">
                 <div class="stat-card h-100 w-100">
                     <div class="stat-icon" style="background:#FFF3E0; color:#E65100;">
                         <i class="bi bi-app-indicator" />
@@ -38,7 +38,7 @@
                     </div>
                 </div>
             </div>
-            <div class="col-6 col-xl-3 d-flex">
+            <div class="col d-flex">
                 <div class="stat-card h-100 w-100">
                     <div class="stat-icon" style="background:#E8F5E9; color:#2E7D32;">
                         <i class="bi bi-clock-history" />
@@ -53,7 +53,7 @@
                     </div>
                 </div>
             </div>
-            <div class="col-6 col-xl-3 d-flex">
+            <div class="col d-flex">
                 <div class="stat-card h-100 w-100">
                     <div class="stat-icon" style="background:#F3E5F5; color:#6A1B9A;">
                         <i class="bi bi-lock-fill" />
@@ -68,6 +68,30 @@
                     </div>
                 </div>
             </div>
+            <div class="col d-flex">
+                <div class="stat-card h-100 w-100" :class="{ 'stat-card--warn': daemonBadgeClass === 'inactive' }">
+                    <div class="stat-icon" :style="daemonIconStyle">
+                        <i class="bi bi-cpu" />
+                    </div>
+                    <div class="stat-label">Daemon</div>
+                    <div class="stat-value" style="font-size:1rem;">{{ daemonServiceLabel }}</div>
+                    <div class="stat-sub d-flex flex-column gap-1">
+                        <span class="status-badge" :class="daemonBadgeClass">
+                            <i class="bi bi-circle-fill" style="font-size:7px;" />
+                            {{ daemonBadgeLabel }}
+                        </span>
+                        <span v-if="daemonSocketConnected" class="text-muted" style="font-size:10px;">Socket verbunden</span>
+                        <span v-else class="text-muted" style="font-size:10px;">Socket getrennt</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div v-if="daemonServiceActive !== 'active'" class="alert alert-warning py-2 px-3 mb-3 d-flex align-items-center gap-2" style="font-size:13px;">
+            <i class="bi bi-exclamation-triangle-fill" />
+            <span>
+                <strong>Daemon nicht aktiv</strong> — Timekeeping läuft nicht.
+                Starten unter <RouterLink to="/settings">Einstellungen → Systemd Daemon</RouterLink>.
+            </span>
         </div>
 
         <!-- Screen time analytics -->
@@ -204,6 +228,11 @@
                         <i class="bi bi-lock me-2" />KDE Kiosk Mode
                     </button>
                 </RouterLink>
+                <RouterLink v-if="daemonServiceActive !== 'active'" to="/settings">
+                    <button class="btn-pc-outline" style="border-color:#FFA726; color:#E65100;">
+                        <i class="bi bi-cpu me-2" />Setup Daemon
+                    </button>
+                </RouterLink>
             </div>
         </div>
     </div>
@@ -213,6 +242,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { normalizeQuotaLinuxUser, quotaUsedMinutes, quotaBonusMinutes } from '@shared/quotaUsageKey.js'
 import { useAppStore } from '../stores/appStore.js'
+import { RouterLink } from 'vue-router'
 
 /** Light Material (100–200) tones for top-10 app slices plus "Other session time". */
 const DONUT_COLORS = [
@@ -227,6 +257,40 @@ const WEEK_BAR_FULL_MINUTES = 12 * 60
 
 const store = useAppStore()
 const weekUsage = ref([])
+const daemonServiceActive = ref(null) // 'active' | 'inactive' | null
+const daemonSocketConnected = ref(false)
+
+const daemonServiceLabel = computed(() => {
+    if (daemonServiceActive.value === null) return '—'
+    return daemonServiceActive.value === 'active' ? 'active' : daemonServiceActive.value
+})
+const daemonBadgeClass = computed(() => {
+    if (daemonServiceActive.value === 'active') return 'active'
+    if (daemonServiceActive.value === null) return 'inactive'
+    return 'inactive'
+})
+const daemonBadgeLabel = computed(() => {
+    if (daemonServiceActive.value === null) return 'Unbekannt'
+    return daemonServiceActive.value === 'active' ? 'Aktiv' : 'Inaktiv'
+})
+const daemonIconStyle = computed(() => {
+    if (daemonServiceActive.value === 'active') return 'background:#E8F5E9; color:#2E7D32;'
+    return 'background:#FFEBEE; color:#C62828;'
+})
+
+async function loadDaemonStatus() {
+    try {
+        const [connected, svc] = await Promise.all([
+            window.api.daemon.isConnected(),
+            window.api.daemon.serviceControl({ action: 'status' })
+        ])
+        daemonSocketConnected.value = Boolean(connected)
+        daemonServiceActive.value = svc?.status ?? null
+    } catch {
+        daemonServiceActive.value = null
+        daemonSocketConnected.value = false
+    }
+}
 
 const filterCount = computed(() => store.webFilterHostRuleCount)
 const blockedCount = computed(() => store.blockedApps.length)
@@ -392,7 +456,7 @@ async function loadWeekUsage() {
 }
 
 async function refreshScreenCharts() {
-    await Promise.all([store.loadSchedule(), store.loadAppQuotas(), loadWeekUsage()])
+    await Promise.all([store.loadSchedule(), store.loadAppQuotas(), loadWeekUsage(), loadDaemonStatus()])
 }
 
 onMounted(async () => {
@@ -401,6 +465,9 @@ onMounted(async () => {
 </script>
 
 <style scoped>
+.stat-card--warn {
+    border-color: #FFCDD2;
+}
 .donut-overlap-hint {
     color: #b0bec5;
 }

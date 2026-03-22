@@ -178,6 +178,7 @@
 
 <script setup>
 import { ref, reactive, computed, onMounted } from 'vue'
+import { confirm } from '../composables/useConfirm.js'
 import { normalizeQuotaLinuxUser } from '@shared/quotaUsageKey.js'
 import { useAppStore } from '../stores/appStore.js'
 import { useDesktopLoginUsers, loadDesktopLoginUsers } from '../composables/useDesktopLoginUsers.js'
@@ -270,7 +271,7 @@ function applyPreset(kind) {
 }
 
 async function onResetTodayUsage() {
-    if (!window.confirm('Reset today\'s screen time counter to 0? Removes today\'s usage file; counting continues on the next enforcement tick.')) return
+    if (!await confirm({ title: 'Reset today\'s screen time', message: 'Reset today\'s screen time counter to 0? Removes today\'s usage file; counting continues on the next enforcement tick.', okLabel: 'Reset', danger: true })) return
     saving.value = true
     const result = await window.api.schedules.resetTodayUsage()
     saving.value = false
