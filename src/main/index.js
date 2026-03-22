@@ -85,6 +85,22 @@ if (!isWarningMode && typeof process.getuid === 'function' && process.getuid() =
     app.commandLine.appendSwitch('disable-dbus')
 }
 
+// Single-instance lock — warning-mode windows are exempt (each is a separate short-lived process)
+if (!isWarningMode) {
+    const gotLock = app.requestSingleInstanceLock()
+    if (!gotLock) {
+        app.quit()
+    } else {
+        app.on('second-instance', () => {
+            if (mainWindow) {
+                if (mainWindow.isMinimized()) mainWindow.restore()
+                mainWindow.show()
+                mainWindow.focus()
+            }
+        })
+    }
+}
+
 app.whenReady().then(async () => {
     // Warning mode: spawned by daemon as desktop user, shows bonus-time dialog only
     if (isWarningMode) {
