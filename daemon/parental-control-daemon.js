@@ -11,7 +11,7 @@ const crypto = require('crypto');
 
 const execFileAsync = promisify(execFile);
 
-const SOCKET_PATH = '/run/next-exam.sock';
+const SOCKET_PATH = '/run/parental-control.sock';
 const CONFIG_DIR = '/etc/life-parental';
 const LOG_FILE = '/etc/life-parental/daemon.log';
 const LOG_MAX_BYTES = 2 * 1024 * 1024; // rotate at 2 MB

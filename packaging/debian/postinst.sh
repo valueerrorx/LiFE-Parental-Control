@@ -31,7 +31,7 @@ rules_src="${pkg_res}/polkit/50-org.tuxfamily.life-kiosk.rules"
 if [ -f "$policy_src" ]; then install -D -m 644 "$policy_src" "$POLICY_DST"; fi
 if [ -f "$rules_src" ]; then install -D -m 644 "$rules_src" "$RULES_DST"; fi
 
-# Install next-exam daemon script
+# Install parental-control daemon script
 daemon_src="${pkg_res}/daemon/parental-control-daemon.js"
 if [ -f "$daemon_src" ]; then
     install -D -m 755 "$daemon_src" "$DAEMON_DST"

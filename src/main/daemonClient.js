@@ -1,7 +1,7 @@
-// Electron-side client for the next-exam root daemon Unix socket
+// Electron-side client for the parental-control root daemon Unix socket
 import net from 'net'
 
-const SOCKET_PATH = '/run/next-exam.sock'
+const SOCKET_PATH = '/run/parental-control.sock'
 const RECONNECT_DELAY_MS = 5_000
 
 let socket = null

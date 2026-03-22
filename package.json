@@ -11,7 +11,7 @@
         "dev": "sudo -E env -u DBUS_SESSION_BUS_ADDRESS XDG_RUNTIME_DIR=/run/user/$(id -u) npx electron-vite dev -- --no-sandbox",
         "compile": "electron-vite build",
         "check": "npm run lint && npm run compile",
-        "build": "electron-vite build && electron-builder --publish never",
+        "build": "sudo rm -r ./out && electron-vite build && electron-builder --publish never",
         "lint": "eslint src/main src/preload src/renderer src/shared",
         "verify:kiosk": "node scripts/verify-kiosk-catalog.mjs"
     },

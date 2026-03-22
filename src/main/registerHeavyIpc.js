@@ -4,7 +4,7 @@ import { execFile } from 'child_process'
 import { promisify } from 'util'
 import { app } from 'electron'
 import { registerWebFilterIpc, runStartupHageziSync } from './ipc/webFilterIpc.js'
-import { registerAppBlockerIpc, refreshAppMonitorCatalog } from './ipc/appBlockerIpc.js'
+import { registerAppBlockerIpc, refreshAppMonitorCatalog, syncAppArmor } from './ipc/appBlockerIpc.js'
 import { registerSchedulesIpc } from './ipc/schedulesIpc.js'
 import { registerLifeModeIpc } from './ipc/lifeModeIpc.js'
 import { registerQuotaIpc } from './ipc/quotaIpc.js'
@@ -41,6 +41,7 @@ function cleanupLegacyCronFiles() {
 export function registerHeavyIpc(ipcMain, { appConfigDir, hageziBundledDir, getMainWindow }) {
     registerWebFilterIpc(ipcMain, appConfigDir, { hageziBundledDir })
     registerAppBlockerIpc(ipcMain, appConfigDir)
+    syncAppArmor(appConfigDir)  // restore AppArmor profile on every app start
     registerSchedulesIpc(ipcMain, appConfigDir)
     registerLifeModeIpc(ipcMain, appConfigDir)
     registerQuotaIpc(ipcMain, appConfigDir)

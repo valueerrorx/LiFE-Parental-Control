@@ -11,7 +11,7 @@ case "$1" in
         fi
         rm -f /etc/systemd/system/parental-control.service
         rm -f /usr/bin/parental-control-daemon.js
-        rm -f /run/next-exam.sock
+        rm -f /run/parental-control.sock
         ;;
 esac
 exit 0

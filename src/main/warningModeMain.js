@@ -9,7 +9,7 @@ import { initWarningWindow, showWarningWindow } from './warningWindow.js'
 import { runLockscreen } from './lockscreenWindow.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
-const SOCKET_PATH = '/run/next-exam.sock'
+const SOCKET_PATH = '/run/parental-control.sock'
 const REQUEST_TIMEOUT_MS = 8_000
 
 // Enforcement types that require the fullscreen lockscreen (no dismiss button)
