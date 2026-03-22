@@ -218,19 +218,9 @@ app.whenReady().then(async () => {
     mainWindow.on('minimize', sendSessionLock)
     mainWindow.on('hide', sendSessionLock)
 
-    mainWindow.on('close', e => {
-        if (allowAppTermination) return
-        e.preventDefault()
-        if (mainWindow.isDestroyed()) return
-        if (process.platform === 'linux' && isSessionGnomeShell({
-            XDG_CURRENT_DESKTOP: process.env.XDG_CURRENT_DESKTOP,
-            XDG_SESSION_DESKTOP: process.env.XDG_SESSION_DESKTOP,
-            DESKTOP_SESSION: process.env.DESKTOP_SESSION
-        })) {
-            mainWindow.minimize()
-        } else {
-            mainWindow.hide()
-        }
+    mainWindow.on('close', () => {
+        allowAppTermination = true
+        app.quit()
     })
 
     ipcMain.handle('app:quit', () => {

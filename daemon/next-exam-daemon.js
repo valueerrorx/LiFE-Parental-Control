@@ -19,6 +19,13 @@ const TICK_MS = 10_000;
 const TICKS_PER_LOGGED_MINUTE = 60_000 / TICK_MS; // 6 ticks = 1 minute
 const ALLOWED_HOURS_WARN_INTERVAL_MS = 5 * 60 * 1000;
 
+// --- Exempt-app watchdog constants ---
+const WD_INPUT_WINDOW_MS   = 8_000;  // user counts as "active" if input in last 8s
+const WD_CPU_MIN_JIFFIES   = 5;      // minimum CPU jiffies delta to consider app "responsive"
+const WD_WARN_MAX          = 4;      // number of notifications before hard logout
+const WD_WARN_INTERVAL_MS  = 30_000; // 30s between each notification
+const WD_GRACE_MS          = 120_000; // 2 minutes total grace before logout
+
 // --- File logger ---
 
 function logLine(level, ...parts) {
@@ -47,6 +54,14 @@ let tickInMinute = 0;
 let quotaWarnDate = '';
 const appQuotaWarnOnce = new Set();
 let lastAllowedHoursWarnAt = 0;
+
+// Exempt-app watchdog state
+let lastInputTimestamp = 0;   // last hardware input event seen by the input monitor
+let inputMonitorStarted = false;
+const exemptAppJiffies = {};  // processName → last CPU jiffies total
+let wdWarnCount = 0;          // warnings sent in current grace-period cycle
+let wdFirstWarnAt = 0;        // timestamp when the warning cycle started (0 = not started)
+let wdLastWarnAt  = 0;        // timestamp of the most recent warning notification
 
 // Connected socket clients (Electron UI instances)
 const clients = new Set();
@@ -310,13 +325,174 @@ async function pkillAllUsers(users, processName) {
 
 // Terminate (log out) graphical sessions when screen time is exhausted
 async function terminateSessionsForPolicy(sessions, targetUser) {
-    for (const { user, sid } of sessions) {
-        if (targetUser && user !== targetUser) continue;
+    const toTerminate = sessions.filter(({ user }) => !targetUser || user === targetUser);
+    if (toTerminate.length === 0) return;
+
+    // Ask SDDM to switch to the greeter BEFORE terminating so the user lands on the login screen
+    // instead of a black VT. Best-effort: we still terminate even if this call fails.
+    try {
+        await execFileAsync('dbus-send', [
+            '--system', '--dest=org.freedesktop.DisplayManager',
+            '/org/freedesktop/DisplayManager/Seat0',
+            'org.freedesktop.DisplayManager.SwitchToGreeter'
+        ], { timeout: 3000 });
+        log.info('SwitchToGreeter → SDDM OK');
+    } catch (e) { log.warn(`SwitchToGreeter failed (non-SDDM or no seat0?): ${e.message}`); }
+
+    for (const { user, sid } of toTerminate) {
         try {
             await execFileAsync('loginctl', ['terminate-session', String(sid)], { timeout: 5000 });
             log.info(`terminate-session sid=${sid} user=${user} OK`);
         } catch (e) { log.error(`terminate-session sid=${sid} user=${user} FAILED: ${e.message}`); }
     }
+}
+
+// --- Exempt-app watchdog ---
+
+// Resolve process names for whitelisted (always-allowed) apps from quota + monitor catalog
+function loadExemptAppProcessNames() {
+    try {
+        const wl = JSON.parse(fs.readFileSync(path.join(CONFIG_DIR, 'process-whitelist.json'), 'utf8'));
+        if (!wl?.enabled || !Array.isArray(wl.allowedIds) || wl.allowedIds.length === 0) return [];
+        const ids = new Set(wl.allowedIds);
+        const names = new Map(); // appId → processName (first match wins)
+        try {
+            const quotas = JSON.parse(fs.readFileSync(path.join(CONFIG_DIR, 'quota.json'), 'utf8'));
+            if (Array.isArray(quotas)) {
+                for (const q of quotas) {
+                    if (q.appId && ids.has(q.appId) && q.processName) names.set(q.appId, q.processName.trim());
+                }
+            }
+        } catch { /* quota.json optional */ }
+        try {
+            const cat = JSON.parse(fs.readFileSync(path.join(CONFIG_DIR, 'app-monitor-catalog.json'), 'utf8'));
+            if (Array.isArray(cat.apps)) {
+                for (const a of cat.apps) {
+                    const id = a.appId || a.id;
+                    if (id && ids.has(id) && a.processName && !names.has(id)) names.set(id, a.processName.trim());
+                }
+            }
+        } catch { /* catalog optional */ }
+        return [...names.values()].filter(Boolean);
+    } catch { return []; }
+}
+
+// Spawn cat processes on every raw input device so we track when the user is at the keyboard/mouse
+function startInputMonitor() {
+    if (inputMonitorStarted) return;
+    inputMonitorStarted = true;
+    try {
+        const devicesInfo = fs.readFileSync('/proc/bus/input/devices', 'utf8');
+        const matches = devicesInfo.match(/Handlers=.*event(\d+)/g) || [];
+        const eventIds = matches.map(m => m.match(/\d+/)[0]);
+        let started = 0;
+        for (const id of eventIds) {
+            try {
+                const p = spawn('cat', [`/dev/input/event${id}`], { stdio: ['ignore', 'pipe', 'ignore'] });
+                p.stdout.on('data', () => { lastInputTimestamp = Date.now(); });
+                p.on('error', () => { /* device may not be readable */ });
+                started++;
+            } catch { /* skip unreadable device */ }
+        }
+        log.info(`exempt watchdog: input monitor started on ${started}/${eventIds.length} devices`);
+    } catch (e) { log.warn(`exempt watchdog: input monitor failed: ${e.message}`); }
+}
+
+// Sum utime+stime jiffies for all PIDs of a named process
+function getExemptAppJiffies(processName) {
+    try {
+        const r = spawnSync('pgrep', ['-x', '-i', processName], { encoding: 'utf8', timeout: 2000 });
+        const pids = (r.stdout || '').trim().split('\n').filter(Boolean);
+        let total = 0;
+        for (const pid of pids) {
+            try {
+                const stat = fs.readFileSync(`/proc/${pid}/stat`, 'utf8').split(' ');
+                total += (parseInt(stat[13]) || 0) + (parseInt(stat[14]) || 0);
+            } catch { /* pid may have exited */ }
+        }
+        return total;
+    } catch { return 0; }
+}
+
+// Returns true if any exempt app is running AND actively responding to the user's input.
+// Updates exemptAppJiffies cache as a side-effect (must be called every tick).
+function isExemptAppActivelyUsed(processNames) {
+    const recentInput = (Date.now() - lastInputTimestamp) < WD_INPUT_WINDOW_MS;
+    let anyActive = false;
+    for (const proc of processNames) {
+        const current = getExemptAppJiffies(proc);
+        const prev = exemptAppJiffies[proc] || 0;
+        const delta = current - prev;
+        exemptAppJiffies[proc] = current;
+        // Active = app has a process AND it consumed CPU AND input happened recently
+        if (current > 0 && recentInput && delta >= WD_CPU_MIN_JIFFIES) anyActive = true;
+    }
+    return anyActive;
+}
+
+// Send a desktop notification to the active user via runuser+notify-send
+function sendExemptWatchdogNotification(message, user, uid) {
+    try {
+        const dbusAddr = `unix:path=/run/user/${uid}/bus`;
+        spawnSync('runuser', ['-u', user, '--',
+            'env', `DBUS_SESSION_BUS_ADDRESS=${dbusAddr}`,
+            'notify-send', '-u', 'critical', '-t', '8000',
+            'LiFE Parental Control', message
+        ], { timeout: 3000 });
+    } catch { /* notification is best-effort */ }
+}
+
+// Called every tick when screen time is expired and exempt apps are configured.
+// Returns true  → logout should be BLOCKED (user is using exempt app or still in grace period).
+// Returns false → logout should PROCEED (grace period exhausted).
+async function runExemptWatchdog(processNames) {
+    const activelyUsed = isExemptAppActivelyUsed(processNames);
+
+    if (activelyUsed) {
+        // User is in the exempt app — block logout and reset any active warning cycle
+        if (wdFirstWarnAt !== 0) {
+            log.info('exempt watchdog: activity resumed in exempt app — logout blocked, warning cycle reset');
+            wdWarnCount = 0; wdFirstWarnAt = 0; wdLastWarnAt = 0;
+        }
+        return true;
+    }
+
+    const now = Date.now();
+    const recentInput = (now - lastInputTimestamp) < WD_INPUT_WINDOW_MS;
+
+    if (!recentInput) {
+        // No input anywhere: user may be reading/watching — give benefit of the doubt
+        // but still enforce the grace period if a warning cycle is already running
+        if (wdFirstWarnAt === 0) return true; // no cycle started yet, keep blocking
+        if (now - wdFirstWarnAt < WD_GRACE_MS) return true; // still within grace
+        log.info('exempt watchdog: grace period exhausted (user idle) — logout will proceed');
+        return false;
+    }
+
+    // Input is happening but NOT in the exempt app — start / continue warning cycle
+    if (wdFirstWarnAt === 0) {
+        wdFirstWarnAt = now;
+        log.info(`exempt watchdog: input detected outside exempt app — grace period started (${WD_GRACE_MS / 1000}s)`);
+    }
+
+    const elapsed = now - wdFirstWarnAt;
+    if (elapsed >= WD_GRACE_MS) {
+        log.info('exempt watchdog: grace period exhausted — logout will proceed');
+        return false;
+    }
+
+    // Send up to WD_WARN_MAX notifications spaced WD_WARN_INTERVAL_MS apart
+    if (wdWarnCount < WD_WARN_MAX && (now - wdLastWarnAt) >= WD_WARN_INTERVAL_MS) {
+        wdWarnCount++;
+        wdLastWarnAt = now;
+        const remainingSec = Math.ceil((WD_GRACE_MS - elapsed) / 1000);
+        const msg = `Warnung ${wdWarnCount}/${WD_WARN_MAX}: Kehre zur erlaubten App zurück! Logout in ~${remainingSec}s.`;
+        log.warn(`exempt watchdog: warning ${wdWarnCount}/${WD_WARN_MAX} sent`);
+        const info = getFirstActiveUserInfo();
+        if (info) sendExemptWatchdogNotification(msg, info.user, info.uid);
+    }
+
+    return true; // still within grace period
 }
 
 // --- Socket broadcast helpers ---
@@ -565,14 +741,30 @@ async function tickScreenTime(logMinute) {
     if (logMinute) log.info(`screenTime sessions=${sessions.length} users=[${activeUsers.join(',')}] minutes=${minutes} limit=${limit} remaining=${remaining} limitEnabled=${s.dailyLimitEnabled}`);
 
     if (remaining <= 0) {
-        // Terminate the session (log out the desktop)
-        await terminateSessionsForPolicy(sessions, limitLu);
-        if (!usage.warnedScreenTimeExhausted) {
-            usage.warnedScreenTimeExhausted = true;
-            const warnPayload = { type: 'exhausted', effectiveLimit: limit, usedMinutes: minutes, remaining: 0 };
-            notifyOrSpawn(warnPayload, 'Bildschirmzeit aufgebraucht', `Tageslimit von ${limit} Min. erreicht.`, 'critical');
+        const exemptProcs = loadExemptAppProcessNames();
+        if (exemptProcs.length > 0) {
+            // Exempt apps configured: watchdog decides whether to block or allow the logout
+            startInputMonitor();
+            const blocked = await runExemptWatchdog(exemptProcs);
+            if (!blocked) {
+                await terminateSessionsForPolicy(sessions, limitLu);
+                if (!usage.warnedScreenTimeExhausted) {
+                    usage.warnedScreenTimeExhausted = true;
+                    broadcastWarn({ type: 'exhausted', effectiveLimit: limit, usedMinutes: minutes, remaining: 0 });
+                }
+            }
+        } else {
+            // No exempt apps: terminate immediately
+            await terminateSessionsForPolicy(sessions, limitLu);
+            if (!usage.warnedScreenTimeExhausted) {
+                usage.warnedScreenTimeExhausted = true;
+                const warnPayload = { type: 'exhausted', effectiveLimit: limit, usedMinutes: minutes, remaining: 0 };
+                notifyOrSpawn(warnPayload, 'Bildschirmzeit aufgebraucht', `Tageslimit von ${limit} Min. erreicht.`, 'critical');
+            }
         }
     } else {
+        // Time still available: reset watchdog warning cycle so it fires fresh next expiry
+        if (wdFirstWarnAt !== 0) { wdWarnCount = 0; wdFirstWarnAt = 0; wdLastWarnAt = 0; }
         if (usage.warnedScreenTimeExhausted) usage.warnedScreenTimeExhausted = false;
         if (remaining >= 1 && remaining <= 5 && !usage.warnedLowScreenTime && hasSessionForLimit) {
             usage.warnedLowScreenTime = true;

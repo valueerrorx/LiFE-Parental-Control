@@ -12,7 +12,7 @@ Restart=always
 RestartSec=5
 StandardOutput=journal
 StandardError=journal
-SyslogIdentifier=next-exam-daemon
+SyslogIdentifier=parental-control-daemon
 # Keep daemon running even on logout; it is the source of truth for all timekeeping
 KillMode=process
 
