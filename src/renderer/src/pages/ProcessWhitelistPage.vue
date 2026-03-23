@@ -64,7 +64,7 @@
                 <div v-for="app in filteredApps" :key="app.id" class="pc-list-item">
                     <AppListItemIcon
                         :icon-data-url="app.iconDataUrl || ''"
-                            :extra-style="isEffectiveExempt(app) ? '' : 'opacity:0.85'"
+                        :extra-style="isEffectiveExempt(app) ? '' : 'opacity:0.85'"
                     />
                     <div class="flex-grow-1">
                         <div class="item-name">{{ app.name }}</div>
@@ -83,9 +83,15 @@
                     </label>
                     <span
                         class="status-badge ms-2"
-                        :class="isEffectiveExempt(app) ? 'active' : 'inactive'"
+                        :class="isAppBlocked(app) ? 'warning' : (isEffectiveExempt(app) ? 'active' : 'inactive')"
                     >
-                        {{ isEffectiveExempt(app) ? $t('processWhitelist.exempt') : $t('processWhitelist.normal') }}
+                        {{
+                            isAppBlocked(app)
+                                ? $t('processWhitelist.deactivatedBlocked')
+                                : isEffectiveExempt(app)
+                                    ? $t('processWhitelist.exempt')
+                                    : $t('processWhitelist.normal')
+                        }}
                     </span>
                 </div>
             </div>
@@ -148,14 +154,17 @@ const filteredApps = computed(() => {
             (a.processName || '').toLowerCase().includes(q)
         )
         : appsWithProcess.value
-    return [...list].sort((a, b) => {
-        const aOn = isEffectiveExempt(a) ? 0 : 1
-        const bOn = isEffectiveExempt(b) ? 0 : 1
-        return aOn - bOn
-    })
+    const score = (app) => {
+        if (isAppBlocked(app)) return 0
+        if (isEffectiveExempt(app)) return 1
+        return 2
+    }
+    return [...list].sort((a, b) => score(a) - score(b))
 })
 
 onMounted(async () => {
+    // Ensure Heavy IPC + rollout/default.json are applied before reading blocked/exempt state.
+    await window.api.app.deferredHeavyWork()
     const [apps, cfg] = await Promise.all([
         window.api.apps.list(),
         window.api.processWhitelist.get(),

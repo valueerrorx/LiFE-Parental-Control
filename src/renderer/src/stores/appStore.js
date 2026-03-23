@@ -7,6 +7,7 @@ export const useAppStore = defineStore('app', () => {
     const webFilterHostRuleCount = ref(0)
     const webFilterAllowlist = ref([])
     const blockedApps = ref([])
+    const quotaExemptAllowedIds = ref([])
     const schedule = ref(null)
     const todayUsageMinutes = ref(0)
     const todayExtraAllowanceMinutes = ref(0)
@@ -104,6 +105,7 @@ export const useAppStore = defineStore('app', () => {
     async function loadProcessWhitelist() {
         const cfg = await window.api.processWhitelist.get()
         whitelistEnabled.value = cfg?.enabled === true
+        quotaExemptAllowedIds.value = Array.isArray(cfg?.allowedIds) ? [...cfg.allowedIds] : []
     }
 
     async function refreshProtectionsState() {
@@ -127,7 +129,7 @@ export const useAppStore = defineStore('app', () => {
     }
 
     return {
-        webFilterEntries, webFilterFeedState, webFilterHostRuleCount, webFilterAllowlist, blockedApps, schedule, todayUsageMinutes, todayExtraAllowanceMinutes, kioskStatus,
+        webFilterEntries, webFilterFeedState, webFilterHostRuleCount, webFilterAllowlist, blockedApps, quotaExemptAllowedIds, schedule, todayUsageMinutes, todayExtraAllowanceMinutes, kioskStatus,
         appQuotas, appQuotaUsage, appQuotaExtra, appMonitorUsage, appMonitorLabels, statusMessage, whitelistEnabled, runningAsRoot, xdgCurrentDesktop,
         invokingLinuxUser, quotaViewLinuxUser,
         webFilterEnabled,

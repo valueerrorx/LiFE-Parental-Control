@@ -6,6 +6,7 @@ import { checkParentPassword } from './settingsIpc.js'
 import { appendActivity } from './activityLog.js'
 import { effectiveScreenMinutes, effectiveScreenMinutesFromFileData } from '@shared/screenTimeUsage.js'
 import { normalizeQuotaLinuxUser } from '@shared/quotaUsageKey.js'
+import { patchDefaultJson } from '../defaultProfileStore.js'
 
 const CONFIG_FILE = 'schedules.json'
 const BONUS_MIN = 5
@@ -135,6 +136,10 @@ export function registerSchedulesIpc(ipcMain, configDir) {
     ipcMain.handle('schedules:save', (_, schedule) => {
         try {
             persistSchedule(configDir, schedule)
+            patchDefaultJson(configDir, (d) => {
+                d.schedule = schedule
+                return d
+            })
             appendActivity(configDir, { action: 'schedule_saved', enabled: schedule?.enabled ?? false })
             return { ok: true }
         } catch (e) {

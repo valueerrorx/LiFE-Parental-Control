@@ -124,8 +124,40 @@ export function registerHeavyIpc(ipcMain, { appConfigDir, hageziBundledDir, getM
                 if (!fs.existsSync(serviceSrc)) return { error: `Service-Datei nicht gefunden: ${serviceSrc}` }
                 fs.copyFileSync(daemonSrc, '/usr/bin/parental-control-daemon.js')
                 fs.chmodSync('/usr/bin/parental-control-daemon.js', 0o755)
+                try {
+                    const daemonDir = path.dirname(daemonSrc)
+                    for (const file of fs.readdirSync(daemonDir).filter(f => f.endsWith('.js'))) {
+                        const src = path.join(daemonDir, file)
+                        const dst = path.join('/usr/bin', file)
+                        fs.copyFileSync(src, dst)
+                        fs.chmodSync(dst, 0o755)
+                    }
+                } catch {
+                    // best-effort: keep only main daemon file
+                }
                 fs.mkdirSync('/etc/systemd/system', { recursive: true })
                 fs.copyFileSync(serviceSrc, '/etc/systemd/system/parental-control.service')
+
+                // Ensure bundled HaGeZi feed files exist for daemon webfilter enforcement.
+                try {
+                    const hageziSrc = path.join(resBase, 'hagezi')
+                    const hageziDst = '/usr/share/life-parental/hagezi'
+                    if (fs.existsSync(hageziSrc)) {
+                        const copyRecursive = (src, dst) => {
+                            fs.mkdirSync(dst, { recursive: true })
+                            for (const ent of fs.readdirSync(src, { withFileTypes: true })) {
+                                const sp = path.join(src, ent.name)
+                                const dp = path.join(dst, ent.name)
+                                if (ent.isDirectory()) copyRecursive(sp, dp)
+                                else if (ent.isFile()) fs.copyFileSync(sp, dp)
+                            }
+                        }
+                        copyRecursive(hageziSrc, hageziDst)
+                    }
+                } catch {
+                    /* best-effort */
+                }
+
                 await execFileAsync('systemctl', ['daemon-reload'], { timeout: 10_000 })
                 await execFileAsync('systemctl', ['enable', 'parental-control.service'], { timeout: 10_000 })
                 await execFileAsync('systemctl', ['start', 'parental-control.service'], { timeout: 10_000 })

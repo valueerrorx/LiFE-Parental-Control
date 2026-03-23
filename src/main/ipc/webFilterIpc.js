@@ -15,6 +15,7 @@ import {
     HAGEZI_FEED_BY_ID
 } from './webFilterHagezi.js'
 import { appendActivity } from './activityLog.js'
+import { patchDefaultJson } from '../defaultProfileStore.js'
 
 const HOSTS_FILE = '/etc/hosts'
 const MARKER_BEGIN = '# LiFE Parental Control - BEGIN'
@@ -151,6 +152,16 @@ async function persistMirrorAndHosts(configDir, mirror) {
     writeMirrorToDisk(configDir, full)
     await writeHostsSectionAsync(combined)
     flushDns()
+    try {
+        patchDefaultJson(configDir, (d) => {
+            d.webfilter = {
+                entries: full.entries,
+                feedState: full.feedState,
+                listAllowlist: full.listAllowlist
+            }
+            return d
+        })
+    } catch { /* ignore */ }
 }
 
 export function registerWebFilterIpc(ipcMain, configDir, opts = {}) {

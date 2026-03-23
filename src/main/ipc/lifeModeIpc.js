@@ -9,9 +9,11 @@ import { DEFAULT_SCHEDULE, persistSchedule } from './schedulesIpc.js'
 import { readWebFilterMirror, persistWebFilterEntries } from './webFilterIpc.js'
 import { replaceBlockedDesktopIds } from './appBlockerIpc.js'
 import { appendActivity } from './activityLog.js'
+import { redeployQuotaFromDisk, replaceQuotaEntries } from './quotaIpc.js'
 
 const LIFE_MODES_FILE = 'life-modes.json'
 const DEFAULT_MODE_FILE = 'default.json'
+const QUOTA_EXEMPTIONS_FILE = 'process-whitelist.json'
 const RESERVED_KEYS = new Set(['school', 'leisure', 'default'])
 
 const BUILTIN_LABELS = { school: 'School', leisure: 'Leisure', default: 'Default' }
@@ -51,8 +53,12 @@ const BUILTIN_DEFAULT_MODE = {
     schedule: { ...DEFAULT_SCHEDULE },
     mergeCategories: [],
     stripCategories: [],
-    blockedDesktopIds: []
+    blockedDesktopIds: [],
+    webfilterMirror: undefined,
+    quotaExemptions: undefined
 }
+
+let defaultModeReadOnceLogged = false
 
 function filterCategoryNames(arr) {
     if (!Array.isArray(arr)) return []
@@ -86,13 +92,92 @@ function readCustomLifeModes(configDir) {
 function readDefaultMode(configDir) {
     const file = path.join(configDir, DEFAULT_MODE_FILE)
     try {
+        if (!fs.existsSync(file)) {
+            if (!defaultModeReadOnceLogged) {
+                defaultModeReadOnceLogged = true
+                console.info('[LiFE Parental Control] default.json not found, using built-in empty default mode')
+            }
+            return { ...BUILTIN_DEFAULT_MODE }
+        }
         const raw = JSON.parse(fs.readFileSync(file, 'utf8'))
         const normalized = normalizeCustomMode('default', raw)
-        if (normalized) return { ...BUILTIN_DEFAULT_MODE, ...normalized, label: normalized.label || 'Default' }
+        if (!normalized) {
+            if (!defaultModeReadOnceLogged) {
+                defaultModeReadOnceLogged = true
+                console.warn('[LiFE Parental Control] default.json invalid structure, using built-in empty default mode')
+            }
+            return { ...BUILTIN_DEFAULT_MODE }
+        }
+
+        const webfilterMirror = normalizeDefaultWebfilterMirror(raw)
+        const quotaExemptions = normalizeDefaultQuotaExemptions(raw)
+
+        if (!defaultModeReadOnceLogged) {
+            defaultModeReadOnceLogged = true
+            console.info('[LiFE Parental Control] default.json found and parsed', {
+                hasWebfilter: Boolean(webfilterMirror),
+                hasQuotaExemptions: Boolean(quotaExemptions),
+                allowedIdsCount: Array.isArray(quotaExemptions?.allowedIds) ? quotaExemptions.allowedIds.length : 0
+            })
+        }
+
+        return {
+            ...BUILTIN_DEFAULT_MODE,
+            ...normalized,
+            label: normalized.label || 'Default',
+            webfilterMirror,
+            quotaExemptions
+        }
     } catch {
         // fallback to built-in empty default mode
+        if (!defaultModeReadOnceLogged) {
+            defaultModeReadOnceLogged = true
+            console.warn('[LiFE Parental Control] default.json could not be parsed, using built-in empty default mode')
+        }
     }
     return { ...BUILTIN_DEFAULT_MODE }
+}
+
+function normalizeDefaultWebfilterMirror(raw) {
+    if (!raw || typeof raw !== 'object' || !raw.webfilter) return undefined
+    const w = raw.webfilter
+    if (typeof w !== 'object' || w === null || Array.isArray(w)) return undefined
+
+    const entries = Array.isArray(w.entries)
+        ? w.entries
+            .filter(e => e && typeof e.domain === 'string')
+            .map(e => ({ domain: String(e.domain).toLowerCase(), enabled: e.enabled !== false }))
+        : []
+
+    const feedState = (w.feedState && typeof w.feedState === 'object' && !Array.isArray(w.feedState))
+        ? { ...w.feedState }
+        : {}
+
+    const listAllowlist = Array.isArray(w.listAllowlist)
+        ? w.listAllowlist.filter(d => typeof d === 'string')
+        : []
+
+    return { entries, feedState, listAllowlist }
+}
+
+function normalizeDefaultQuotaExemptions(raw) {
+    if (!raw || typeof raw !== 'object' || !raw.quotaExemptions) return undefined
+    const q = raw.quotaExemptions
+    if (typeof q !== 'object' || q === null || Array.isArray(q)) return undefined
+
+    const allowedIds = Array.isArray(q.allowedIds) ? q.allowedIds.filter(id => typeof id === 'string') : []
+    const enabled = typeof q.enabled === 'boolean' ? q.enabled : allowedIds.length > 0
+    return { enabled, allowedIds }
+}
+
+function persistQuotaExemptions(configDir, quotaExemptions) {
+    const enabled = Boolean(quotaExemptions?.enabled)
+    const allowedIds = Array.isArray(quotaExemptions?.allowedIds) ? quotaExemptions.allowedIds.filter(id => typeof id === 'string') : []
+    fs.writeFileSync(
+        path.join(configDir, QUOTA_EXEMPTIONS_FILE),
+        JSON.stringify({ enabled, allowedIds }, null, 2),
+        'utf8'
+    )
 }
 
 function getAllLifeModes(configDir) {
@@ -153,17 +238,66 @@ export async function applyLifeModeDirect(configDir, modeKey, { quiet = false } 
         errs.push(`schedule: ${e.message}`)
     }
 
-    // Default profile must fully clear webfilter mirror and blocked app list.
     if (modeKey === 'default') {
+        // webfilter mirror: apply if present; otherwise clear (empty default = everything off).
+        console.info('[LiFE Parental Control] applying default life mode', {
+            scheduleEnabled: Boolean(mode.schedule?.enabled),
+            dailyLimitEnabled: Boolean(mode.schedule?.dailyLimitEnabled)
+        })
         try {
-            await persistWebFilterEntries(configDir, [], {}, [])
+            if (mode.webfilterMirror?.entries) {
+                const { entries, feedState, listAllowlist } = mode.webfilterMirror
+                await persistWebFilterEntries(configDir, entries, feedState, listAllowlist)
+                console.info('[LiFE Parental Control] default webfilter mirror applied', {
+                    entryCount: entries?.length ?? 0
+                })
+            } else if (mode.mergeCategories?.length) {
+                const cur = readWebFilterMirror(configDir)
+                const next = mergeCategoriesIntoMirror(cur, mode.mergeCategories)
+                await persistWebFilterEntries(configDir, next.entries, next.feedState)
+            } else if (mode.stripCategories?.length) {
+                const cur = readWebFilterMirror(configDir)
+                const next = stripCategoriesFromMirror(cur, mode.stripCategories)
+                await persistWebFilterEntries(configDir, next.entries, next.feedState)
+            } else {
+                await persistWebFilterEntries(configDir, [], {}, [])
+                console.info('[LiFE Parental Control] default webfilter mirror cleared (empty default)')
+            }
         } catch (e) {
             errs.push(`webfilter: ${e.message}`)
         }
+
         try {
-            replaceBlockedDesktopIds(configDir, [])
+            replaceBlockedDesktopIds(configDir, mode.blockedDesktopIds ?? [])
+            console.info('[LiFE Parental Control] default blocked apps set', {
+                blockedCount: (mode.blockedDesktopIds ?? []).length
+            })
         } catch (e) {
             errs.push(`apps: ${e.message}`)
+        }
+
+        try {
+            const q = mode.quotaExemptions ?? { enabled: false, allowedIds: [] }
+            persistQuotaExemptions(configDir, q)
+            console.info('[LiFE Parental Control] default quota exemptions written', {
+                enabled: Boolean(q?.enabled),
+                allowedIdsCount: Array.isArray(q?.allowedIds) ? q.allowedIds.length : 0
+            })
+        } catch (e) {
+            errs.push(`quota_exemptions: ${e.message}`)
+        }
+
+        try {
+            const quotaEntries = Array.isArray(mode.quota) ? mode.quota : []
+            replaceQuotaEntries(configDir, quotaEntries)
+        } catch (e) {
+            errs.push(`quota_entries: ${e.message}`)
+        }
+
+        try {
+            await redeployQuotaFromDisk(configDir)
+        } catch (e) {
+            errs.push(`quota_redeploy: ${e.message}`)
         }
     } else {
         try {

@@ -196,12 +196,17 @@ const addLinuxUser = ref('')
 
 const filtered = computed(() => {
     const q = search.value.toLowerCase()
-    return apps.value.filter(a => !q ||
+    const list = apps.value.filter(a => !q ||
         a.name.toLowerCase().includes(q) ||
         (a.exec || '').toLowerCase().includes(q) ||
         (a.processName || '').toLowerCase().includes(q))
-}
-)
+    return [...list].sort((a, b) => {
+        const aScore = a.blocked ? 0 : 1
+        const bScore = b.blocked ? 0 : 1
+        if (aScore !== bScore) return aScore - bScore
+        return String(a.name || '').localeCompare(String(b.name || ''))
+    })
+})
 const blockedCount = computed(() => apps.value.filter(a => a.blocked).length)
 
 function quotaRowKey(q) {
@@ -266,6 +271,9 @@ const canAddQuota = computed(() => {
 })
 
 onMounted(async () => {
+    // Wait for deferred heavy init so default-rollout state is fully applied before listing apps.
+    await window.api.app.deferredHeavyWork()
+    await store.loadBlockedApps()
     await loadDesktopLoginUsers()
     apps.value = await window.api.apps.list()
     await loadQuotas()

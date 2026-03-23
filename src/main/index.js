@@ -11,12 +11,13 @@ import { pruneUsageArchives } from './ipc/usageArchivePrune.js'
 import { resolveWindowIconPath } from './windowIcon.js'
 import { initWarningWindow } from './warningWindow.js'
 import { resolveElevatedExecutablePath } from './appImageResolve.js'
+import { ensureDefaultJsonExistsForUi } from './defaultProfileStore.js'
 
 const APP_CONFIG_DIR = '/etc/life-parental'
 
 let mainWindow = null
 let allowAppTermination = false
-let deferredHeavyWorkStarted = false
+let deferredHeavyWorkPromise = null
 
 function buildPkexecForwardEnvPairs() {
     const envPairs = []
@@ -134,21 +135,7 @@ app.whenReady().then(async () => {
     initWarningWindow(imagesDir)
     mkdirSync(profilesDir, { recursive: true })
     mkdirSync(APP_CONFIG_DIR, { recursive: true })
-    // Apply an empty default profile on first start when the systemd daemon is not installed/running yet.
-    if (app.isPackaged && process.platform === 'linux') {
-        const serviceUnitPath = '/etc/systemd/system/parental-control.service'
-        const daemonSocketPath = '/run/parental-control.sock'
-        const markerPath = path.join(APP_CONFIG_DIR, '.default-life-mode-applied-v1')
-        if (!fs.existsSync(serviceUnitPath) && !fs.existsSync(daemonSocketPath) && !fs.existsSync(markerPath)) {
-            try {
-                const { applyLifeModeDirect } = await import('./ipc/lifeModeIpc.js')
-                await applyLifeModeDirect(APP_CONFIG_DIR, 'default', { quiet: true })
-                fs.writeFileSync(markerPath, new Date().toISOString(), 'utf8')
-            } catch {
-                // best-effort: default apply should not block app startup
-            }
-        }
-    }
+    ensureDefaultJsonExistsForUi(APP_CONFIG_DIR)
     // Store own executable path so the daemon can spawn the warning window
     // Only write when packaged — in dev, process.execPath is the bare Electron binary
     // which would open the wrong app when spawned by the daemon standalone.
@@ -265,13 +252,25 @@ app.whenReady().then(async () => {
     })
 
     ipcMain.handle('app:deferredHeavyWork', async () => {
-        if (deferredHeavyWorkStarted) return { ok: true }
-        deferredHeavyWorkStarted = true
-        scheduleHeavyIpcRegistration()
-        await heavyIpcReady
-        const { runDeferredStartupTasks } = await import('./registerHeavyIpc.js')
-        globalThis.setImmediate(() => runDeferredStartupTasks(APP_CONFIG_DIR))
-        return { ok: true }
+        if (deferredHeavyWorkPromise) return deferredHeavyWorkPromise
+        deferredHeavyWorkPromise = (async () => {
+            scheduleHeavyIpcRegistration()
+            await heavyIpcReady
+
+            try {
+                if (process.platform === 'linux') {
+                    const { applyLifeModeDirect } = await import('./ipc/lifeModeIpc.js')
+                    await applyLifeModeDirect(APP_CONFIG_DIR, 'default', { quiet: true })
+                }
+            } catch {
+                // best-effort
+            }
+
+            const { runDeferredStartupTasks } = await import('./registerHeavyIpc.js')
+            globalThis.setImmediate(() => runDeferredStartupTasks(APP_CONFIG_DIR))
+            return { ok: true }
+        })()
+        return deferredHeavyWorkPromise
     })
 
     if (process.env.NODE_ENV === 'development') {

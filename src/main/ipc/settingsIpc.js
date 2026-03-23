@@ -6,6 +6,7 @@ import { normalizedLockIdleMinutesOrUndefined } from '@shared/lockIdleMinutes.js
 import { normalizeQuotaLinuxUser } from '@shared/quotaUsageKey.js'
 import { pruneUsageArchives } from './usageArchivePrune.js'
 import { appendActivity } from './activityLog.js'
+import { readDefaultJson, patchDefaultJson } from '../defaultProfileStore.js'
 import {
     writeSystemAutostartDesktop,
     removeSystemAutostartDesktop,
@@ -26,6 +27,25 @@ function saveConfig(configDir, data) {
 
 function hashPassword(password, salt) {
     return crypto.createHash('sha256').update(password + salt).digest('hex')
+}
+
+function readPasswordSecurityWithMigration(configDir) {
+    const def = readDefaultJson(configDir)
+    if (def?.security?.passwordHash && def?.security?.salt) return def.security
+
+    // Best-effort migration: keep existing installs working if password was stored in config.json.
+    const cfg = readConfig(configDir)
+    if (cfg?.passwordHash && cfg?.salt) {
+        try {
+            patchDefaultJson(configDir, (d) => {
+                d.security = { passwordHash: cfg.passwordHash, salt: cfg.salt }
+                return d
+            })
+        } catch { /* ignore */ }
+        return { passwordHash: cfg.passwordHash, salt: cfg.salt }
+    }
+
+    return { passwordHash: '', salt: '' }
 }
 
 export function readPreferencesForBackup(configDir) {
@@ -77,32 +97,41 @@ export function repairInvalidLockIdleInConfig(configDir) {
 
 // Parent gate for privileged actions (screen-time bonus); unrelated to unlock-screen "no password" bypass.
 export function checkParentPassword(configDir, plain) {
-    const cfg = readConfig(configDir)
-    if (!cfg.passwordHash) return { ok: false, reason: 'no_password' }
+    const sec = readPasswordSecurityWithMigration(configDir)
+    if (!sec.passwordHash) return { ok: false, reason: 'no_password' }
     if (typeof plain !== 'string' || plain.length === 0) return { ok: false, reason: 'invalid' }
-    if (hashPassword(plain, cfg.salt) !== cfg.passwordHash) return { ok: false, reason: 'invalid' }
+    if (hashPassword(plain, sec.salt) !== sec.passwordHash) return { ok: false, reason: 'invalid' }
     return { ok: true }
 }
 
 export function registerSettingsIpc(ipcMain, configDir) {
     ipcMain.handle('settings:isPasswordSet', () => {
-        const cfg = readConfig(configDir)
-        return !!(cfg.passwordHash)
+        try {
+            const sec = readPasswordSecurityWithMigration(configDir)
+            return !!sec.passwordHash
+        } catch {
+            return false
+        }
     })
 
     ipcMain.handle('settings:checkPassword', (_, password) => {
-        const cfg = readConfig(configDir)
-        if (!cfg.passwordHash) return true  // no password set → allow through
-        return hashPassword(password, cfg.salt) === cfg.passwordHash
+        try {
+            const sec = readPasswordSecurityWithMigration(configDir)
+            if (!sec.passwordHash) return true  // no password set → allow through
+            return hashPassword(password, sec.salt) === sec.passwordHash
+        } catch {
+            return true
+        }
     })
 
     ipcMain.handle('settings:setPassword', (_, password) => {
-        const cfg = readConfig(configDir)
-        const isFirstSetup = !cfg.passwordHash
+        const sec = readPasswordSecurityWithMigration(configDir)
+        const isFirstSetup = !sec?.passwordHash
         const salt = crypto.randomBytes(16).toString('hex')
-        cfg.passwordHash = hashPassword(password, salt)
-        cfg.salt = salt
-        saveConfig(configDir, cfg)
+        patchDefaultJson(configDir, (d) => {
+            d.security = { passwordHash: hashPassword(password, salt), salt }
+            return d
+        })
         appendActivity(configDir, { action: 'parent_password_set' })
         if (isFirstSetup && app.isPackaged && typeof process.getuid === 'function' && process.getuid() === 0) {
             try {
@@ -118,21 +147,22 @@ export function registerSettingsIpc(ipcMain, configDir) {
     })
 
     ipcMain.handle('settings:changePassword', (_, oldPassword, newPassword) => {
-        const cfg = readConfig(configDir)
-        if (cfg.passwordHash && hashPassword(oldPassword, cfg.salt) !== cfg.passwordHash) {
+        const sec = readPasswordSecurityWithMigration(configDir)
+        if (sec?.passwordHash && hashPassword(oldPassword, sec.salt) !== sec.passwordHash) {
             return { error: 'Current password is incorrect' }
         }
         const salt = crypto.randomBytes(16).toString('hex')
-        cfg.passwordHash = hashPassword(newPassword, salt)
-        cfg.salt = salt
-        saveConfig(configDir, cfg)
+        patchDefaultJson(configDir, (d) => {
+            d.security = { passwordHash: hashPassword(newPassword, salt), salt }
+            return d
+        })
         appendActivity(configDir, { action: 'parent_password_changed' })
         return { ok: true }
     })
 
     ipcMain.handle('settings:getConfig', () => {
         const cfg = readConfig(configDir)
-        // Never spread full cfg into IPC — only prefs the renderer understands (password lives in cfg too).
+        // Never spread full cfg into IPC — only prefs the renderer understands.
         const safe = {}
         if (Object.hasOwn(cfg, 'lockIdleMinutes')) {
             const m = normalizedLockIdleMinutesOrUndefined(cfg.lockIdleMinutes)
@@ -170,6 +200,7 @@ export function registerSettingsIpc(ipcMain, configDir) {
         }
         saveConfig(configDir, next)
     })
+
 
     ipcMain.handle('settings:setAutostart', (_, enabled) => {
         const want = Boolean(enabled)
