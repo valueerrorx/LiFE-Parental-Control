@@ -137,14 +137,5 @@ In the `Screen Time` module you can configure screen time.
 In `Settings → Systemd Daemon` you can see the daemon status.
 ![Settings](images/settings.png)
 
-This image shows the tray icon at 24px.
-![Tray Icon 24px](images/tray-24.png)
-
-This image shows the tray icon at 64px.
-![Tray Icon 64px](images/tray-64.png)
-
-This is the overview/launcher graphic (PC).
-![PC Overview](images/pc.png)
-
 In the `Web Filter` module you can see domain rules and exceptions.
 ![Web Filter](images/webfilter.png)
