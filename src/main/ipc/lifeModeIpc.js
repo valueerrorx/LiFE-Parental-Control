@@ -9,11 +9,14 @@ import { DEFAULT_SCHEDULE, persistSchedule } from './schedulesIpc.js'
 import { readWebFilterMirror, persistWebFilterEntries } from './webFilterIpc.js'
 import { replaceBlockedDesktopIds } from './appBlockerIpc.js'
 import { appendActivity } from './activityLog.js'
+import { redeployQuotaFromDisk, replaceQuotaEntries } from './quotaIpc.js'
 
 const LIFE_MODES_FILE = 'life-modes.json'
-const RESERVED_KEYS = new Set(['school', 'leisure'])
+const DEFAULT_MODE_FILE = 'default.json'
+const QUOTA_EXEMPTIONS_FILE = 'process-whitelist.json'
+const RESERVED_KEYS = new Set(['school', 'leisure', 'default'])
 
-const BUILTIN_LABELS = { school: 'School', leisure: 'Leisure' }
+const BUILTIN_LABELS = { school: 'School', leisure: 'Leisure', default: 'Default' }
 
 const BUILTIN_LIFE_MODES = {
     school: {
@@ -45,6 +48,18 @@ const BUILTIN_LIFE_MODES = {
     }
 }
 
+const BUILTIN_DEFAULT_MODE = {
+    label: 'Default',
+    schedule: { ...DEFAULT_SCHEDULE },
+    mergeCategories: [],
+    stripCategories: [],
+    blockedDesktopIds: [],
+    webfilterMirror: undefined,
+    quotaExemptions: undefined
+}
+
+let defaultModeReadOnceLogged = false
+
 function filterCategoryNames(arr) {
     if (!Array.isArray(arr)) return []
     return arr.filter(c => isKnownWebFilterCategory(c))
@@ -74,8 +89,99 @@ function readCustomLifeModes(configDir) {
     }
 }
 
+function readDefaultMode(configDir) {
+    const file = path.join(configDir, DEFAULT_MODE_FILE)
+    try {
+        if (!fs.existsSync(file)) {
+            if (!defaultModeReadOnceLogged) {
+                defaultModeReadOnceLogged = true
+                console.info('[LiFE Parental Control] default.json not found, using built-in empty default mode')
+            }
+            return { ...BUILTIN_DEFAULT_MODE }
+        }
+        const raw = JSON.parse(fs.readFileSync(file, 'utf8'))
+        const normalized = normalizeCustomMode('default', raw)
+        if (!normalized) {
+            if (!defaultModeReadOnceLogged) {
+                defaultModeReadOnceLogged = true
+                console.warn('[LiFE Parental Control] default.json invalid structure, using built-in empty default mode')
+            }
+            return { ...BUILTIN_DEFAULT_MODE }
+        }
+
+        const webfilterMirror = normalizeDefaultWebfilterMirror(raw)
+        const quotaExemptions = normalizeDefaultQuotaExemptions(raw)
+
+        if (!defaultModeReadOnceLogged) {
+            defaultModeReadOnceLogged = true
+            console.info('[LiFE Parental Control] default.json found and parsed', {
+                hasWebfilter: Boolean(webfilterMirror),
+                hasQuotaExemptions: Boolean(quotaExemptions),
+                allowedIdsCount: Array.isArray(quotaExemptions?.allowedIds) ? quotaExemptions.allowedIds.length : 0
+            })
+        }
+
+        return {
+            ...BUILTIN_DEFAULT_MODE,
+            ...normalized,
+            label: normalized.label || 'Default',
+            webfilterMirror,
+            quotaExemptions
+        }
+    } catch {
+        // fallback to built-in empty default mode
+        if (!defaultModeReadOnceLogged) {
+            defaultModeReadOnceLogged = true
+            console.warn('[LiFE Parental Control] default.json could not be parsed, using built-in empty default mode')
+        }
+    }
+    return { ...BUILTIN_DEFAULT_MODE }
+}
+
+function normalizeDefaultWebfilterMirror(raw) {
+    if (!raw || typeof raw !== 'object' || !raw.webfilter) return undefined
+    const w = raw.webfilter
+    if (typeof w !== 'object' || w === null || Array.isArray(w)) return undefined
+
+    const entries = Array.isArray(w.entries)
+        ? w.entries
+            .filter(e => e && typeof e.domain === 'string')
+            .map(e => ({ domain: String(e.domain).toLowerCase(), enabled: e.enabled !== false }))
+        : []
+
+    const feedState = (w.feedState && typeof w.feedState === 'object' && !Array.isArray(w.feedState))
+        ? { ...w.feedState }
+        : {}
+
+    const listAllowlist = Array.isArray(w.listAllowlist)
+        ? w.listAllowlist.filter(d => typeof d === 'string')
+        : []
+
+    return { entries, feedState, listAllowlist }
+}
+
+function normalizeDefaultQuotaExemptions(raw) {
+    if (!raw || typeof raw !== 'object' || !raw.quotaExemptions) return undefined
+    const q = raw.quotaExemptions
+    if (typeof q !== 'object' || q === null || Array.isArray(q)) return undefined
+
+    const allowedIds = Array.isArray(q.allowedIds) ? q.allowedIds.filter(id => typeof id === 'string') : []
+    const enabled = typeof q.enabled === 'boolean' ? q.enabled : allowedIds.length > 0
+    return { enabled, allowedIds }
+}
+
+function persistQuotaExemptions(configDir, quotaExemptions) {
+    const enabled = Boolean(quotaExemptions?.enabled)
+    const allowedIds = Array.isArray(quotaExemptions?.allowedIds) ? quotaExemptions.allowedIds.filter(id => typeof id === 'string') : []
+    fs.writeFileSync(
+        path.join(configDir, QUOTA_EXEMPTIONS_FILE),
+        JSON.stringify({ enabled, allowedIds }, null, 2),
+        'utf8'
+    )
+}
+
 function getAllLifeModes(configDir) {
-    const out = { ...BUILTIN_LIFE_MODES }
+    const out = { ...BUILTIN_LIFE_MODES, default: readDefaultMode(configDir) }
     for (const [key, def] of Object.entries(readCustomLifeModes(configDir))) {
         if (RESERVED_KEYS.has(key)) continue
         const norm = normalizeCustomMode(key, def)
@@ -120,27 +226,80 @@ function stripCategoriesFromMirror(mirror, categoryNames) {
     return { entries, feedState }
 }
 
-export function registerLifeModeIpc(ipcMain, configDir) {
-    ipcMain.handle('lifeMode:list', () => {
-        const merged = getAllLifeModes(configDir)
-        const modes = Object.keys(merged)
-        const labels = {}
-        for (const k of modes) {
-            labels[k] = BUILTIN_LABELS[k] ?? merged[k].label ?? k
-        }
-        return { modes, labels, customPath: path.join(configDir, LIFE_MODES_FILE) }
-    })
+export async function applyLifeModeDirect(configDir, modeKey, { quiet = false } = {}) {
+    const all = getAllLifeModes(configDir)
+    const mode = all[modeKey]
+    if (!mode) return { error: `Unknown mode: ${modeKey}` }
 
-    ipcMain.handle('lifeMode:apply', async (_, modeKey) => {
-        const all = getAllLifeModes(configDir)
-        const mode = all[modeKey]
-        if (!mode) return { error: `Unknown mode: ${modeKey}` }
-        const errs = []
+    const errs = []
+    try {
+        persistSchedule(configDir, mode.schedule)
+    } catch (e) {
+        errs.push(`schedule: ${e.message}`)
+    }
+
+    if (modeKey === 'default') {
+        // webfilter mirror: apply if present; otherwise clear (empty default = everything off).
+        console.info('[LiFE Parental Control] applying default life mode', {
+            scheduleEnabled: Boolean(mode.schedule?.enabled),
+            dailyLimitEnabled: Boolean(mode.schedule?.dailyLimitEnabled)
+        })
         try {
-            persistSchedule(configDir, mode.schedule)
+            if (mode.webfilterMirror?.entries) {
+                const { entries, feedState, listAllowlist } = mode.webfilterMirror
+                await persistWebFilterEntries(configDir, entries, feedState, listAllowlist)
+                console.info('[LiFE Parental Control] default webfilter mirror applied', {
+                    entryCount: entries?.length ?? 0
+                })
+            } else if (mode.mergeCategories?.length) {
+                const cur = readWebFilterMirror(configDir)
+                const next = mergeCategoriesIntoMirror(cur, mode.mergeCategories)
+                await persistWebFilterEntries(configDir, next.entries, next.feedState)
+            } else if (mode.stripCategories?.length) {
+                const cur = readWebFilterMirror(configDir)
+                const next = stripCategoriesFromMirror(cur, mode.stripCategories)
+                await persistWebFilterEntries(configDir, next.entries, next.feedState)
+            } else {
+                await persistWebFilterEntries(configDir, [], {}, [])
+                console.info('[LiFE Parental Control] default webfilter mirror cleared (empty default)')
+            }
         } catch (e) {
-            errs.push(`schedule: ${e.message}`)
+            errs.push(`webfilter: ${e.message}`)
         }
+
+        try {
+            replaceBlockedDesktopIds(configDir, mode.blockedDesktopIds ?? [])
+            console.info('[LiFE Parental Control] default blocked apps set', {
+                blockedCount: (mode.blockedDesktopIds ?? []).length
+            })
+        } catch (e) {
+            errs.push(`apps: ${e.message}`)
+        }
+
+        try {
+            const q = mode.quotaExemptions ?? { enabled: false, allowedIds: [] }
+            persistQuotaExemptions(configDir, q)
+            console.info('[LiFE Parental Control] default quota exemptions written', {
+                enabled: Boolean(q?.enabled),
+                allowedIdsCount: Array.isArray(q?.allowedIds) ? q.allowedIds.length : 0
+            })
+        } catch (e) {
+            errs.push(`quota_exemptions: ${e.message}`)
+        }
+
+        try {
+            const quotaEntries = Array.isArray(mode.quota) ? mode.quota : []
+            replaceQuotaEntries(configDir, quotaEntries)
+        } catch (e) {
+            errs.push(`quota_entries: ${e.message}`)
+        }
+
+        try {
+            await redeployQuotaFromDisk(configDir)
+        } catch (e) {
+            errs.push(`quota_redeploy: ${e.message}`)
+        }
+    } else {
         try {
             if (mode.mergeCategories?.length) {
                 const cur = readWebFilterMirror(configDir)
@@ -154,15 +313,33 @@ export function registerLifeModeIpc(ipcMain, configDir) {
         } catch (e) {
             errs.push(`webfilter: ${e.message}`)
         }
+
         try {
             replaceBlockedDesktopIds(configDir, mode.blockedDesktopIds ?? [])
         } catch (e) {
             errs.push(`apps: ${e.message}`)
         }
-        if (!errs.length) {
-            const label = BUILTIN_LABELS[modeKey] ?? mode.label ?? modeKey
-            appendActivity(configDir, { action: 'life_mode_apply', modeKey, label })
+    }
+
+    if (!errs.length && !quiet) {
+        const label = BUILTIN_LABELS[modeKey] ?? mode.label ?? modeKey
+        appendActivity(configDir, { action: 'life_mode_apply', modeKey, label })
+    }
+    return errs.length ? { error: errs.join(' — ') } : { ok: true }
+}
+
+export function registerLifeModeIpc(ipcMain, configDir) {
+    ipcMain.handle('lifeMode:list', () => {
+        const merged = getAllLifeModes(configDir)
+        const modes = Object.keys(merged)
+        const labels = {}
+        for (const k of modes) {
+            labels[k] = BUILTIN_LABELS[k] ?? merged[k].label ?? k
         }
-        return errs.length ? { error: errs.join(' — ') } : { ok: true }
+        return { modes, labels, customPath: path.join(configDir, LIFE_MODES_FILE) }
+    })
+
+    ipcMain.handle('lifeMode:apply', async (_, modeKey) => {
+        return applyLifeModeDirect(configDir, modeKey)
     })
 }

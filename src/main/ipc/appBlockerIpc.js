@@ -4,6 +4,7 @@ import { execFile, spawnSync } from 'child_process'
 import { desktopIconToDataUrl } from './desktopIconResolve.js'
 import { redeployQuotaFromDisk } from './quotaIpc.js'
 import { appendActivity } from './activityLog.js'
+import { patchDefaultJson } from '../defaultProfileStore.js'
 
 const DESKTOP_DIRS = [
     '/usr/share/applications',
@@ -146,6 +147,120 @@ function parseDesktopFile(filePath) {
 function normalizeBlockedIds(raw) {
     if (!Array.isArray(raw)) return []
     return raw.map(item => (typeof item === 'string' ? item : item?.id)).filter(Boolean)
+}
+
+function desktopIdStem(id) {
+    return path.basename(String(id || ''), '.desktop').toLowerCase()
+}
+
+function desktopIdTailStem(id) {
+    const stem = desktopIdStem(id)
+    const parts = stem.split('.')
+    return parts[parts.length - 1] || stem
+}
+
+function resolveBlockedIdsAgainstApps(ids, apps) {
+    const appIds = new Set((apps || []).map(a => a.id))
+    const byStem = new Map()
+    const byTail = new Map()
+    // Index for fuzzy resolution between provided IDs and installed apps.
+    const appIndex = []
+    for (const a of apps || []) {
+        const id = String(a.id || '')
+        if (!id) continue
+        const stem = desktopIdStem(id)
+        const tail = desktopIdTailStem(id)
+        if (!byStem.has(stem)) byStem.set(stem, [])
+        byStem.get(stem).push(id)
+        if (!byTail.has(tail)) byTail.set(tail, [])
+        byTail.get(tail).push(id)
+        appIndex.push({
+            id,
+            tail,
+            name: String(a.name || ''),
+            processName: String(a.processName || '')
+        })
+    }
+
+    const out = []
+    const seen = new Set()
+
+    function levenshtein(a, b) {
+        const s = String(a)
+        const t = String(b)
+        const n = s.length
+        const m = t.length
+        if (n === 0) return m
+        if (m === 0) return n
+        const dp = Array.from({ length: n + 1 }, () => new Array(m + 1).fill(0))
+        for (let i = 0; i <= n; i++) dp[i][0] = i
+        for (let j = 0; j <= m; j++) dp[0][j] = j
+        for (let i = 1; i <= n; i++) {
+            const si = s.charCodeAt(i - 1)
+            for (let j = 1; j <= m; j++) {
+                const cost = si === t.charCodeAt(j - 1) ? 0 : 1
+                dp[i][j] = Math.min(
+                    dp[i - 1][j] + 1,
+                    dp[i][j - 1] + 1,
+                    dp[i - 1][j - 1] + cost
+                )
+            }
+        }
+        return dp[n][m]
+    }
+
+    function fuzzyResolve(rawWithExt) {
+        const rawStem = desktopIdStem(rawWithExt)
+        const rawTail = desktopIdTailStem(rawWithExt)
+        const maxLen = Math.max(rawStem.length, rawTail.length)
+        const threshold = maxLen <= 6 ? 2 : 3
+        let best = null
+        let bestId = ''
+        for (const a of appIndex) {
+            const dist = Math.min(
+                levenshtein(rawTail, a.tail),
+                levenshtein(rawStem, desktopIdStem(a.id))
+            )
+            if (dist > threshold) continue
+            if (best === null || dist < best) {
+                best = dist
+                bestId = a.id
+            } else if (dist === best && a.id !== bestId) {
+                bestId = ''
+            }
+        }
+        return bestId || null
+    }
+
+    for (const rawId of ids || []) {
+        const raw = String(rawId || '').trim()
+        if (!raw) continue
+        const withExt = raw.endsWith('.desktop') ? raw : `${raw}.desktop`
+        let resolved = ''
+
+        if (appIds.has(raw)) resolved = raw
+        else if (appIds.has(withExt)) resolved = withExt
+        else {
+            const stem = desktopIdStem(withExt)
+            const tail = desktopIdTailStem(withExt)
+            const stemMatches = byStem.get(stem) || []
+            if (stemMatches.length === 1) {
+                resolved = stemMatches[0]
+            } else {
+                const tailMatches = byTail.get(tail) || []
+                if (tailMatches.length === 1) resolved = tailMatches[0]
+                if (!resolved) {
+                    const fuzzy = fuzzyResolve(withExt)
+                    if (fuzzy) resolved = fuzzy
+                }
+            }
+        }
+
+        if (!resolved || seen.has(resolved)) continue
+        seen.add(resolved)
+        out.push(resolved)
+    }
+    return out
 }
 
 function readBlocked(configDir) {
@@ -318,21 +433,28 @@ function applyDesktopOverride(configDir, appId, block) {
 }
 
 export function replaceBlockedDesktopIds(configDir, nextIds) {
-    const next = new Set(nextIds)
-    const prev = readBlocked(configDir)
+    const knownApps = readAllDesktopApps()
+    const nextResolved = resolveBlockedIdsAgainstApps(Array.isArray(nextIds) ? nextIds : [], knownApps)
+    const prevResolved = resolveBlockedIdsAgainstApps(readBlocked(configDir), knownApps)
+    const next = new Set(nextResolved)
+    const prev = prevResolved
+    // Normalize persisted IDs so UI + daemon read the same canonical desktop ids.
+    saveBlocked(configDir, [...next])
     for (const id of prev) {
         if (!next.has(id)) applyDesktopOverride(configDir, id, false)
     }
     for (const id of next) {
         if (!prev.includes(id)) applyDesktopOverride(configDir, id, true)
     }
-    saveBlocked(configDir, [...next])
 }
 
 export function registerAppBlockerIpc(ipcMain, configDir) {
     ipcMain.handle('apps:list', () => {
-        const blocked = new Set(readBlocked(configDir))
         const base = readAllDesktopApps()
+        const resolvedBlocked = resolveBlockedIdsAgainstApps(readBlocked(configDir), base)
+        const blocked = new Set(resolvedBlocked)
+        // Keep disk in sync with canonical IDs discovered from installed apps.
+        saveBlocked(configDir, resolvedBlocked)
         const apps = base.map((app) => {
             const file = app.id
             const row = {
@@ -366,6 +488,10 @@ export function registerAppBlockerIpc(ipcMain, configDir) {
                 if (i !== -1) list.splice(i, 1)
             }
             saveBlocked(configDir, list)
+            patchDefaultJson(configDir, (d) => {
+                d.blockedDesktopIds = list
+                return d
+            })
             applyDesktopOverride(configDir, appId, block)
             syncAppArmor(configDir)
             appendActivity(configDir, { action: block ? 'app_blocked' : 'app_unblocked', appId })
@@ -376,5 +502,10 @@ export function registerAppBlockerIpc(ipcMain, configDir) {
         }
     })
 
-    ipcMain.handle('apps:getBlocked', () => readBlocked(configDir))
+    ipcMain.handle('apps:getBlocked', () => {
+        const base = readAllDesktopApps()
+        const resolvedBlocked = resolveBlockedIdsAgainstApps(readBlocked(configDir), base)
+        saveBlocked(configDir, resolvedBlocked)
+        return resolvedBlocked
+    })
 }

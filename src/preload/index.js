@@ -94,7 +94,7 @@ contextBridge.exposeInMainWorld('api', {
         setAutostart: (enabled) => ipcRenderer.invoke('settings:setAutostart', enabled),
         pruneUsageArchives: () => ipcRenderer.invoke('settings:pruneUsageArchives'),
         stopAllProtections: () => ipcRenderer.invoke('settings:stopAllProtections'),
-        deleteAllUsageHistory: () => ipcRenderer.invoke('settings:deleteAllUsageHistory')
+        deleteAllUsageHistory: () => ipcRenderer.invoke('settings:deleteAllUsageHistory'),
     },
     daemon: {
         isConnected: () => ipcRenderer.invoke('daemon:isConnected'),

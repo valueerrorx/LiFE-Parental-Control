@@ -9,6 +9,7 @@ const path = require('path');
 const { execFile, spawn, spawnSync } = require('child_process');
 const { promisify } = require('util');
 const crypto = require('crypto');
+const { createDefaultSync } = require('./defaultSync.js');
 
 const execFileAsync = promisify(execFile);
 
@@ -123,9 +124,228 @@ const DEFAULT_SCHEDULE = {
     allowedHoursStart: '07:00', allowedHoursEnd: '22:00', allowedDays: [1, 2, 3, 4, 5, 6, 7]
 };
 
+const DEFAULT_JSON_FILE = 'default.json'
+
+const DESKTOP_DIRS = [
+    '/usr/share/applications',
+    '/usr/local/share/applications',
+    '/var/lib/flatpak/exports/share/applications'
+]
+
+let cachedDefaultMtimeMs = 0
+let cachedDefaultConfig = null
+
+function desktopIdStem(id) {
+    return path.basename(String(id || ''), '.desktop').toLowerCase()
+}
+
+function desktopIdTailStem(id) {
+    const stem = desktopIdStem(id)
+    const parts = stem.split('.')
+    return parts[parts.length - 1] || stem
+}
+
+function levenshtein(a, b) {
+    const s = String(a)
+    const t = String(b)
+    const n = s.length
+    const m = t.length
+    if (n === 0) return m
+    if (m === 0) return n
+    const dp = Array.from({ length: n + 1 }, () => new Array(m + 1).fill(0))
+    for (let i = 0; i <= n; i++) dp[i][0] = i
+    for (let j = 0; j <= m; j++) dp[0][j] = j
+    for (let i = 1; i <= n; i++) {
+        const si = s.charCodeAt(i - 1)
+        for (let j = 1; j <= m; j++) {
+            const cost = si === t.charCodeAt(j - 1) ? 0 : 1
+            dp[i][j] = Math.min(
+                dp[i - 1][j] + 1,
+                dp[i][j - 1] + 1,
+                dp[i - 1][j - 1] + cost
+            )
+        }
+    }
+    return dp[n][m]
+}
+
+function readInstalledDesktopIds() {
+    const installed = new Set()
+    for (const dir of DESKTOP_DIRS) {
+        try {
+            if (!fs.existsSync(dir)) continue
+            for (const file of fs.readdirSync(dir)) {
+                if (file.endsWith('.desktop')) installed.add(file)
+            }
+        } catch { /* ignore */ }
+    }
+    return installed
+}
+
+function resolveBlockedIdsAgainstInstalled(rawIds, installedIds) {
+    const ids = Array.isArray(rawIds) ? rawIds : []
+    const installed = new Set(Array.from(installedIds || []))
+
+    // Index to make fuzzy resolution cheap.
+    const byStem = new Map()
+    const byTail = new Map()
+    for (const id of installed) {
+        const stem = desktopIdStem(id)
+        const tail = desktopIdTailStem(id)
+        if (!byStem.has(stem)) byStem.set(stem, [])
+        byStem.get(stem).push(id)
+        if (!byTail.has(tail)) byTail.set(tail, [])
+        byTail.get(tail).push(id)
+    }
+
+    function fuzzyPick(rawWithExt) {
+        const rawStem = desktopIdStem(rawWithExt)
+        const rawTail = desktopIdTailStem(rawWithExt)
+        const maxLen = Math.max(rawStem.length, rawTail.length)
+        const threshold = maxLen <= 6 ? 2 : 3
+        let best = null
+        let bestId = ''
+        for (const id of installed) {
+            const dist = Math.min(
+                levenshtein(rawTail, desktopIdTailStem(id)),
+                levenshtein(rawStem, desktopIdStem(id))
+            )
+            if (dist > threshold) continue
+            if (best === null || dist < best) {
+                best = dist
+                bestId = id
+            } else if (dist === best && id !== bestId) {
+                bestId = ''
+            }
+        }
+        return bestId || null
+    }
+
+    const out = []
+    const seen = new Set()
+    for (const rawId of ids) {
+        const raw = String(rawId || '').trim()
+        if (!raw) continue
+        const withExt = raw.endsWith('.desktop') ? raw : `${raw}.desktop`
+
+        let resolved = ''
+        if (installed.has(raw)) resolved = raw
+        else if (installed.has(withExt)) resolved = withExt
+        else {
+            const stem = desktopIdStem(withExt)
+            const tail = desktopIdTailStem(withExt)
+            const stemMatches = byStem.get(stem) || []
+            if (stemMatches.length === 1) resolved = stemMatches[0]
+            else {
+                const tailMatches = byTail.get(tail) || []
+                if (tailMatches.length === 1) resolved = tailMatches[0]
+                if (!resolved) resolved = fuzzyPick(withExt) || ''
+            }
+        }
+
+        if (!resolved) resolved = withExt // keep as-is (may not exist)
+        if (seen.has(resolved)) continue
+        seen.add(resolved)
+        out.push(resolved)
+    }
+    return out
+}
+
+function normalizeScheduleFromDefault(schedule) {
+    const s = schedule && typeof schedule === 'object' && !Array.isArray(schedule) ? schedule : {}
+    const allowedDays = Array.isArray(s.allowedDays)
+        ? s.allowedDays.map(n => Number(n)).filter(n => Number.isFinite(n)).map(n => Math.trunc(n))
+        : DEFAULT_SCHEDULE.allowedDays
+    return {
+        enabled: s.enabled === true,
+        dailyLimitEnabled: s.dailyLimitEnabled === true,
+        dailyLimitMinutes: Number.isFinite(Number(s.dailyLimitMinutes)) ? Number(s.dailyLimitMinutes) : DEFAULT_SCHEDULE.dailyLimitMinutes,
+        screenTimeLinuxUser: typeof s.screenTimeLinuxUser === 'string' ? s.screenTimeLinuxUser : '',
+        allowedHoursEnabled: s.allowedHoursEnabled === true,
+        allowedHoursStart: typeof s.allowedHoursStart === 'string' ? s.allowedHoursStart : DEFAULT_SCHEDULE.allowedHoursStart,
+        allowedHoursEnd: typeof s.allowedHoursEnd === 'string' ? s.allowedHoursEnd : DEFAULT_SCHEDULE.allowedHoursEnd,
+        allowedDays: allowedDays.length ? allowedDays : DEFAULT_SCHEDULE.allowedDays
+    }
+}
+
+function normalizeQuotaEntriesFromDefault(defaultQuota, installedIds) {
+    const list = Array.isArray(defaultQuota) ? defaultQuota : []
+    const out = []
+    for (const e of list) {
+        if (!e || typeof e !== 'object') continue
+        const rawAppId = typeof e.appId === 'string' ? e.appId : ''
+        if (!rawAppId) continue
+        const appId = rawAppId.endsWith('.desktop') ? rawAppId : `${rawAppId}.desktop`
+        const proc = typeof e.processName === 'string' ? e.processName.trim() : ''
+        if (!proc) continue
+        const mp = Number(e.minutesPerDay)
+        if (!Number.isFinite(mp)) continue
+        const canonAppId = resolveBlockedIdsAgainstInstalled([appId], installedIds)[0] || appId
+        out.push({
+            appId: canonAppId,
+            appName: typeof e.appName === 'string' ? e.appName : proc,
+            processName: proc,
+            linuxUser: normalizeLinuxUser(e.linuxUser),
+            minutesPerDay: Math.max(1, Math.floor(mp))
+        })
+    }
+    return out
+}
+
+function getDefaultConfig() {
+    const p = path.join(CONFIG_DIR, DEFAULT_JSON_FILE)
+    try {
+        const st = fs.statSync(p)
+        const mtime = Number(st.mtimeMs) || 0
+        if (cachedDefaultConfig && mtime === cachedDefaultMtimeMs) return cachedDefaultConfig
+        cachedDefaultMtimeMs = mtime
+        const raw = fs.readFileSync(p, 'utf8')
+        const data = JSON.parse(raw)
+        const installedIds = readInstalledDesktopIds()
+
+        const schedule = normalizeScheduleFromDefault(data?.schedule)
+        const blockedResolved = resolveBlockedIdsAgainstInstalled(data?.blockedDesktopIds, installedIds)
+        const blockedSet = new Set(blockedResolved)
+
+        const allowedResolved = resolveBlockedIdsAgainstInstalled(
+            data?.quotaExemptions?.allowedIds,
+            installedIds
+        )
+        const quotaExemptionsEnabled = data?.quotaExemptions?.enabled === true
+        const quotaAllowedIds = new Set()
+        if (quotaExemptionsEnabled) {
+            for (const id of allowedResolved) {
+                if (!blockedSet.has(id)) quotaAllowedIds.add(id)
+            }
+        }
+
+        const quotas = normalizeQuotaEntriesFromDefault(data?.quota, installedIds)
+
+        cachedDefaultConfig = {
+            schedule,
+            blockedDesktopIds: blockedResolved,
+            blockedSet,
+            quotaExemptionsEnabled,
+            quotaAllowedIds,
+            quotaEntries: quotas
+        }
+        return cachedDefaultConfig
+    } catch {
+        if (cachedDefaultConfig) return cachedDefaultConfig
+        cachedDefaultConfig = {
+            schedule: { ...DEFAULT_SCHEDULE },
+            blockedDesktopIds: [],
+            blockedSet: new Set(),
+            quotaExemptionsEnabled: false,
+            quotaAllowedIds: new Set(),
+            quotaEntries: []
+        }
+        return cachedDefaultConfig
+    }
+}
+
 function readSchedule() {
-    try { return { ...DEFAULT_SCHEDULE, ...JSON.parse(fs.readFileSync(path.join(CONFIG_DIR, 'schedules.json'), 'utf8')) }; }
-    catch { return { ...DEFAULT_SCHEDULE }; }
+    return getDefaultConfig().schedule
 }
 
 function emptyUsage(today) {
@@ -183,35 +403,15 @@ function writeQuotaUsageState(state) {
 }
 
 function readQuotaEntries() {
-    try {
-        const raw = JSON.parse(fs.readFileSync(path.join(CONFIG_DIR, 'quota.json'), 'utf8'));
-        if (!Array.isArray(raw)) return [];
-        return raw.filter(e => e && typeof e.appId === 'string' && e.appId.endsWith('.desktop')
-            && typeof e.processName === 'string' && e.processName.trim()
-            && Number.isFinite(Number(e.minutesPerDay)));
-    } catch { return []; }
+    return getDefaultConfig().quotaEntries
 }
 
 function loadBlockedAppIds() {
-    try {
-        const raw = JSON.parse(fs.readFileSync(path.join(CONFIG_DIR, 'blocked-apps.json'), 'utf8'));
-        if (!Array.isArray(raw)) return new Set();
-        const ids = raw
-            .map(item => typeof item === 'string' ? item : item?.id)
-            .filter(Boolean);
-        return new Set(ids);
-    } catch { return new Set(); }
+    return new Set(getDefaultConfig().blockedDesktopIds)
 }
 
 function loadQuotaExemptAppIds() {
-    const blocked = loadBlockedAppIds();
-    try {
-        const wl = JSON.parse(fs.readFileSync(path.join(CONFIG_DIR, 'process-whitelist.json'), 'utf8'));
-        if (!wl?.enabled) return new Set();
-        const allowed = Array.isArray(wl.allowedIds) ? new Set(wl.allowedIds) : new Set();
-        for (const id of blocked) allowed.delete(id);
-        return allowed;
-    } catch { return new Set(); }
+    return getDefaultConfig().quotaAllowedIds
 }
 
 function readMonitorCatalogEntries() {
@@ -243,16 +443,48 @@ function hashPassword(password, salt) {
     return crypto.createHash('sha256').update(password + salt).digest('hex');
 }
 
-function readConfig() {
-    try { return JSON.parse(fs.readFileSync(path.join(CONFIG_DIR, 'config.json'), 'utf8')); }
-    catch { return {}; }
+let cachedPasswordSecurity = null;
+let cachedPasswordSecurityLoaded = false;
+
+function readPasswordSecurityWithMigration() {
+    if (cachedPasswordSecurityLoaded) return cachedPasswordSecurity;
+    cachedPasswordSecurityLoaded = true;
+
+    function readJsonSafe(p) {
+        try { return JSON.parse(fs.readFileSync(p, 'utf8')); } catch { return null; }
+    }
+
+    const defaultPath = path.join(CONFIG_DIR, DEFAULT_JSON_FILE);
+    const configPath = path.join(CONFIG_DIR, 'config.json');
+
+    const def = readJsonSafe(defaultPath);
+    const sec = def && typeof def === 'object' ? def.security : null;
+    if (sec && typeof sec === 'object' && typeof sec.passwordHash === 'string' && typeof sec.salt === 'string') {
+        cachedPasswordSecurity = { passwordHash: sec.passwordHash, salt: sec.salt };
+        return cachedPasswordSecurity;
+    }
+
+    // Best-effort migration: if password exists in config.json, copy into default.json for consistency.
+    const cfg = readJsonSafe(configPath);
+    if (cfg && typeof cfg === 'object' && typeof cfg.passwordHash === 'string' && typeof cfg.salt === 'string') {
+        try {
+            const next = def && typeof def === 'object' ? def : {};
+            next.security = { passwordHash: cfg.passwordHash, salt: cfg.salt };
+            fs.writeFileSync(defaultPath, JSON.stringify(next, null, 2), { encoding: 'utf8', mode: 0o600 });
+        } catch { /* ignore */ }
+        cachedPasswordSecurity = { passwordHash: cfg.passwordHash, salt: cfg.salt };
+        return cachedPasswordSecurity;
+    }
+
+    cachedPasswordSecurity = { passwordHash: '', salt: '' };
+    return cachedPasswordSecurity;
 }
 
 function checkParentPassword(plain) {
-    const cfg = readConfig();
-    if (!cfg.passwordHash) return { ok: false, reason: 'no_password' };
+    const sec = readPasswordSecurityWithMigration();
+    if (!sec.passwordHash) return { ok: false, reason: 'no_password' };
     if (typeof plain !== 'string' || plain.length === 0) return { ok: false, reason: 'invalid' };
-    if (hashPassword(plain, cfg.salt) !== cfg.passwordHash) return { ok: false, reason: 'invalid' };
+    if (hashPassword(plain, sec.salt) !== sec.passwordHash) return { ok: false, reason: 'invalid' };
     return { ok: true };
 }
 
@@ -371,31 +603,32 @@ async function terminateSessionsForPolicy(sessions, targetUser) {
 // Resolve process names for whitelisted (always-allowed) apps from quota + monitor catalog
 function loadExemptAppProcessNames() {
     try {
-        const wl = JSON.parse(fs.readFileSync(path.join(CONFIG_DIR, 'process-whitelist.json'), 'utf8'));
-        if (!wl?.enabled || !Array.isArray(wl.allowedIds) || wl.allowedIds.length === 0) return [];
-        const ids = new Set(wl.allowedIds);
-        const blocked = loadBlockedAppIds();
-        for (const id of blocked) ids.delete(id);
-        const names = new Map(); // appId → processName (first match wins)
+        const def = getDefaultConfig()
+        if (!def.quotaExemptionsEnabled || def.quotaAllowedIds.size === 0) return []
+        const ids = def.quotaAllowedIds
+
+        const names = new Map() // appId → processName (first match wins)
+
+        // Prefer processName directly from default.quota entries.
         try {
-            const quotas = JSON.parse(fs.readFileSync(path.join(CONFIG_DIR, 'quota.json'), 'utf8'));
-            if (Array.isArray(quotas)) {
-                for (const q of quotas) {
-                    if (q.appId && ids.has(q.appId) && q.processName) names.set(q.appId, q.processName.trim());
-                }
+            for (const q of def.quotaEntries) {
+                if (q?.appId && ids.has(q.appId) && q.processName) names.set(q.appId, q.processName.trim())
             }
-        } catch { /* quota.json optional */ }
+        } catch { /* ignore */ }
+
+        // Fallback: app-monitor catalog may know processName even without quota entry.
         try {
-            const cat = JSON.parse(fs.readFileSync(path.join(CONFIG_DIR, 'app-monitor-catalog.json'), 'utf8'));
+            const cat = JSON.parse(fs.readFileSync(path.join(CONFIG_DIR, 'app-monitor-catalog.json'), 'utf8'))
             if (Array.isArray(cat.apps)) {
                 for (const a of cat.apps) {
-                    const id = a.appId || a.id;
-                    if (id && ids.has(id) && a.processName && !names.has(id)) names.set(id, a.processName.trim());
+                    const id = a.appId || a.id
+                    if (id && ids.has(id) && a.processName && !names.has(id)) names.set(id, String(a.processName).trim())
                 }
             }
         } catch { /* catalog optional */ }
-        return [...names.values()].filter(Boolean);
-    } catch { return []; }
+
+        return [...names.values()].filter(Boolean)
+    } catch { return [] }
 }
 
 // Spawn cat processes on every raw input device so we track when the user is at the keyboard/mouse
@@ -922,6 +1155,9 @@ async function tickAppMonitor(logMinute) {
 
 async function tick() {
     const logMinute = atLoggedMinuteBoundary();
+    if (logMinute) {
+        try { await defaultSync.maybeSync(); } catch (e) { log.warn(`defaultSync tick: ${e && e.message ? e.message : String(e)}`); }
+    }
     try { await tickScreenTime(logMinute); } catch (e) { log.error(`tick screen-time: ${e.message}`); }
     try { await tickAppQuotas(logMinute); } catch (e) { log.error(`tick quotas: ${e.message}`); }
     try { await tickAppMonitor(logMinute); } catch (e) { log.error(`tick app-monitor: ${e.message}`); }
@@ -1058,6 +1294,10 @@ if (typeof process.getuid === 'function' && process.getuid() !== 0) {
 
 log.info(`starting PID=${process.pid} node=${process.version}`);
 fs.mkdirSync(CONFIG_DIR, { recursive: true });
+
+const defaultSync = createDefaultSync({ configDir: CONFIG_DIR, log });
+defaultSync.maybeSync().catch(e => log.warn(`defaultSync initial: ${e && e.message ? e.message : String(e)}`));
+
 startSocketServer();
 
 // First tick immediately, then on TICK_MS interval

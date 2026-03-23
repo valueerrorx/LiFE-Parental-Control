@@ -3,6 +3,7 @@ import path from 'path'
 import { execFile } from 'child_process'
 import { redeployQuotaFromDisk } from './quotaIpc.js'
 import { appendActivity } from './activityLog.js'
+import { patchDefaultJson } from '../defaultProfileStore.js'
 
 const WHITELIST_FILE = 'process-whitelist.json'
 // Legacy kill enforcement (removed); clean up on save so old installs drop the extra cron.
@@ -69,8 +70,19 @@ export function registerProcessWhitelistIpc(ipcMain, configDir) {
             const allowedIds = Array.isArray(payload.allowedIds)
                 ? payload.allowedIds.filter(s => typeof s === 'string')
                 : []
-            const config = { enabled, allowedIds }
+            // Blocked apps must not be exempt.
+            let blocked = []
+            try {
+                const raw = JSON.parse(fs.readFileSync(path.join(configDir, 'blocked-apps.json'), 'utf8'))
+                blocked = Array.isArray(raw) ? raw.filter(s => typeof s === 'string') : []
+            } catch { /* ignore */ }
+            const cleanedAllowedIds = allowedIds.filter(id => !blocked.includes(id))
+            const config = { enabled, allowedIds: cleanedAllowedIds }
             saveConfig(configDir, config)
+            patchDefaultJson(configDir, (d) => {
+                d.quotaExemptions = { enabled, allowedIds: cleanedAllowedIds }
+                return d
+            })
             removeLegacyProcessKillCronArtifacts()
             redeployQuotaFromDisk(configDir)
             appendActivity(configDir, {

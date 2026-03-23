@@ -5,6 +5,7 @@ import { pruneUsageArchives } from './usageArchivePrune.js'
 import { localIsoDate } from './localCalendarDay.js'
 import { appendActivity } from './activityLog.js'
 import { checkParentPassword } from './settingsIpc.js'
+import { patchDefaultJson } from '../defaultProfileStore.js'
 
 const QUOTA_FILE = 'quota.json'
 const BONUS_MIN = 5
@@ -233,6 +234,10 @@ export function registerQuotaIpc(ipcMain, configDir) {
             if (idx >= 0) quotas[idx] = entry
             else quotas.push(entry)
             saveQuotas(configDir, quotas)
+            patchDefaultJson(configDir, (d) => {
+                d.quota = quotas
+                return d
+            })
             try {
                 pruneUsageArchives(configDir)
             } catch { /* ignore */ }
@@ -250,6 +255,10 @@ export function registerQuotaIpc(ipcMain, configDir) {
                 q => !(q.appId === appId && normalizeQuotaLinuxUser(q.linuxUser) === lu)
             )
             saveQuotas(configDir, quotas)
+            patchDefaultJson(configDir, (d) => {
+                d.quota = quotas
+                return d
+            })
             try {
                 pruneUsageArchives(configDir)
             } catch { /* ignore */ }

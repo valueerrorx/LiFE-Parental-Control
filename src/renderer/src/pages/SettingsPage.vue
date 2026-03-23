@@ -63,6 +63,7 @@
                         </div>
                         <p v-if="daemonCtrlMsg" class="small mb-2" :class="daemonCtrlError ? 'text-danger' : 'text-success'">{{ daemonCtrlMsg }}</p>
                         <p class="text-muted small mb-0" v-html="$t('settings.installDesc')" />
+
                     </div>
                 </div>
 
@@ -256,6 +257,7 @@ const maintError = ref(false)
 const dangerBusy = ref(false)
 const dangerMsg = ref('')
 const dangerError = ref(false)
+
 const daemonServiceStatus = ref(null)
 const daemonSocketConnected = ref(false)
 const nodeVersion = ref(null)

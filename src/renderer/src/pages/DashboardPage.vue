@@ -6,7 +6,7 @@
 
     <div class="pc-content">
         <!-- Status cards row -->
-        <div class="row g-3 mb-4 row-cols-2 row-cols-xl-5">
+        <div class="row g-3 mb-4 row-cols-2 row-cols-xl-6">
             <div class="col d-flex">
                 <div class="stat-card h-100 w-100">
                     <div class="stat-icon" style="background:#E3F2FD; color:#1565C0;">
@@ -35,6 +35,21 @@
                             {{ blockedCount > 0 ? $t('common.active') : $t('common.none') }}
                         </span>
                         <span v-if="quotaCount" class="ms-1 text-muted" style="font-size:11px;">· {{ quotaCount }} {{ $t('dashboard.dayLimits') }}</span>
+                    </div>
+                </div>
+            </div>
+            <div class="col d-flex">
+                <div class="stat-card h-100 w-100">
+                    <div class="stat-icon" style="background:#E8F5E9; color:#2E7D32;">
+                        <i class="bi bi-shield-check" />
+                    </div>
+                    <div class="stat-label">{{ $t('dashboard.appExemptions') }}</div>
+                    <div class="stat-value">{{ effectiveExemptCount }}</div>
+                    <div class="stat-sub">
+                        <span class="status-badge" :class="effectiveExemptCount > 0 ? 'active' : 'inactive'">
+                            <i class="bi bi-circle-fill" style="font-size:7px;" />
+                            {{ effectiveExemptCount > 0 ? $t('common.active') : $t('common.none') }}
+                        </span>
                     </div>
                 </div>
             </div>
@@ -296,6 +311,18 @@ async function loadDaemonStatus() {
 
 const filterCount = computed(() => store.webFilterHostRuleCount)
 const blockedCount = computed(() => store.blockedApps.length)
+const effectiveExemptCount = computed(() => {
+    const enabled = store.whitelistEnabled === true
+    if (!enabled) return 0
+    const blockedSet = new Set(store.blockedApps || [])
+    const allowed = Array.isArray(store.quotaExemptAllowedIds) ? store.quotaExemptAllowedIds : []
+    let count = 0
+    for (const id of allowed) {
+        if (typeof id !== 'string') continue
+        if (!blockedSet.has(id)) count++
+    }
+    return count
+})
 const quotaCount = computed(() => {
     const f = normalizeQuotaLinuxUser(store.quotaViewLinuxUser)
     const list = f

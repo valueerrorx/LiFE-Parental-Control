@@ -25,7 +25,10 @@ function onVisibilityChange() {
 }
 
 onMounted(() => {
-    void store.refreshProtectionsState()
+    // Wait for deferred heavy init so rollout/default.json has already been applied.
+    void window.api.app.deferredHeavyWork().then(() => {
+        void store.refreshProtectionsState()
+    })
     quotaPollTimer = setInterval(() => void store.loadAppQuotas(), QUOTA_USAGE_POLL_MS)
     document.addEventListener('visibilitychange', onVisibilityChange)
 })
