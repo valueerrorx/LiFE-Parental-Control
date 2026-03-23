@@ -9,17 +9,17 @@
                 </div>
                 <h2>LiFE Parental Control</h2>
                 <div class="lock-card-phase">
-                    <p>Create a password to protect parental control settings.</p>
+                    <p>{{ $t('app.createPassword') }}</p>
                     <div class="text-start mb-3">
-                        <label class="form-label small text-muted">New password</label>
-                        <input v-model="pw1" type="password" class="pc-input mb-2" placeholder="Enter password"
+                        <label class="form-label small text-muted">{{ $t('app.newPassword') }}</label>
+                        <input v-model="pw1" type="password" class="pc-input mb-2" :placeholder="$t('app.enterPasswordPlaceholder')"
                                @keyup.enter="onSetPassword" />
-                        <label class="form-label small text-muted">Confirm password</label>
-                        <input v-model="pw2" type="password" class="pc-input" placeholder="Repeat password"
+                        <label class="form-label small text-muted">{{ $t('app.confirmPassword') }}</label>
+                        <input v-model="pw2" type="password" class="pc-input" :placeholder="$t('app.repeatPasswordPlaceholder')"
                                @keyup.enter="onSetPassword" />
                     </div>
                     <p v-if="error" class="text-danger small">{{ error }}</p>
-                    <button class="btn-pc-primary w-100" @click="onSetPassword">Set Password & Continue</button>
+                    <button class="btn-pc-primary w-100" @click="onSetPassword">{{ $t('app.setPassword') }}</button>
                 </div>
             </div>
         </Transition>
@@ -42,14 +42,14 @@
                         <i class="bi bi-shield-lock-fill" />
                     </div>
                     <h2>LiFE Parental Control</h2>
-                    <p>Enter your parental control password to continue.</p>
+                    <p>{{ $t('app.enterToUnlock') }}</p>
                     <div class="text-start mb-3">
-                        <input v-model="password" type="password" class="pc-input" placeholder="Password"
+                        <input v-model="password" type="password" class="pc-input" :placeholder="$t('app.passwordPlaceholder')"
                                autofocus @keyup.enter="onUnlock" />
                     </div>
                     <p v-if="error" class="text-danger small">{{ error }}</p>
-                    <button class="btn-pc-primary w-100" @click="onUnlock" :disabled="busy">Unlock</button>
-                    <button class="btn-pc-outline w-100 mt-2" @click="onExit">Exit</button>
+                    <button class="btn-pc-primary w-100" @click="onUnlock" :disabled="busy">{{ $t('app.unlock') }}</button>
+                    <button class="btn-pc-outline w-100 mt-2" @click="onExit">{{ $t('app.exit') }}</button>
                 </div>
             </div>
         </Transition>
@@ -58,11 +58,13 @@
 
 <script setup>
 import { ref, onMounted, onUnmounted, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { normalizedLockIdleMinutesOrUndefined } from '@shared/lockIdleMinutes.js'
 import AppModal from './components/AppModal.vue'
 import { useModal } from './composables/useModal.js'
 import { quitWithParentPassword } from './parentQuit.js'
 
+const { t } = useI18n()
 const { prompt } = useModal()
 
 const unlocked = ref(false)
@@ -149,8 +151,8 @@ async function applyUnlockIdlePolicy() {
 
 async function onSetPassword() {
     error.value = ''
-    if (!pw1.value) { error.value = 'Password cannot be empty'; return }
-    if (pw1.value !== pw2.value) { error.value = 'Passwords do not match'; return }
+    if (!pw1.value) { error.value = t('app.passwordEmpty'); return }
+    if (pw1.value !== pw2.value) { error.value = t('app.passwordMismatch'); return }
     await window.api.settings.setPassword(pw1.value)
     passwordSet.value = true
     unlocked.value = true
@@ -159,7 +161,7 @@ async function onSetPassword() {
 }
 
 async function onUnlock() {
-    if (!password.value) { error.value = 'Enter your password'; return }
+    if (!password.value) { error.value = t('app.enterYourPassword'); return }
     busy.value = true
     const ok = await window.api.settings.checkPassword(password.value)
     busy.value = false
@@ -169,7 +171,7 @@ async function onUnlock() {
         password.value = ''
         await applyUnlockIdlePolicy()
     } else {
-        error.value = 'Incorrect password'
+        error.value = t('app.incorrectPassword')
         password.value = ''
     }
 }

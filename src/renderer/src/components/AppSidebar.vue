@@ -3,75 +3,78 @@
         <div class="pc-sidebar-brand d-flex align-items-center gap-2">
             <i class="bi bi-shield-check brand-icon" />
             <div>
-                <div class="brand-name">LiFE Parental</div>
-                <div class="brand-sub">Control Center</div>
+                <div class="brand-name">{{ $t('sidebar.brand') }}</div>
+                <div class="brand-sub">{{ $t('sidebar.controlCenter') }}</div>
             </div>
         </div>
 
         <nav>
-            <div class="nav-section-label">Overview</div>
+            <div class="nav-section-label">{{ $t('nav.overview') }}</div>
             <RouterLink to="/" custom v-slot="{ navigate, isExactActive }">
                 <button class="nav-item-link" :class="{ active: isExactActive }" @click="navigate">
-                    <i class="bi bi-speedometer2" /> Dashboard
+                    <i class="bi bi-speedometer2" /> {{ $t('nav.dashboard') }}
                 </button>
             </RouterLink>
 
-            <div class="nav-section-label">Protection</div>
+            <div class="nav-section-label">{{ $t('nav.protection') }}</div>
             <RouterLink to="/webfilter" custom v-slot="{ navigate, isExactActive }">
                 <button class="nav-item-link" :class="{ active: isExactActive }" @click="navigate">
-                    <i class="bi bi-shield-x" /> Web Filter
+                    <i class="bi bi-shield-x" /> {{ $t('nav.webFilter') }}
                     <span v-if="filterCount > 0" class="ms-auto badge-count">{{ filterCount }}</span>
                 </button>
             </RouterLink>
             <RouterLink to="/apps" custom v-slot="{ navigate, isExactActive }">
                 <button class="nav-item-link" :class="{ active: isExactActive }" @click="navigate">
-                    <i class="bi bi-app-indicator" /> App Control
+                    <i class="bi bi-app-indicator" /> {{ $t('nav.appControl') }}
                     <span v-if="blockedCount > 0 || quotaCount > 0" class="ms-auto d-flex align-items-center gap-1">
-                        <span v-if="blockedCount > 0" class="badge-count" title="Blocked apps">{{ blockedCount }}</span>
-                        <span v-if="quotaCount > 0" class="badge-count badge-quota" title="Daily app time limits">{{ quotaCount }}</span>
+                        <span v-if="blockedCount > 0" class="badge-count" :title="$t('sidebar.blockedAppsTitle')">{{ blockedCount }}</span>
+                        <span v-if="quotaCount > 0" class="badge-count badge-quota" :title="$t('sidebar.dailyAppTimeLimits')">{{ quotaCount }}</span>
                     </span>
                 </button>
             </RouterLink>
             <RouterLink to="/schedules" custom v-slot="{ navigate, isExactActive }">
                 <button class="nav-item-link" :class="{ active: isExactActive }" @click="navigate">
-                    <i class="bi bi-clock-history" /> Screen Time
-                    <span v-if="screenTimeOn" class="ms-auto badge-count badge-schedule" title="Screen time enforcement enabled">on</span>
+                    <i class="bi bi-clock-history" /> {{ $t('nav.screenTime') }}
+                    <span v-if="screenTimeOn" class="ms-auto badge-count badge-schedule" :title="$t('sidebar.screenTimeEnabled')">{{ $t('common.on') }}</span>
                 </button>
             </RouterLink>
             <RouterLink to="/process-whitelist" custom v-slot="{ navigate, isExactActive }">
                 <button class="nav-item-link" :class="{ active: isExactActive }" @click="navigate">
-                    <i class="bi bi-list-check" /> Quota exemptions
-                    <span v-if="whitelistActive" class="ms-auto badge-count badge-schedule" title="Daily quota exemptions enabled">on</span>
+                    <i class="bi bi-list-check" /> {{ $t('nav.quotaExemptions') }}
+                    <span v-if="whitelistActive" class="ms-auto badge-count badge-schedule" :title="$t('sidebar.dailyQuotaExemptions')">{{ $t('common.on') }}</span>
                 </button>
             </RouterLink>
 
-            <div class="nav-section-label">Advanced</div>
+            <div class="nav-section-label">{{ $t('nav.advanced') }}</div>
             <RouterLink v-if="isKDE" to="/kiosk" custom v-slot="{ navigate, isExactActive }">
                 <button class="nav-item-link" :class="{ active: isExactActive }" @click="navigate">
-                    <i class="bi bi-lock-fill" /> KDE Kiosk
-                    <span v-if="kioskActive" class="ms-auto badge-count badge-schedule" title="KDE kiosk active">on</span>
+                    <i class="bi bi-lock-fill" /> {{ $t('nav.kdeKiosk') }}
+                    <span v-if="kioskActive" class="ms-auto badge-count badge-schedule" :title="$t('sidebar.kdeKioskActive')">{{ $t('common.on') }}</span>
                 </button>
             </RouterLink>
             <RouterLink to="/settings" custom v-slot="{ navigate, isExactActive }">
                 <button class="nav-item-link" :class="{ active: isExactActive }" @click="navigate">
-                    <i class="bi bi-gear-fill" /> Settings
+                    <i class="bi bi-gear-fill" /> {{ $t('nav.settings') }}
                 </button>
             </RouterLink>
         </nav>
 
         <div class="pc-sidebar-footer">
-            <div class="nav-section-label">Diagnostics</div>
-            <button type="button" class="nav-item-link" @click="openApplicationLog">
-                <i class="bi bi-journal-text" /> Application log
+            <div class="nav-section-label">{{ $t('nav.diagnostics') }}</div>
+            <button type="button" class="nav-item-link about-btn" @click="openApplicationLog">
+                <i class="bi bi-journal-text" /> {{ $t('nav.applicationLog') }}
             </button>
             <button type="button" class="nav-item-link about-btn" @click="onAbout">
                 <span class="copyleft-icon">🄯</span> v{{ version }}
             </button>
             <div class="pc-sidebar-footer-meta d-flex align-items-center justify-content-between">
                 <span :title="footerTitle">{{ footerLabel }}</span>
-                <button type="button" class="nav-item-link nav-item-link-icon-only" @click="onExit" title="Exit">
-                    <i class="bi bi-box-arrow-right" />
-                </button>
+                <div class="d-flex align-items-center gap-1">
+                    <button type="button" class="lang-toggle-btn" @click="toggleLang">{{ currentLocale === 'de' ? 'EN' : 'DE' }}</button>
+                    <button type="button" class="nav-item-link nav-item-link-icon-only" @click="onExit" :title="$t('sidebar.exit')">
+                        <i class="bi bi-box-arrow-right" />
+                    </button>
+                </div>
             </div>
         </div>
     </aside>
@@ -79,14 +82,17 @@
 
 <script setup>
 import { computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 import Swal from 'sweetalert2'
 import { useAppStore } from '../stores/appStore.js'
 import { useApplicationLogModal } from '../composables/useApplicationLogModal.js'
 import { useModal } from '../composables/useModal.js'
 import { quitWithParentPassword } from '../parentQuit.js'
+import { setLocale } from '../i18n.js'
 import ososSvg from '../../../../images/osos.svg?raw'
 import { version } from '../../../../package.json'
 
+const { t, locale } = useI18n()
 const { prompt } = useModal()
 const store = useAppStore()
 const { openApplicationLog } = useApplicationLogModal()
@@ -96,6 +102,7 @@ const quotaCount = computed(() => store.appQuotas.length)
 const screenTimeOn = computed(() => store.schedule?.enabled === true)
 const kioskActive = computed(() => store.kioskStatus?.active === true)
 const whitelistActive = computed(() => store.whitelistEnabled === true)
+const currentLocale = computed(() => locale.value)
 // Show KDE Kiosk tab only on KDE; hide on GNOME/other desktops
 const isKDE = computed(() => {
     const d = (store.xdgCurrentDesktop || '').toUpperCase()
@@ -103,16 +110,21 @@ const isKDE = computed(() => {
 })
 
 const footerLabel = computed(() => {
-    if (store.runningAsRoot === true) return 'Running as root'
-    if (store.runningAsRoot === false) return 'Not root'
+    if (store.runningAsRoot === true) return t('sidebar.runningAsRoot')
+    if (store.runningAsRoot === false) return t('sidebar.notRoot')
     return '…'
 })
 const footerTitle = computed(() => {
     if (store.runningAsRoot === false) {
-        return 'Elevated features need root — use packaged app with pkexec or npm run dev'
+        return t('sidebar.rootTooltip')
     }
     return undefined
 })
+
+function toggleLang() {
+    const next = locale.value === 'en' ? 'de' : 'en'
+    setLocale(next)
+}
 
 async function onExit() {
     await quitWithParentPassword(prompt)
@@ -131,7 +143,7 @@ async function onAbout() {
             </div>
         `,
         showConfirmButton: true,
-        confirmButtonText: 'OK',
+        confirmButtonText: t('about.okBtn'),
         confirmButtonColor: '#1565C0',
         width: 320
     })
@@ -172,5 +184,27 @@ async function onAbout() {
     text-transform: uppercase;
     font-size: 9px;
     letter-spacing: 0.02em;
+}
+.lang-toggle-btn {
+    width: 30px;
+    height: 30px;
+    border: 1px solid rgba(255, 255, 255, 0.35);
+    border-radius: 4px;
+    background: rgba(255, 255, 255, 0.12);
+    color: rgba(255, 255, 255, 0.85);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    padding: 0;
+    transition: background 0.15s, border-color 0.15s;
+}
+.lang-toggle-btn:hover {
+    background: rgba(255, 255, 255, 0.22);
+    border-color: rgba(255, 255, 255, 0.6);
 }
 </style>

@@ -10,7 +10,6 @@ import { pruneUsageArchives } from './ipc/usageArchivePrune.js'
 import { resolveWindowIconPath } from './trayIcon.js'
 import { initWarningWindow } from './warningWindow.js'
 import { resolveElevatedExecutablePath } from './appImageResolve.js'
-import { isSessionGnomeShell } from './desktopSessionEnviron.js'
 
 const APP_CONFIG_DIR = '/etc/life-parental'
 

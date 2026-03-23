@@ -1,16 +1,16 @@
 <template>
     <div class="pc-page-header d-flex align-items-start justify-content-between">
         <div>
-            <h1>Quota exemptions</h1>
-            <p>Apps exempt from <strong>daily app quota</strong> enforcement when time is used up</p>
+            <h1>{{ $t('processWhitelist.title') }}</h1>
+            <p v-html="$t('processWhitelist.subtitle')" />
         </div>
         <div class="d-flex align-items-center gap-2 pt-1">
             <span class="status-badge" :class="config.enabled ? 'active' : 'inactive'">
                 <i class="bi bi-circle-fill" style="font-size:7px;" />
-                {{ config.enabled ? 'Active' : 'Disabled' }}
+                {{ config.enabled ? $t('common.active') : $t('common.disabled') }}
             </span>
             <button class="btn-pc-primary" :disabled="saving" @click="onSave">
-                <i class="bi bi-floppy me-1" />{{ saving ? 'Saving…' : 'Apply Changes' }}
+                <i class="bi bi-floppy me-1" />{{ saving ? $t('common.saving') : $t('common.applyChanges') }}
             </button>
         </div>
     </div>
@@ -20,13 +20,8 @@
         <div class="pc-card mb-3">
             <div class="pc-card-body d-flex align-items-center justify-content-between">
                 <div>
-                    <div class="fw-semibold">Enable quota exemptions</div>
-                    <div class="text-muted" style="font-size:12px;">
-                        When on, checked apps are <strong>not killed</strong> when their daily app quota
-                        is exhausted (same minute-based job as <strong>App Control</strong>).
-                        Unchecked apps behave as before. Nothing is blocked from running only because it
-                        is missing from this list.
-                    </div>
+                    <div class="fw-semibold">{{ $t('processWhitelist.enableExemptions') }}</div>
+                    <div class="text-muted" style="font-size:12px;" v-html="$t('processWhitelist.enableExemptionsDesc')" />
                 </div>
                 <label class="pc-toggle">
                     <input type="checkbox" v-model="config.enabled" />
@@ -39,37 +34,37 @@
         <div class="pc-card mb-3">
             <div class="pc-card-header d-flex align-items-center justify-content-between flex-wrap gap-2">
                 <h6 class="mb-0">
-                    Exempt applications
+                    {{ $t('processWhitelist.exemptApps') }}
                     <span class="text-muted fw-normal" style="font-size:12px;">
-                        ({{ allowedIds.size }} / {{ appsWithProcess.length }} exempt when limit reached)
+                        ({{ $t('processWhitelist.exemptCount', { count: effectiveExemptAppCount, total: appsWithProcess.length }) }})
                     </span>
                 </h6>
                 <div class="d-flex align-items-center gap-2 flex-wrap">
-                    <button type="button" class="btn-pc-outline btn-sm" @click="onAllowAll">Exempt all</button>
-                    <button type="button" class="btn-pc-outline btn-sm" @click="onAllowNone">Exempt none</button>
-                    <input v-model="search" class="pc-input" style="width:200px;" placeholder="Search apps…" />
+                    <button type="button" class="btn-pc-outline btn-sm" @click="onAllowAll">{{ $t('processWhitelist.exemptAll') }}</button>
+                    <button type="button" class="btn-pc-outline btn-sm" @click="onAllowNone">{{ $t('processWhitelist.exemptNone') }}</button>
+                    <input v-model="search" class="pc-input" style="width:200px;" :placeholder="$t('processWhitelist.searchApps')" />
                 </div>
             </div>
 
             <div v-if="loading" class="pc-card-body text-center text-muted py-5">
-                <div class="spinner-border spinner-border-sm me-2" />Loading applications…
+                <div class="spinner-border spinner-border-sm me-2" />{{ $t('common.loadingApps') }}
             </div>
 
             <div v-else-if="appsWithProcess.length === 0" class="pc-card-body text-center text-muted py-5">
                 <i class="bi bi-app" style="font-size:40px;opacity:0.3;" />
-                <p class="mt-2">No applications with a known process name found.</p>
+                <p class="mt-2">{{ $t('processWhitelist.noAppsWithProcess') }}</p>
             </div>
 
             <div v-else-if="filteredApps.length === 0" class="pc-card-body text-center text-muted py-5">
                 <i class="bi bi-search" style="font-size:40px;opacity:0.3;" />
-                <p class="mt-2">No applications match your search.</p>
+                <p class="mt-2">{{ $t('processWhitelist.noAppsMatch') }}</p>
             </div>
 
             <div v-else class="overflow-auto" style="max-height:540px;">
                 <div v-for="app in filteredApps" :key="app.id" class="pc-list-item">
                     <AppListItemIcon
                         :icon-data-url="app.iconDataUrl || ''"
-                        :extra-style="allowedIds.has(app.id) ? '' : 'opacity:0.85'"
+                            :extra-style="isEffectiveExempt(app) ? '' : 'opacity:0.85'"
                     />
                     <div class="flex-grow-1">
                         <div class="item-name">{{ app.name }}</div>
@@ -80,16 +75,17 @@
                     <label class="pc-toggle">
                         <input
                             type="checkbox"
-                            :checked="allowedIds.has(app.id)"
+                            :checked="isEffectiveExempt(app)"
+                            :disabled="isAppBlocked(app)"
                             @change="onToggleApp(app.id)"
                         />
                         <span class="slider" />
                     </label>
                     <span
                         class="status-badge ms-2"
-                        :class="allowedIds.has(app.id) ? 'active' : 'inactive'"
+                        :class="isEffectiveExempt(app) ? 'active' : 'inactive'"
                     >
-                        {{ allowedIds.has(app.id) ? 'Exempt' : 'Normal' }}
+                        {{ isEffectiveExempt(app) ? $t('processWhitelist.exempt') : $t('processWhitelist.normal') }}
                     </span>
                 </div>
             </div>
@@ -107,8 +103,11 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
+import { useI18n } from 'vue-i18n'
 import AppListItemIcon from '../components/AppListItemIcon.vue'
 import { useAppStore } from '../stores/appStore.js'
+
+const { t } = useI18n()
 
 const store = useAppStore()
 const loading  = ref(true)
@@ -121,9 +120,24 @@ const config = ref({ enabled: false, allowedIds: [] })
 const allowedIds = ref(new Set())
 const allApps = ref([])
 
+const blockedIdSet = computed(() => new Set(store.blockedApps))
+
+function isAppBlocked(app) {
+    return Boolean(app?.blocked) || (app?.id ? blockedIdSet.value.has(app.id) : false)
+}
+
+function isEffectiveExempt(app) {
+    if (!app?.id) return false
+    return allowedIds.value.has(app.id) && !isAppBlocked(app)
+}
+
 // Only apps that have a known processName
 const appsWithProcess = computed(() =>
     allApps.value.filter(a => a.processName && a.processName.trim().length > 0)
+)
+
+const effectiveExemptAppCount = computed(() =>
+    appsWithProcess.value.filter(a => isEffectiveExempt(a)).length
 )
 
 const filteredApps = computed(() => {
@@ -135,8 +149,8 @@ const filteredApps = computed(() => {
         )
         : appsWithProcess.value
     return [...list].sort((a, b) => {
-        const aOn = allowedIds.value.has(a.id) ? 0 : 1
-        const bOn = allowedIds.value.has(b.id) ? 0 : 1
+        const aOn = isEffectiveExempt(a) ? 0 : 1
+        const bOn = isEffectiveExempt(b) ? 0 : 1
         return aOn - bOn
     })
 })
@@ -144,7 +158,8 @@ const filteredApps = computed(() => {
 onMounted(async () => {
     const [apps, cfg] = await Promise.all([
         window.api.apps.list(),
-        window.api.processWhitelist.get()
+        window.api.processWhitelist.get(),
+        store.loadBlockedApps()
     ])
     allApps.value = Array.isArray(apps) ? apps : []
     config.value  = cfg ?? { enabled: false, allowedIds: [] }
@@ -163,7 +178,7 @@ function onToggleApp(appId) {
 }
 
 function onAllowAll() {
-    allowedIds.value = new Set(appsWithProcess.value.map(a => a.id))
+    allowedIds.value = new Set(appsWithProcess.value.filter(a => !isAppBlocked(a)).map(a => a.id))
 }
 
 function onAllowNone() {
@@ -185,7 +200,7 @@ async function onSave() {
         saveError.value = r.error
     } else {
         await store.loadProcessWhitelist()
-        saveMsg.value = 'Quota exemptions applied; quota script updated.'
+        saveMsg.value = t('processWhitelist.exemptionsSaved')
         setTimeout(() => { saveMsg.value = '' }, 4000)
     }
 }

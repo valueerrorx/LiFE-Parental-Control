@@ -1,15 +1,15 @@
 <template>
     <div class="pc-page-header d-flex align-items-start justify-content-between">
         <div>
-            <h1>KDE Kiosk Mode</h1>
-            <p class="text-muted mb-0">Configure lockdown restrictions for KDE Plasma.</p>
+            <h1>{{ $t('kiosk.title') }}</h1>
+            <p class="text-muted mb-0">{{ $t('kiosk.subtitle') }}</p>
         </div>
         <div class="d-flex gap-2 pt-1">
             <button class="btn-pc-outline" @click="onDeactivate">
-                <i class="bi bi-shield-slash me-1" />Deactivate
+                <i class="bi bi-shield-slash me-1" />{{ $t('kiosk.deactivate') }}
             </button>
             <button class="btn-pc-danger" @click="onActivate">
-                <i class="bi bi-shield-lock me-1" />Activate Kiosk Mode
+                <i class="bi bi-shield-lock me-1" />{{ $t('kiosk.activateKioskMode') }}
             </button>
         </div>
     </div>
@@ -24,7 +24,7 @@
                     :class="{ 'active-inner': activeTab === 'profiles' }"
                     @click="activeTab = 'profiles'"
                 >
-                    <i class="bi bi-people me-2" />Profiles
+                    <i class="bi bi-people me-2" />{{ $t('kiosk.profiles') }}
                 </button>
                 <button
                     class="nav-item-link w-100"
@@ -32,10 +32,10 @@
                     :class="{ 'active-inner': activeTab === 'urls' }"
                     @click="activeTab = 'urls'"
                 >
-                    <i class="bi bi-folder-x me-2" />URL Restrictions
+                    <i class="bi bi-folder-x me-2" />{{ $t('kiosk.urlRestrictions') }}
                 </button>
                 <div style="font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#9E9E9E;padding:10px 16px 4px;">
-                    Restrictions
+                    {{ $t('kiosk.restrictions') }}
                 </div>
                 <button
                     v-for="cfg in store.configFiles"
@@ -61,6 +61,7 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useKioskStore } from '../stores/kioskStore.js'
 import { useAppStore } from '../stores/appStore.js'
 import { useModal } from '../composables/useModal.js'
@@ -68,6 +69,7 @@ import ProfilesTab from '../components/kiosk/ProfilesTab.vue'
 import UrlRestrictionsTab from '../components/kiosk/UrlRestrictionsTab.vue'
 import RestrictionTab from '../components/kiosk/RestrictionTab.vue'
 
+const { t } = useI18n()
 const store = useKioskStore()
 const appStore = useAppStore()
 const { confirm } = useModal()
@@ -93,9 +95,9 @@ onMounted(() => store.init())
 
 async function onDeactivate() {
     const ok = await confirm(
-        'Deactivate Kiosk Mode',
-        'Remove LiFE kiosk restrictions and restart the KDE session?',
-        { ok: 'Deactivate', cancel: 'Cancel' }
+        t('kiosk.deactivateConfirmTitle'),
+        t('kiosk.deactivateConfirmMsg'),
+        { ok: t('kiosk.deactivateLabel'), cancel: t('common.cancel') }
     )
     if (!ok) return
     const result = await window.api.system.activateKiosk('')
@@ -109,9 +111,9 @@ async function onDeactivate() {
 async function onActivate() {
     const { configText, plasmaLayoutHardLock } = await store.prepareActivation()
     const escapedText = configText.replace(/</g, '&lt;').replace(/>/g, '&gt;')
-    const html = `<p class="mb-2">Apply and restart the KDE session?</p>
+    const html = `<p class="mb-2">${t('kiosk.activateConfirmMsg')}</p>
         <pre class="bg-light border rounded p-2 mb-0" style="max-height:200px;overflow-y:auto;font-size:11px;">${escapedText || '(clear LiFE kiosk blocks)'}</pre>`
-    const ok = await confirm('Activate Kiosk Mode', '', { html, ok: 'Activate', cancel: 'Cancel' })
+    const ok = await confirm(t('kiosk.activateConfirmTitle'), '', { html, ok: t('kiosk.activateLabel'), cancel: t('common.cancel') })
     if (!ok) return
     const result = await window.api.system.activateKiosk({ configText, plasmaLayoutHardLock })
     if (result?.error) alert(`Failed: ${result.error}`)

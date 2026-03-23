@@ -31,6 +31,7 @@ export default defineConfig({
             alias: {
                 '@shared': resolve('src/shared'),
                 '@': resolve('src/renderer/src'),
+                '@lang': resolve('lang'),
                 composables: resolve('src/renderer/src/composables'),
                 components: resolve('src/renderer/src/components'),
                 stores: resolve('src/renderer/src/stores'),
