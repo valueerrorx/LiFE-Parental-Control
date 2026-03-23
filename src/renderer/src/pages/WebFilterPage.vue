@@ -1,16 +1,16 @@
 <template>
     <div class="pc-page-header d-flex align-items-start justify-content-between">
         <div>
-            <h1>Web Filter</h1>
-            <p>Block websites and domains via /etc/hosts</p>
+            <h1>{{ $t('webFilter.title') }}</h1>
+            <p>{{ $t('webFilter.subtitle') }}</p>
         </div>
         <div class="d-flex align-items-center gap-3 pt-1">
             <span class="status-badge" :class="activeRuleCount > 0 ? 'active' : 'inactive'">
                 <i class="bi bi-circle-fill" style="font-size:7px;" />
-                {{ activeRuleCount > 0 ? `${activeRuleCount} /etc/hosts rules` : 'No active rules' }}
+                {{ activeRuleCount > 0 ? $t('webFilter.hostRules', { count: activeRuleCount }) : $t('webFilter.noActiveRules') }}
             </span>
             <button class="btn-pc-primary" @click="onSave" :disabled="saving">
-                <i class="bi bi-floppy me-1" />{{ saving ? 'Saving…' : 'Apply Changes' }}
+                <i class="bi bi-floppy me-1" />{{ saving ? $t('common.saving') : $t('common.applyChanges') }}
             </button>
         </div>
     </div>
@@ -24,35 +24,35 @@
             <div class="col-8">
                 <div class="pc-card">
                     <div class="pc-card-header">
-                        <h6>Custom domains ({{ search ? `${filteredEntries.length} / ${entries.length}` : entries.length }})</h6>
+                        <h6>{{ $t('webFilter.customDomains') }} ({{ search ? `${filteredEntries.length} / ${entries.length}` : entries.length }})</h6>
                         <div class="d-flex gap-2 flex-wrap">
                             <input
                                 v-model="search"
                                 class="pc-input"
                                 style="width:170px;"
-                                placeholder="Search domains…"
+                                :placeholder="$t('webFilter.searchDomains')"
                             />
                             <input
                                 v-model="newDomain"
                                 class="pc-input"
                                 style="width:190px;"
-                                placeholder="e.g. facebook.com"
+                                :placeholder="$t('webFilter.domainPlaceholder')"
                                 @keyup.enter="onAdd"
                             />
                             <button type="button" class="btn-pc-primary" @click="onAdd">
-                                <i class="bi bi-plus-lg me-1" />Block host
+                                <i class="bi bi-plus-lg me-1" />{{ $t('webFilter.blockHost') }}
                             </button>
                         </div>
                     </div>
 
                     <div v-if="entries.length === 0" class="pc-card-body text-center text-muted py-5">
                         <i class="bi bi-shield-check" style="font-size:40px;opacity:0.3;" />
-                        <p class="mt-2">No custom domains yet. Add below or enable category lists (HaGeZi) in Quick Add.</p>
+                        <p class="mt-2">{{ $t('webFilter.noDomainsYet') }}</p>
                     </div>
 
                     <div v-else-if="filteredEntries.length === 0" class="pc-card-body text-center text-muted py-5">
                         <i class="bi bi-search" style="font-size:40px;opacity:0.3;" />
-                        <p class="mt-2">No domains match "{{ search }}".</p>
+                        <p class="mt-2">{{ $t('webFilter.noDomainsMatch', { search }) }}</p>
                     </div>
 
                     <div v-else class="pc-scroll-list">
@@ -75,34 +75,34 @@
                 </div>
                 <div class="pc-card mt-3">
                     <div class="pc-card-header">
-                        <h6>Allow exceptions ({{ allowSearch ? `${filteredAllowlist.length} / ${allowlist.length}` : allowlist.length }})</h6>
+                        <h6>{{ $t('webFilter.allowExceptions') }} ({{ allowSearch ? `${filteredAllowlist.length} / ${allowlist.length}` : allowlist.length }})</h6>
                         <div class="d-flex gap-2 flex-wrap">
                             <input
                                 v-model="allowSearch"
                                 class="pc-input"
                                 style="width:170px;"
-                                placeholder="Search hosts…"
+                                :placeholder="$t('webFilter.searchHosts')"
                             />
                             <input
                                 v-model="allowNewDomain"
                                 class="pc-input"
                                 style="width:190px;"
-                                placeholder="e.g. reddit.com"
+                                :placeholder="$t('webFilter.allowPlaceholder')"
                                 :disabled="saving"
                                 @keyup.enter="onAddAllow"
                             />
                             <button type="button" class="btn-pc-primary" :disabled="saving" @click="onAddAllow">
-                                <i class="bi bi-plus-lg me-1" />Allow host
+                                <i class="bi bi-plus-lg me-1" />{{ $t('webFilter.allowHost') }}
                             </button>
                         </div>
                     </div>
                     <div v-if="!allowlist.length" class="pc-card-body text-center text-muted py-5">
                         <i class="bi bi-shield-check" style="font-size:40px;opacity:0.3;" />
-                        <p class="mt-2">No exceptions yet.</p>
+                        <p class="mt-2">{{ $t('webFilter.noExceptionsYet') }}</p>
                     </div>
                     <div v-else-if="filteredAllowlist.length === 0" class="pc-card-body text-center text-muted py-5">
                         <i class="bi bi-search" style="font-size:40px;opacity:0.3;" />
-                        <p class="mt-2">No hosts match "{{ allowSearch }}".</p>
+                        <p class="mt-2">{{ $t('webFilter.noHostsMatch', { search: allowSearch }) }}</p>
                     </div>
                     <div v-else class="pc-scroll-list">
                         <div v-for="h in filteredAllowlist" :key="h" class="pc-list-item pc-list-item--compact">
@@ -134,7 +134,7 @@
             <div class="col-4">
                 <div class="pc-card">
                     <div class="pc-card-header">
-                        <h6>Quick Add Categories</h6>
+                        <h6>{{ $t('webFilter.quickAddCategories') }}</h6>
                     </div>
                     <div class="pc-card-body d-flex flex-column gap-2">
                         <button
@@ -146,7 +146,7 @@
                             @click="onQuickCategory(cat)"
                         >
                             <i class="bi me-2" :class="categoryIcon(cat)" />
-                            Add {{ cat }}
+                            {{ $t('webFilter.addCategory', { cat }) }}
                         </button>
                         <hr
                             v-if="staticQuickCats.length && hageziQuickCats.length"
@@ -156,15 +156,15 @@
                             v-if="hageziQuickCats.length"
                             class="d-flex align-items-center justify-content-between gap-2 flex-wrap"
                         >
-                            <h6 class="mb-0 webfilter-hagezi-subhead">HaGeZi lists</h6>
+                            <h6 class="mb-0 webfilter-hagezi-subhead">{{ $t('webFilter.hageziLists') }}</h6>
                             <button
                                 type="button"
                                 class="btn-pc-outline flex-shrink-0"
-                                title="Download newer HaGeZi list versions when online (see README)"
+                                :title="$t('webFilter.updateListsTitle')"
                                 :disabled="saving"
                                 @click="onSyncFeeds"
                             >
-                                <i class="bi bi-cloud-download me-1" />Update lists
+                                <i class="bi bi-cloud-download me-1" />{{ $t('webFilter.updateLists') }}
                             </button>
                         </div>
                         <button
@@ -178,16 +178,16 @@
                         >
                             <template v-if="feedOn(categoryFeedId(cat))">
                                 <i class="bi bi-check-lg me-2" />
-                                {{ cat }} Enabled
+                                {{ $t('webFilter.categoryEnabled', { cat }) }}
                             </template>
                             <template v-else>
                                 <i class="bi me-2" :class="categoryIcon(cat)" />
-                                {{ cat }} Disabled
+                                {{ $t('webFilter.categoryDisabled', { cat }) }}
                             </template>
                         </button>
                         <hr class="my-1" />
                         <button class="btn-pc-danger" :disabled="saving" @click="onClearAll">
-                            <i class="bi bi-trash me-1" />Clear All Rules
+                            <i class="bi bi-trash me-1" />{{ $t('webFilter.clearAllRules') }}
                         </button>
                     </div>
                 </div>
@@ -198,9 +198,11 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { confirm } from '../composables/useConfirm.js'
 import { useAppStore } from '../stores/appStore.js'
 
+const { t } = useI18n()
 const store = useAppStore()
 const entries = computed(() => store.webFilterEntries)
 const categories = ref([])
@@ -265,7 +267,7 @@ function onAdd() {
     const d = newDomain.value.trim().toLowerCase().replace(/^https?:\/\//, '').replace(/\/.*$/, '')
     if (!d) return
     if (entries.value.find(e => e.domain === d)) {
-        saveMsg.value = `"${d}" is already in the list`
+        saveMsg.value = t('webFilter.alreadyInList', { domain: d })
         saveError.value = true
         setTimeout(() => { saveMsg.value = '' }, 3000)
         return
@@ -293,11 +295,11 @@ async function onQuickCategory(cat) {
     if (result?.error) { saveMsg.value = `Error: ${result.error}`; saveError.value = true }
     else if (fid) {
         saveMsg.value = store.webFilterFeedState[fid]
-            ? `Enabled HaGeZi list: ${cat}`
-            : `Disabled HaGeZi list: ${cat}`
+            ? t('webFilter.enabledList', { cat })
+            : t('webFilter.disabledList', { cat })
         saveError.value = false
     } else {
-        saveMsg.value = `Added ${result?.added ?? 0} new domains from "${cat}"`
+        saveMsg.value = t('webFilter.addedDomains', { count: result?.added ?? 0, cat })
         saveError.value = false
     }
     setTimeout(() => { saveMsg.value = '' }, 4000)
@@ -309,7 +311,7 @@ async function onSave() {
     saving.value = false
     if (result?.error) { saveMsg.value = `Error: ${result.error}`; saveError.value = true }
     else {
-        saveMsg.value = 'Rules applied to /etc/hosts — DNS cache flushed'
+        saveMsg.value = t('webFilter.rulesApplied')
         saveError.value = false
         hostsBackupWarning.value = ''
     }
@@ -318,7 +320,7 @@ async function onSave() {
 
 async function onClearAll() {
     const n = entries.value.length + Object.values(store.webFilterFeedState).filter(Boolean).length
-    if (!await confirm({ title: 'Clear all rules', message: `Clear all custom domains and disable all category lists (${n} sources)? This writes immediately to /etc/hosts and webfilter.json.`, okLabel: 'Clear', danger: true })) return
+    if (!await confirm({ title: t('webFilter.clearAllConfirmTitle'), message: t('webFilter.clearAllConfirmMsg', { count: n }), okLabel: t('webFilter.clearLabel'), danger: true })) return
     saving.value = true
     const r = await window.api.webFilter.clearAll()
     saving.value = false
@@ -328,7 +330,7 @@ async function onClearAll() {
     } else {
         await store.loadWebFilter()
         search.value = ''
-        saveMsg.value = 'All web filter rules cleared'
+        saveMsg.value = t('webFilter.allRulesCleared')
         saveError.value = false
     }
     setTimeout(() => { saveMsg.value = '' }, 4000)
@@ -338,7 +340,7 @@ async function onAddAllow() {
     const d = allowNewDomain.value.trim().toLowerCase().replace(/^https?:\/\//, '').replace(/\/.*$/, '').split('/')[0]
     if (!d) return
     if (allowlist.value.includes(d)) {
-        saveMsg.value = `"${d}" is already allowed`
+        saveMsg.value = t('webFilter.alreadyAllowed', { host: d })
         saveError.value = true
         setTimeout(() => { saveMsg.value = '' }, 3000)
         return
@@ -353,7 +355,7 @@ async function onAddAllow() {
         saveMsg.value = `Error: ${r.error}`
         saveError.value = true
     } else {
-        saveMsg.value = `Allowed: ${d} (removed from block set if present)`
+        saveMsg.value = t('webFilter.allowed', { host: d })
         saveError.value = false
     }
     setTimeout(() => { saveMsg.value = '' }, 4000)
@@ -371,7 +373,7 @@ async function onRemoveAllow(h) {
         saveMsg.value = `Error: ${r.error}`
         saveError.value = true
     } else {
-        saveMsg.value = `Removed exception: ${h}`
+        saveMsg.value = t('webFilter.removedException', { host: h })
         saveError.value = false
     }
     setTimeout(() => { saveMsg.value = '' }, 4000)
@@ -387,9 +389,9 @@ async function onSyncFeeds() {
         saveMsg.value = `Update: ${r.error}`
         saveError.value = true
     } else {
-        const u = r?.updated?.length ? ` updated ${r.updated.join(', ')}` : ''
-        const e = r?.errors?.length ? ` — warnings: ${r.errors.join('; ')}` : ''
-        saveMsg.value = `List files synced.${u}${e}`
+        const u = r?.updated?.length ? t('webFilter.listsUpdated', { list: r.updated.join(', ') }) : ''
+        const e = r?.errors?.length ? t('webFilter.listsWarnings', { list: r.errors.join('; ') }) : ''
+        saveMsg.value = t('webFilter.listsSynced') + u + e
         saveError.value = Boolean(r?.errors?.length)
     }
     setTimeout(() => { saveMsg.value = '' }, 6000)

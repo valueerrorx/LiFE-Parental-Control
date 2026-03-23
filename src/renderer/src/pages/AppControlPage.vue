@@ -1,22 +1,22 @@
 <template>
     <div class="pc-page-header d-flex align-items-start justify-content-between">
         <div>
-            <h1>App Control</h1>
-            <p>Block applications from launching via desktop file overrides</p>
+            <h1>{{ $t('appControl.title') }}</h1>
+            <p>{{ $t('appControl.subtitle') }}</p>
         </div>
         <div class="d-flex align-items-center gap-2 pt-1">
             <span class="status-badge" :class="blockedCount > 0 ? 'warning' : 'inactive'">
                 <i class="bi bi-circle-fill" style="font-size:7px;" />
-                {{ blockedCount }} blocked
+                {{ $t('appControl.blockedCount', { count: blockedCount }) }}
             </span>
             <button
                 type="button"
                 class="btn-pc-primary"
                 :disabled="quotaBusy"
-                title="Apply blocked apps and quota limits"
+                :title="$t('appControl.applyTitle')"
                 @click="onApplyAllQuotas"
             >
-                <i class="bi bi-floppy me-1" />{{ quotaBusy ? 'Saving…' : 'Apply Changes' }}
+                <i class="bi bi-floppy me-1" />{{ quotaBusy ? $t('common.saving') : $t('common.applyChanges') }}
             </button>
         </div>
     </div>
@@ -24,17 +24,17 @@
     <div class="pc-content">
         <div class="pc-card">
             <div class="pc-card-header">
-                <h6>Installed Applications ({{ filtered.length }})</h6>
-                <input v-model="search" class="pc-input" style="width:220px;" placeholder="Search apps…" />
+                <h6>{{ $t('appControl.installedApps', { count: filtered.length }) }}</h6>
+                <input v-model="search" class="pc-input" style="width:220px;" :placeholder="$t('appControl.searchApps')" />
             </div>
 
             <div v-if="loading" class="pc-card-body text-center text-muted py-5">
-                <div class="spinner-border spinner-border-sm me-2" />Loading applications…
+                <div class="spinner-border spinner-border-sm me-2" />{{ $t('common.loadingApps') }}
             </div>
 
             <div v-else-if="filtered.length === 0" class="pc-card-body text-center text-muted py-5">
                 <i class="bi bi-search" style="font-size:40px;opacity:0.3;" />
-                <p class="mt-2">No applications found.</p>
+                <p class="mt-2">{{ $t('appControl.noAppsFound') }}</p>
             </div>
 
             <div v-else class="overflow-auto" style="max-height: 540px;">
@@ -47,71 +47,76 @@
                         <div class="item-name">{{ app.name }}</div>
                         <div class="item-sub text-truncate" style="max-width:360px;">{{ app.exec }}</div>
                     </div>
-                    <span v-if="pendingBlocked.has(app.id)" class="text-muted me-2" style="font-size:11px;">unsaved</span>
+                    <span v-if="pendingBlocked.has(app.id)" class="text-muted me-2" style="font-size:11px;">{{ $t('common.unsaved') }}</span>
                     <label class="pc-toggle">
                         <input type="checkbox" :checked="app.blocked" @change="onToggle(app)" />
                         <span class="slider" />
                     </label>
-                    <span v-if="app.blocked" class="status-badge warning ms-2">Blocked</span>
+                    <span v-if="app.blocked" class="status-badge warning ms-2">{{ $t('common.blocked') }}</span>
                 </div>
             </div>
         </div>
 
         <div class="pc-card mt-3">
             <div class="pc-card-header d-flex align-items-center justify-content-between flex-wrap gap-2">
-                <h6 class="mb-0">Daily time limits for individual apps</h6>
+                <h6 class="mb-0">{{ $t('appControl.dailyLimits') }}</h6>
                 <div class="d-flex align-items-center gap-2 flex-wrap">
                     <div class="d-flex align-items-center gap-1">
-                        <label class="small text-muted mb-0">Show limits for</label>
+                        <label class="small text-muted mb-0">{{ $t('appControl.showLimitsFor') }}</label>
                         <select
                             class="pc-input pc-input-sm"
                             style="min-width:140px;"
                             :value="store.quotaViewLinuxUser"
                             @change="onQuotaViewUserChange($event.target.value)"
                         >
-                            <option value="">All accounts</option>
+                            <option value="">{{ $t('common.allAccounts') }}</option>
                             <option v-for="u in quotaFilterUserOptions" :key="u" :value="u">{{ u }}</option>
                         </select>
                     </div>
                     <button type="button" class="btn btn-sm btn-outline-secondary" :disabled="quotaBusy" @click="onResetQuotaTodayUsage">
-                        Reset today’s quota usage
+                        {{ $t('appControl.resetTodayUsage') }}
                     </button>
                     <span class="status-badge" :class="filteredQuotas.length > 0 ? 'active' : 'inactive'">
                         <i class="bi bi-circle-fill" style="font-size:7px;" />
-                        {{ filteredQuotas.length }}<template v-if="quotaViewFilterActive"> / {{ quotas.length }}</template> app quota(s)
+                        <template v-if="quotaViewFilterActive">
+                            {{ $t('appControl.appQuotasFiltered', { filtered: filteredQuotas.length, total: quotas.length }) }}
+                        </template>
+                        <template v-else>
+                            {{ $t('appControl.appQuotas', { count: filteredQuotas.length }) }}
+                        </template>
                     </span>
                 </div>
             </div>
             <div class="pc-card-body">
                 <div v-if="quotas.length" class="table-responsive mb-0">
                     <p v-if="quotaViewFilterActive && filteredQuotas.length === 0" class="small text-muted mb-2">
-                        No quotas apply to this Linux account (or add a limit with this account below). “All accounts” limits always apply when that user is signed in.
+                        {{ $t('appControl.noQuotasForAccount') }}
                     </p>
                     <table v-if="filteredQuotas.length" class="table table-sm align-middle mb-0">
                         <thead>
                             <tr>
-                                <th>Application</th>
-                                <th>Linux account</th>
-                                <th>Process</th>
-                                <th>Limit (min/day)</th>
-                                <th>Used today</th>
+                                <th>{{ $t('appControl.tableApp') }}</th>
+                                <th>{{ $t('appControl.tableLinuxAccount') }}</th>
+                                <th>{{ $t('appControl.tableProcess') }}</th>
+                                <th>{{ $t('appControl.tableLimit') }}</th>
+                                <th>{{ $t('appControl.tableUsedToday') }}</th>
                                 <th />
                             </tr>
                         </thead>
                         <tbody>
                             <tr v-for="q in filteredQuotas" :key="quotaRowKey(q)">
                                 <td>{{ q.appName }}</td>
-                                <td class="text-nowrap">{{ q.linuxUser || '— (all accounts)' }}</td>
+                                <td class="text-nowrap">{{ q.linuxUser || $t('appControl.allAccountsOption') }}</td>
                                 <td style="min-width:120px;">
                                     <input v-model="q.editProcess" type="text" class="pc-input pc-input-sm" style="width:100%;" autocomplete="off" />
                                 </td>
                                 <td style="width:110px;">
                                     <input v-model.number="q.editLimit" type="number" min="1" max="1440" class="pc-input pc-input-sm" style="width:100%;" />
                                 </td>
-                                <td>{{ quotaUsedForRow(q) }} min</td>
+                                <td>{{ $t('appControl.usedMin', { min: quotaUsedForRow(q) }) }}</td>
                                 <td class="text-nowrap">
                                     <button type="button" class="btn btn-sm btn-outline-danger" :disabled="quotaBusy" @click="onRemoveQuota(q.appId, q.linuxUser)">
-                                        Remove
+                                        {{ $t('common.remove') }}
                                     </button>
                                 </td>
                             </tr>
@@ -123,31 +128,31 @@
                     :class="quotas.length ? 'mt-4 pt-3 border-top border-light' : ''"
                 >
                     <div>
-                        <label class="form-label small text-muted mb-1 d-block">Add limit for app</label>
+                        <label class="form-label small text-muted mb-1 d-block">{{ $t('appControl.addLimitForApp') }}</label>
                         <select v-model="addAppId" class="pc-input" style="min-width:240px;">
-                            <option disabled value="">Choose application…</option>
+                            <option disabled value="">{{ $t('appControl.chooseApp') }}</option>
                             <option v-for="a in appsForQuota" :key="a.id" :value="a.id">
                                 {{ a.name }} ({{ a.processName || '—' }})
                             </option>
                         </select>
                     </div>
                     <div>
-                        <label class="form-label small text-muted mb-1 d-block">Linux account</label>
+                        <label class="form-label small text-muted mb-1 d-block">{{ $t('appControl.linuxAccount') }}</label>
                         <select v-model="addLinuxUser" class="pc-input" style="min-width:180px;">
-                            <option value="">All accounts</option>
+                            <option value="">{{ $t('common.allAccounts') }}</option>
                             <option v-for="u in addQuotaLinuxUserOptions" :key="u" :value="u">{{ u }}</option>
                         </select>
                     </div>
                     <div>
-                        <label class="form-label small text-muted mb-1 d-block">Minutes / day</label>
+                        <label class="form-label small text-muted mb-1 d-block">{{ $t('appControl.minutesPerDay') }}</label>
                         <input v-model.number="addMinutes" type="number" min="1" max="1440" class="pc-input" style="width:100px;" />
                     </div>
                     <div>
-                        <label class="form-label small text-muted mb-1 d-block">Override process name</label>
-                        <input v-model="addProcessOverride" type="text" class="pc-input" style="width:140px;" placeholder="optional" autocomplete="off" />
+                        <label class="form-label small text-muted mb-1 d-block">{{ $t('appControl.overrideProcess') }}</label>
+                        <input v-model="addProcessOverride" type="text" class="pc-input" style="width:140px;" :placeholder="$t('common.optional')" autocomplete="off" />
                     </div>
                     <button type="button" class="btn-pc-primary mt-3 mt-sm-4" :disabled="quotaBusy || !addAppId || !canAddQuota" @click="onAddQuota">
-                        <i class="bi bi-plus-lg me-1" />Add limit
+                        <i class="bi bi-plus-lg me-1" />{{ $t('appControl.addLimit') }}
                     </button>
                 </div>
             </div>
@@ -166,12 +171,14 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { confirm } from '../composables/useConfirm.js'
 import { normalizeQuotaLinuxUser, quotaUsedMinutes } from '@shared/quotaUsageKey.js'
 import { useAppStore } from '../stores/appStore.js'
 import { useDesktopLoginUsers, loadDesktopLoginUsers } from '../composables/useDesktopLoginUsers.js'
 import AppListItemIcon from '../components/AppListItemIcon.vue'
 
+const { t } = useI18n()
 const store = useAppStore()
 const { desktopLoginUsers } = useDesktopLoginUsers()
 const apps = ref([])
@@ -267,7 +274,7 @@ onMounted(async () => {
 })
 
 async function onResetQuotaTodayUsage() {
-    if (!await confirm({ title: "Reset today's quota", message: 'Delete today\'s quota-usage file? All "used today" minutes reset to 0; counting resumes on the next enforcement tick.', okLabel: 'Reset', danger: true })) return
+    if (!await confirm({ title: t('appControl.resetTodayTitle'), message: t('appControl.resetTodayMsg'), okLabel: t('appControl.reset'), danger: true })) return
     quotaBusy.value = true
     const r = await window.api.quota.resetTodayUsage()
     quotaBusy.value = false
@@ -339,7 +346,7 @@ async function onApplyAllQuotas() {
 
     if (!quotas.value.length) {
         quotaBusy.value = false
-        applyMsg.value = 'Changes saved.'
+        applyMsg.value = t('appControl.changesSaved')
         applyError.value = false
         setTimeout(() => { applyMsg.value = '' }, 4000)
         return
@@ -349,7 +356,7 @@ async function onApplyAllQuotas() {
         const proc = (q.editProcess || '').trim()
         if (!proc) {
             quotaBusy.value = false
-            applyMsg.value = 'Process name is required for each row.'
+            applyMsg.value = t('appControl.processRequired')
             applyError.value = true
             setTimeout(() => { applyMsg.value = '' }, 5000)
             return
@@ -374,7 +381,7 @@ async function onApplyAllQuotas() {
     await loadQuotas()
     await store.loadAppQuotas()
     quotaBusy.value = false
-    applyMsg.value = 'Quota limits saved.'
+    applyMsg.value = t('appControl.quotaSaved')
     applyError.value = false
     setTimeout(() => { applyMsg.value = '' }, 4000)
 }

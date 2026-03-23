@@ -1,16 +1,16 @@
 <template>
     <div class="pc-page-header d-flex align-items-start justify-content-between">
         <div>
-            <h1>Screen Time</h1>
-            <p>Set daily limits and allowed usage hours (enforced by the LiFE app while it runs as root)</p>
+            <h1>{{ $t('schedules.title') }}</h1>
+            <p>{{ $t('schedules.subtitle') }}</p>
         </div>
         <div class="d-flex gap-2 pt-1">
             <span class="status-badge" :class="schedule.enabled ? 'active' : 'inactive'">
                 <i class="bi bi-circle-fill" style="font-size:7px;" />
-                {{ schedule.enabled ? 'Active' : 'Disabled' }}
+                {{ schedule.enabled ? $t('common.active') : $t('common.disabled') }}
             </span>
             <button class="btn-pc-primary" @click="onSave" :disabled="saving">
-                <i class="bi bi-floppy me-1" />{{ saving ? 'Saving…' : 'Apply Changes' }}
+                <i class="bi bi-floppy me-1" />{{ saving ? $t('common.saving') : $t('common.applyChanges') }}
             </button>
         </div>
     </div>
@@ -20,8 +20,8 @@
         <div class="pc-card mb-3">
             <div class="pc-card-body d-flex align-items-center justify-content-between">
                 <div>
-                    <div class="fw-semibold">Enable Screen Time Controls</div>
-                    <div class="text-muted" style="font-size:12px;">When enabled, the LiFE Parental Control process enforces limits every minute (no system cron).</div>
+                    <div class="fw-semibold">{{ $t('schedules.enableScreenTime') }}</div>
+                    <div class="text-muted" style="font-size:12px;">{{ $t('schedules.enableScreenTimeHint') }}</div>
                 </div>
                 <label class="pc-toggle">
                     <input type="checkbox" v-model="schedule.enabled" />
@@ -31,15 +31,15 @@
         </div>
 
         <div class="pc-card mb-3">
-            <div class="pc-card-header"><h6>Profile presets</h6></div>
+            <div class="pc-card-header"><h6>{{ $t('schedules.profilePresets') }}</h6></div>
             <div class="pc-card-body">
-                <p class="text-muted mb-2" style="font-size:12px;">School / Leisure templates (Screen Time only). Adjust and click <strong>Apply Changes</strong>.</p>
+                <p class="text-muted mb-2" style="font-size:12px;" v-html="$t('schedules.presetsHint')" />
                 <div class="d-flex flex-wrap gap-2">
                     <button type="button" class="btn-pc-outline" @click="applyPreset('school')">
-                        <i class="bi bi-mortarboard me-1" />School week
+                        <i class="bi bi-mortarboard me-1" />{{ $t('schedules.schoolWeek') }}
                     </button>
                     <button type="button" class="btn-pc-outline" @click="applyPreset('leisure')">
-                        <i class="bi bi-brightness-high me-1" />Leisure
+                        <i class="bi bi-brightness-high me-1" />{{ $t('schedules.leisure') }}
                     </button>
                 </div>
             </div>
@@ -49,7 +49,7 @@
             <!-- Daily time limit -->
             <div class="pc-card mb-3">
                 <div class="pc-card-header">
-                    <h6>Daily Time Limit</h6>
+                    <h6>{{ $t('schedules.dailyTimeLimit') }}</h6>
                     <label class="pc-toggle">
                         <input type="checkbox" v-model="schedule.dailyLimitEnabled" />
                         <span class="slider" />
@@ -57,26 +57,24 @@
                 </div>
                 <div class="pc-card-body" v-if="schedule.dailyLimitEnabled">
                     <div class="d-flex align-items-center gap-3 mb-3">
-                        <label class="text-muted small" style="white-space:nowrap;">Max daily usage:</label>
+                        <label class="text-muted small" style="white-space:nowrap;">{{ $t('schedules.maxDailyUsage') }}</label>
                         <input v-model.number="schedule.dailyLimitMinutes" type="number" min="15" max="720" step="15"
                                class="pc-input" style="width:90px;" />
-                        <span class="text-muted small">minutes</span>
+                        <span class="text-muted small">{{ $t('schedules.minutes') }}</span>
                         <span class="text-muted small">({{ Math.floor(schedule.dailyLimitMinutes / 60) }}h {{ schedule.dailyLimitMinutes % 60 }}m)</span>
                     </div>
                     <div class="d-flex flex-wrap align-items-center gap-3 mb-3">
-                        <label class="text-muted small" style="white-space:nowrap;">Limit for Linux user:</label>
+                        <label class="text-muted small" style="white-space:nowrap;">{{ $t('schedules.limitForLinuxUser') }}</label>
                         <select v-model="schedule.screenTimeLinuxUser" class="pc-input" style="max-width:280px;">
-                            <option value="">All sessions (shared counter)</option>
+                            <option value="">{{ $t('schedules.allSessions') }}</option>
                             <option v-for="u in screenTimeUserOptions" :key="u" :value="u">{{ u }}</option>
                         </select>
                     </div>
                     <!-- Today's usage progress -->
                     <div class="usage-bar-wrap">
-                        <p v-if="todayExtraAllowance > 0" class="text-muted small mb-1">
-                            Today’s allowance includes <strong>+{{ todayExtraAllowance }} min</strong> added by a parent (logged usage is unchanged).
-                        </p>
+                        <p v-if="todayExtraAllowance > 0" class="text-muted small mb-1" v-html="$t('schedules.todayAllowance', { min: todayExtraAllowance })" />
                         <div class="d-flex justify-content-between mb-1">
-                            <span class="text-muted small">Today's usage</span>
+                            <span class="text-muted small">{{ $t('schedules.todayUsage') }}</span>
                             <span class="small fw-semibold" :style="usageColor">
                                 {{ todayMinutes }}m / {{ effectiveDailyLimit }}m
                             </span>
@@ -88,9 +86,9 @@
 
                     <div class="st-usage-actions">
                         <div class="st-usage-section">
-                            <div class="st-usage-section-title">Reset counter</div>
+                            <div class="st-usage-section-title">{{ $t('schedules.resetCounter') }}</div>
                             <p class="st-usage-hint">
-                                Start today’s tally over (removes today’s usage file). No password — use for mistakes or testing.
+                                {{ $t('schedules.resetCounterHint') }}
                             </p>
                             <button
                                 type="button"
@@ -98,12 +96,12 @@
                                 :disabled="saving"
                                 @click="onResetTodayUsage"
                             >
-                                <i class="bi bi-arrow-counterclockwise me-1" />Reset today’s usage
+                                <i class="bi bi-arrow-counterclockwise me-1" />{{ $t('schedules.resetTodayUsage') }}
                             </button>
                         </div>
                     </div>
                     <p class="text-muted small mt-2 mb-0" style="max-width:52rem;">
-                        When the limit is reached, this app shows a dialog to add more time with the parent password (no separate bonus form here).
+                        {{ $t('schedules.limitReachedHint') }}
                     </p>
                 </div>
             </div>
@@ -111,7 +109,7 @@
             <!-- Allowed hours -->
             <div class="pc-card mb-3">
                 <div class="pc-card-header">
-                    <h6>Allowed Hours</h6>
+                    <h6>{{ $t('schedules.allowedHours') }}</h6>
                     <label class="pc-toggle">
                         <input type="checkbox" v-model="schedule.allowedHoursEnabled" />
                         <span class="slider" />
@@ -119,18 +117,16 @@
                 </div>
                 <div class="pc-card-body" v-if="schedule.allowedHoursEnabled">
                     <div class="d-flex align-items-center gap-3 mb-3">
-                        <label class="text-muted small" style="white-space:nowrap;">From:</label>
+                        <label class="text-muted small" style="white-space:nowrap;">{{ $t('schedules.from') }}</label>
                         <input v-model="schedule.allowedHoursStart" type="time" class="pc-input" style="width:130px;" />
-                        <label class="text-muted small" style="white-space:nowrap;">To:</label>
+                        <label class="text-muted small" style="white-space:nowrap;">{{ $t('schedules.to') }}</label>
                         <input v-model="schedule.allowedHoursEnd" type="time" class="pc-input" style="width:130px;" />
                     </div>
-                    <p class="text-muted small mb-3 mb-md-2">
-                        If <strong>From</strong> is later than <strong>To</strong> (e.g. 22:00–07:00), the allowed window spans midnight.
-                    </p>
+                    <p class="text-muted small mb-3 mb-md-2" v-html="$t('schedules.midnightHint')" />
                     <div>
-                        <label class="text-muted small d-block mb-2">Active on days:</label>
+                        <label class="text-muted small d-block mb-2">{{ $t('schedules.activeOnDays') }}</label>
                         <div class="d-flex gap-2 flex-wrap">
-                            <label v-for="(day, idx) in DAYS" :key="idx" class="day-pill">
+                            <label v-for="(day, idx) in days" :key="idx" class="day-pill">
                                 <input type="checkbox" :value="idx + 1" v-model="schedule.allowedDays" />
                                 <span>{{ day }}</span>
                             </label>
@@ -142,21 +138,21 @@
 
         <div class="pc-card mb-3">
             <div class="pc-card-header d-flex align-items-center justify-content-between">
-                <h6 class="mb-0">Recent screen time</h6>
+                <h6 class="mb-0">{{ $t('schedules.recentScreenTime') }}</h6>
                 <div class="d-flex align-items-center gap-2">
                     <select v-model.number="historyDays" class="pc-input" style="width:auto;padding:4px 8px;font-size:12px;" @change="refreshUsageData">
-                        <option :value="7">7 days</option>
-                        <option :value="14">14 days</option>
-                        <option :value="30">30 days</option>
-                        <option :value="90">90 days</option>
+                        <option :value="7">{{ $t('schedules.7days') }}</option>
+                        <option :value="14">{{ $t('schedules.14days') }}</option>
+                        <option :value="30">{{ $t('schedules.30days') }}</option>
+                        <option :value="90">{{ $t('schedules.90days') }}</option>
                     </select>
                     <button type="button" class="btn btn-sm btn-outline-secondary" @click="refreshUsageData">
-                        Refresh
+                        {{ $t('common.refresh') }}
                     </button>
                 </div>
             </div>
             <div class="pc-card-body">
-                <div v-if="usageHistory.length === 0" class="text-muted small">No history files in config dir yet.</div>
+                <div v-if="usageHistory.length === 0" class="text-muted small">{{ $t('schedules.noHistoryYet') }}</div>
                 <div v-else class="d-flex flex-column gap-2">
                     <div v-for="row in usageHistory" :key="row.date" class="d-flex align-items-center gap-2 gap-md-3 flex-wrap">
                         <span style="min-width:92px;font-size:12px;" class="text-muted">{{ row.date }}</span>
@@ -178,14 +174,16 @@
 
 <script setup>
 import { ref, reactive, computed, onMounted } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { confirm } from '../composables/useConfirm.js'
 import { normalizeQuotaLinuxUser } from '@shared/quotaUsageKey.js'
 import { useAppStore } from '../stores/appStore.js'
 import { useDesktopLoginUsers, loadDesktopLoginUsers } from '../composables/useDesktopLoginUsers.js'
 
+const { t, tm } = useI18n()
 const appStore = useAppStore()
 const { desktopLoginUsers } = useDesktopLoginUsers()
-const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+const days = computed(() => tm('schedules.days'))
 const schedule = reactive({
     enabled: false, dailyLimitEnabled: false, dailyLimitMinutes: 120, screenTimeLinuxUser: '',
     allowedHoursEnabled: false, allowedHoursStart: '07:00', allowedHoursEnd: '22:00',
@@ -265,13 +263,13 @@ function applyPreset(kind) {
             allowedDays: [1, 2, 3, 4, 5, 6, 7]
         })
     }
-    saveMsg.value = 'Preset applied — click Apply Changes to apply on the system'
+    saveMsg.value = t('schedules.presetApplied')
     saveError.value = false
     setTimeout(() => { saveMsg.value = '' }, 5000)
 }
 
 async function onResetTodayUsage() {
-    if (!await confirm({ title: 'Reset today\'s screen time', message: 'Reset today\'s screen time counter to 0? Removes today\'s usage file; counting continues on the next enforcement tick.', okLabel: 'Reset', danger: true })) return
+    if (!await confirm({ title: t('schedules.resetTodayTitle'), message: t('schedules.resetTodayMsg'), okLabel: t('appControl.reset'), danger: true })) return
     saving.value = true
     const result = await window.api.schedules.resetTodayUsage()
     saving.value = false
@@ -279,7 +277,7 @@ async function onResetTodayUsage() {
         saveMsg.value = `Error: ${result.error}`
         saveError.value = true
     } else {
-        saveMsg.value = 'Today\'s usage reset'
+        saveMsg.value = t('schedules.todayUsageReset')
         saveError.value = false
         await refreshUsageData()
     }
@@ -293,7 +291,7 @@ async function onSave() {
     saving.value = false
     if (result?.error) { saveMsg.value = `Error: ${result.error}`; saveError.value = true }
     else {
-        saveMsg.value = 'Screen time settings applied'
+        saveMsg.value = t('schedules.screenTimeApplied')
         saveError.value = false
         void appStore.refreshProtectionsState()
         await refreshUsageData()

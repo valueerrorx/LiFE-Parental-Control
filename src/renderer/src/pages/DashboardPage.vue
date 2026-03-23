@@ -1,7 +1,7 @@
 <template>
     <div class="pc-page-header">
-        <h1>Dashboard</h1>
-        <p>Overview of active protections</p>
+        <h1>{{ $t('dashboard.title') }}</h1>
+        <p>{{ $t('dashboard.subtitle') }}</p>
     </div>
 
     <div class="pc-content">
@@ -12,12 +12,12 @@
                     <div class="stat-icon" style="background:#E3F2FD; color:#1565C0;">
                         <i class="bi bi-shield-x" />
                     </div>
-                    <div class="stat-label">Web Filter</div>
+                    <div class="stat-label">{{ $t('dashboard.webFilter') }}</div>
                     <div class="stat-value">{{ filterCount }}</div>
                     <div class="stat-sub">
                         <span class="status-badge" :class="filterCount > 0 ? 'active' : 'inactive'">
                             <i class="bi bi-circle-fill" style="font-size:7px;" />
-                            {{ filterCount > 0 ? 'Active' : 'Inactive' }}
+                            {{ filterCount > 0 ? $t('common.active') : $t('common.inactive') }}
                         </span>
                     </div>
                 </div>
@@ -27,14 +27,14 @@
                     <div class="stat-icon" style="background:#FFF3E0; color:#E65100;">
                         <i class="bi bi-app-indicator" />
                     </div>
-                    <div class="stat-label">Blocked Apps</div>
+                    <div class="stat-label">{{ $t('dashboard.blockedApps') }}</div>
                     <div class="stat-value">{{ blockedCount }}</div>
                     <div class="stat-sub">
                         <span class="status-badge" :class="blockedCount > 0 ? 'warning' : 'inactive'">
                             <i class="bi bi-circle-fill" style="font-size:7px;" />
-                            {{ blockedCount > 0 ? 'Active' : 'None' }}
+                            {{ blockedCount > 0 ? $t('common.active') : $t('common.none') }}
                         </span>
-                        <span v-if="quotaCount" class="ms-1 text-muted" style="font-size:11px;">· {{ quotaCount }} day limit(s)</span>
+                        <span v-if="quotaCount" class="ms-1 text-muted" style="font-size:11px;">· {{ quotaCount }} {{ $t('dashboard.dayLimits') }}</span>
                     </div>
                 </div>
             </div>
@@ -43,12 +43,12 @@
                     <div class="stat-icon" style="background:#E8F5E9; color:#2E7D32;">
                         <i class="bi bi-clock-history" />
                     </div>
-                    <div class="stat-label">Screen Time</div>
+                    <div class="stat-label">{{ $t('dashboard.screenTime') }}</div>
                     <div class="stat-value">{{ usageLabel }}</div>
                     <div class="stat-sub">
                         <span class="status-badge" :class="scheduleEnabled ? 'active' : 'inactive'">
                             <i class="bi bi-circle-fill" style="font-size:7px;" />
-                            {{ scheduleEnabled ? 'Active' : 'Disabled' }}
+                            {{ scheduleEnabled ? $t('common.active') : $t('common.disabled') }}
                         </span>
                     </div>
                 </div>
@@ -58,7 +58,7 @@
                     <div class="stat-icon" style="background:#F3E5F5; color:#6A1B9A;">
                         <i class="bi bi-lock-fill" />
                     </div>
-                    <div class="stat-label">KDE Kiosk</div>
+                    <div class="stat-label">{{ $t('dashboard.kdeKiosk') }}</div>
                     <div class="stat-value">{{ kioskStatValue }}</div>
                     <div class="stat-sub">
                         <span class="status-badge" :class="kioskBadgeClass">
@@ -73,7 +73,7 @@
                     <div class="stat-icon" :style="daemonIconStyle">
                         <i class="bi bi-cpu" />
                     </div>
-                    <div class="stat-label">Daemon</div>
+                    <div class="stat-label">{{ $t('dashboard.daemon') }}</div>
                     <div class="stat-value d-flex align-items-center">
                         <span style="font-size:16px;font-weight:600;line-height:1;">{{ daemonServiceLabel }}</span>
                     </div>
@@ -89,21 +89,21 @@
         <div v-if="daemonServiceActive !== 'active'" class="alert alert-warning py-2 px-3 mb-3 d-flex align-items-center gap-2" style="font-size:13px;">
             <i class="bi bi-exclamation-triangle-fill" />
             <span>
-                <strong>Daemon nicht aktiv</strong> — Timekeeping läuft nicht.
-                Starten unter <RouterLink to="/settings">Einstellungen → Systemd Daemon</RouterLink>.
+                <strong>{{ $t('dashboard.daemonNotActive') }}</strong> — {{ $t('dashboard.daemonNotActiveMsg') }}
+                <RouterLink to="/settings">{{ $t('dashboard.settingsLink') }}</RouterLink>.
             </span>
         </div>
 
         <!-- Screen time analytics -->
         <div class="pc-card mt-3">
             <div class="pc-card-header d-flex align-items-center justify-content-between flex-wrap gap-2">
-                <h6 class="mb-0">Screen time</h6>
+                <h6 class="mb-0">{{ $t('dashboard.screenTimeCard') }}</h6>
                 <div class="d-flex flex-wrap gap-2">
                     <button type="button" class="btn btn-sm btn-outline-secondary" @click="refreshScreenCharts">
-                        Refresh
+                        {{ $t('common.refresh') }}
                     </button>
                     <RouterLink to="/schedules" class="btn btn-sm btn-outline-primary">
-                        Rules
+                        {{ $t('dashboard.rules') }}
                     </RouterLink>
                 </div>
             </div>
@@ -133,27 +133,27 @@
                                 >
                                     <div class="donut-hole">
                                         <div class="donut-center-value">{{ donutModel.screen }}</div>
-                                        <div class="text-muted small">min today</div>
+                                        <div class="text-muted small">{{ $t('dashboard.minToday') }}</div>
                                         <div v-if="dailyCapSubtitle" class="text-muted small mt-1">{{ dailyCapSubtitle }}</div>
                                     </div>
                                 </div>
                             </div>
                         </div>
                         <p v-if="donutModel.overlap" class="small donut-overlap-hint mt-2 mb-0">
-                            Tracked app minutes can exceed session minutes when several catalog apps run at the same time.
+                            {{ $t('dashboard.trackedAppOverlap') }}
                         </p>
                     </div>
                     <div class="col-12 col-lg-8 min-w-0 d-flex flex-column week-chart-col-wrap">
                         <div class="d-flex flex-wrap align-items-start justify-content-between gap-2 mb-2">
-                            <h6 class="small text-muted mb-0">Last 7 days (logged minutes)</h6>
+                            <h6 class="small text-muted mb-0">{{ $t('dashboard.last7Days') }}</h6>
                             <div class="d-flex flex-wrap gap-3 small text-muted justify-content-end">
                                 <span v-if="store.schedule?.dailyLimitEnabled">
-                                    Daily cap: {{ store.schedule.dailyLimitMinutes }}m
+                                    {{ $t('dashboard.dailyCap') }} {{ store.schedule.dailyLimitMinutes }}m
                                     <template v-if="store.todayExtraAllowanceMinutes > 0">
-                                        + {{ store.todayExtraAllowanceMinutes }}m bonus today
+                                        {{ $t('dashboard.bonusToday', { min: store.todayExtraAllowanceMinutes }) }}
                                     </template>
                                 </span>
-                                <span v-else>No fixed daily cap (see Screen Time).</span>
+                                <span v-else>{{ $t('dashboard.noFixedCap') }}</span>
                                 <span v-if="weekPeakDay">{{ weekPeakDay }}</span>
                             </div>
                         </div>
@@ -182,8 +182,8 @@
 
         <div v-if="quotaCount" class="pc-card mt-3">
             <div class="pc-card-header d-flex align-items-center justify-content-between flex-wrap gap-2">
-                <h6 class="mb-0">Limited apps — today’s usage</h6>
-                <RouterLink to="/apps" class="small text-decoration-none">App Control</RouterLink>
+                <h6 class="mb-0">{{ $t('dashboard.limitedApps') }}</h6>
+                <RouterLink to="/apps" class="small text-decoration-none">{{ $t('dashboard.appControl') }}</RouterLink>
             </div>
             <div class="pc-card-body pt-2">
                 <div v-for="row in quotaSummaryRows" :key="row.key" class="mb-3">
@@ -205,32 +205,32 @@
 
         <div class="pc-card mt-3">
             <div class="pc-card-header">
-                <h6>Quick Actions</h6>
+                <h6>{{ $t('dashboard.quickActions') }}</h6>
             </div>
             <div class="pc-card-body d-flex flex-wrap gap-2">
                 <RouterLink to="/webfilter">
                     <button class="btn-pc-outline">
-                        <i class="bi bi-shield-plus me-2" />Add Web Filter Rule
+                        <i class="bi bi-shield-plus me-2" />{{ $t('dashboard.addWebFilterRule') }}
                     </button>
                 </RouterLink>
                 <RouterLink to="/apps">
                     <button class="btn-pc-outline">
-                        <i class="bi bi-app-indicator me-2" />Manage Apps
+                        <i class="bi bi-app-indicator me-2" />{{ $t('dashboard.manageApps') }}
                     </button>
                 </RouterLink>
                 <RouterLink to="/schedules">
                     <button class="btn-pc-outline">
-                        <i class="bi bi-clock me-2" />Set Screen Time
+                        <i class="bi bi-clock me-2" />{{ $t('dashboard.setScreenTime') }}
                     </button>
                 </RouterLink>
                 <RouterLink to="/kiosk">
                     <button class="btn-pc-outline">
-                        <i class="bi bi-lock me-2" />KDE Kiosk Mode
+                        <i class="bi bi-lock me-2" />{{ $t('dashboard.kdeKioskMode') }}
                     </button>
                 </RouterLink>
                 <RouterLink v-if="daemonServiceActive !== 'active'" to="/settings">
                     <button class="btn-pc-outline" style="border-color:#FFA726; color:#E65100;">
-                        <i class="bi bi-cpu me-2" />Setup Daemon
+                        <i class="bi bi-cpu me-2" />{{ $t('dashboard.setupDaemon') }}
                     </button>
                 </RouterLink>
             </div>
@@ -240,9 +240,12 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { normalizeQuotaLinuxUser, quotaUsedMinutes, quotaBonusMinutes } from '@shared/quotaUsageKey.js'
 import { useAppStore } from '../stores/appStore.js'
 import { RouterLink } from 'vue-router'
+
+const { t } = useI18n()
 
 /** Light Material (100–200) tones for top-10 app slices plus "Other session time". */
 const DONUT_COLORS = [
@@ -262,15 +265,15 @@ const daemonSocketConnected = ref(false)
 
 const daemonServiceLabel = computed(() => {
     if (daemonServiceActive.value !== 'active') return '—'
-    return daemonSocketConnected.value ? 'Socket connected' : 'No socket'
+    return daemonSocketConnected.value ? t('dashboard.socketConnected') : t('dashboard.noSocket')
 })
 const daemonBadgeClass = computed(() => {
     if (daemonServiceActive.value === 'active') return 'active'
     return 'inactive'
 })
 const daemonBadgeLabel = computed(() => {
-    if (daemonServiceActive.value === null) return 'Unknown'
-    return daemonServiceActive.value === 'active' ? 'Active' : 'Inactive'
+    if (daemonServiceActive.value === null) return t('common.unknown')
+    return daemonServiceActive.value === 'active' ? t('common.active') : t('common.inactive')
 })
 const daemonIconStyle = computed(() => {
     if (daemonServiceActive.value === 'active') return 'background:#E8F5E9; color:#2E7D32;'
@@ -321,7 +324,7 @@ const quotaSummaryRows = computed(() => {
         const ratio = used / limit
         const pct = Math.min(100, Math.round(ratio * 100))
         const lu = normalizeQuotaLinuxUser(q.linuxUser)
-        const userSuffix = lu ? ` · ${lu}` : ' · all accounts'
+        const userSuffix = lu ? ` · ${lu}` : ` · ${t('dashboard.allAccountsSuffix')}`
         return {
             key: `${q.appId}\0${lu || ''}`,
             appId: q.appId,
@@ -341,7 +344,7 @@ const scheduleEnabled = computed(() => store.schedule?.enabled ?? false)
 const usageLabel = computed(() => {
     const s = store.schedule
     if (!s) return '–'
-    if (!s.dailyLimitEnabled) return s.allowedHoursEnabled ? 'Window' : '∞'
+    if (!s.dailyLimitEnabled) return s.allowedHoursEnabled ? t('common.window') : '∞'
     const used = store.todayUsageMinutes ?? 0
     return `${used}m / ${s.dailyLimitMinutes}m`
 })
@@ -360,8 +363,8 @@ const kioskBadgeClass = computed(() => {
 
 const kioskBadgeLabel = computed(() => {
     const k = store.kioskStatus
-    if (!k.ok) return 'Unreadable'
-    return k.active ? 'Active' : 'Inactive'
+    if (!k.ok) return t('dashboard.unreadable')
+    return k.active ? t('common.active') : t('common.inactive')
 })
 
 const donutModel = computed(() => {
@@ -380,9 +383,9 @@ const donutModel = computed(() => {
     const sumTop = top.reduce((a, s) => a + s.value, 0)
     const slices = top.map(s => ({ name: s.name, value: s.value }))
     const other = Math.max(0, screen - sumTop)
-    if (other > 0) slices.push({ name: 'Other session time', value: other })
+    if (other > 0) slices.push({ name: t('dashboard.otherSessionTime'), value: other })
     if (slices.length === 0 && screen > 0) {
-        slices.push({ name: 'Session (no catalog app usage yet)', value: screen })
+        slices.push({ name: t('dashboard.sessionNoUsage'), value: screen })
     }
     const total = slices.reduce((a, s) => a + s.value, 0)
     return { screen, slices, total, overlap: sumAllTracked > screen && screen > 0 }
@@ -413,8 +416,8 @@ const dailyCapSubtitle = computed(() => {
     if (!s?.dailyLimitEnabled) return ''
     const cap = Number(s.dailyLimitMinutes) || 0
     const extra = Math.max(0, Number(store.todayExtraAllowanceMinutes) || 0)
-    if (extra > 0) return `of ${cap + extra}m cap (+bonus)`
-    return `of ${cap}m cap`
+    if (extra > 0) return t('dashboard.ofCapBonus', { cap: cap + extra })
+    return t('dashboard.ofCap', { cap })
 })
 
 function weekBarFillPx(minutes) {
@@ -428,7 +431,7 @@ const weekPeakDay = computed(() => {
     if (!weekUsage.value.length) return ''
     const top = weekUsage.value.reduce((a, d) => (d.minutes > a.minutes ? d : a), weekUsage.value[0])
     if (!top || top.minutes <= 0) return ''
-    return `Peak this week: ${top.shortLabel} (${top.minutes}m)`
+    return t('dashboard.peakThisWeek', { day: top.shortLabel, min: top.minutes })
 })
 
 async function loadWeekUsage() {

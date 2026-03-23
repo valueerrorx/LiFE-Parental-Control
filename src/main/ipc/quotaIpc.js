@@ -106,12 +106,28 @@ export function writeAppMonitorUsage(configDir, usageMap) {
     fs.writeFileSync(file, JSON.stringify({ date: today, usage: usageMap }, null, 2), 'utf8')
 }
 
+function loadBlockedAppIds(configDir) {
+    try {
+        const raw = JSON.parse(fs.readFileSync(path.join(configDir, 'blocked-apps.json'), 'utf8'))
+        if (!Array.isArray(raw)) return new Set()
+        const ids = raw
+            .map(item => (typeof item === 'string' ? item : item?.id))
+            .filter(Boolean)
+        return new Set(ids)
+    } catch {
+        return new Set()
+    }
+}
+
 export function loadQuotaExemptAppIds(configDir) {
     try {
         const wl = JSON.parse(fs.readFileSync(path.join(configDir, 'process-whitelist.json'), 'utf8'))
         if (!wl?.enabled) return new Set()
+        const blocked = loadBlockedAppIds(configDir)
         const ids = wl?.allowedIds
-        return Array.isArray(ids) ? new Set(ids) : new Set()
+        const allowed = Array.isArray(ids) ? new Set(ids) : new Set()
+        for (const id of blocked) allowed.delete(id)
+        return allowed
     } catch {
         return new Set()
     }

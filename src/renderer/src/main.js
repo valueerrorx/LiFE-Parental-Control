@@ -6,6 +6,7 @@ import 'bootstrap-icons/font/bootstrap-icons.css'
 import './css/app.scss'
 import App from './App.vue'
 import routes from './router/routes.js'
+import { i18n } from './i18n.js'
 
 const router = createRouter({
     history: createWebHashHistory(),
@@ -15,4 +16,5 @@ const router = createRouter({
 createApp(App)
     .use(createPinia())
     .use(router)
+    .use(i18n)
     .mount('#app')

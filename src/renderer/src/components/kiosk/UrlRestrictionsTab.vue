@@ -1,8 +1,6 @@
 <template>
     <div class="d-flex h-100 flex-column">
-        <p class="small text-muted border-bottom mb-0 px-3 py-2" style="flex-shrink:0;">
-            Listed folders are <strong>blocked</strong> for KDE apps using KIO (not a web URL list).
-        </p>
+        <p class="small text-muted border-bottom mb-0 px-3 py-2" style="flex-shrink:0;" v-html="$t('urlRestrictions.desc')" />
         <div class="d-flex flex-grow-1" style="min-height:0;">
             <div class="flex-grow-1 overflow-auto border-end">
                 <div
@@ -19,17 +17,17 @@
                 </div>
                 <div v-if="store.urlItems.length === 0" class="text-center text-muted py-5">
                     <i class="bi bi-folder-x" style="font-size:40px;opacity:0.3;" />
-                    <p class="mt-2">No blocked paths.</p>
-                    <p class="small px-3 mb-0">Each entry denies <code>open</code>/<code>list</code> for that folder via KDE URL rules (<code>file:</code>).</p>
+                    <p class="mt-2">{{ $t('urlRestrictions.noBlockedPaths') }}</p>
+                    <p class="small px-3 mb-0" v-html="$t('urlRestrictions.eachEntryDesc')" />
                 </div>
             </div>
 
             <div class="d-flex flex-column gap-2 p-3" style="width:190px;flex-shrink:0;">
                 <button class="btn-pc-danger text-start" @click="onRemove">
-                    <i class="bi bi-x-circle me-1" />Remove
+                    <i class="bi bi-x-circle me-1" />{{ $t('urlRestrictions.remove') }}
                 </button>
                 <button class="btn-pc-outline text-start" @click="onAdd">
-                    <i class="bi bi-folder-plus me-1" />Add blocked path
+                    <i class="bi bi-folder-plus me-1" />{{ $t('urlRestrictions.addBlockedPath') }}
                 </button>
             </div>
         </div>

@@ -191,11 +191,25 @@ function readQuotaEntries() {
     } catch { return []; }
 }
 
+function loadBlockedAppIds() {
+    try {
+        const raw = JSON.parse(fs.readFileSync(path.join(CONFIG_DIR, 'blocked-apps.json'), 'utf8'));
+        if (!Array.isArray(raw)) return new Set();
+        const ids = raw
+            .map(item => typeof item === 'string' ? item : item?.id)
+            .filter(Boolean);
+        return new Set(ids);
+    } catch { return new Set(); }
+}
+
 function loadQuotaExemptAppIds() {
+    const blocked = loadBlockedAppIds();
     try {
         const wl = JSON.parse(fs.readFileSync(path.join(CONFIG_DIR, 'process-whitelist.json'), 'utf8'));
         if (!wl?.enabled) return new Set();
-        return Array.isArray(wl.allowedIds) ? new Set(wl.allowedIds) : new Set();
+        const allowed = Array.isArray(wl.allowedIds) ? new Set(wl.allowedIds) : new Set();
+        for (const id of blocked) allowed.delete(id);
+        return allowed;
     } catch { return new Set(); }
 }
 
@@ -359,6 +373,8 @@ function loadExemptAppProcessNames() {
         const wl = JSON.parse(fs.readFileSync(path.join(CONFIG_DIR, 'process-whitelist.json'), 'utf8'));
         if (!wl?.enabled || !Array.isArray(wl.allowedIds) || wl.allowedIds.length === 0) return [];
         const ids = new Set(wl.allowedIds);
+        const blocked = loadBlockedAppIds();
+        for (const id of blocked) ids.delete(id);
         const names = new Map(); // appId → processName (first match wins)
         try {
             const quotas = JSON.parse(fs.readFileSync(path.join(CONFIG_DIR, 'quota.json'), 'utf8'));
