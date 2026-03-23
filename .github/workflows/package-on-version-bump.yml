@@ -23,7 +23,7 @@ jobs:
       build: ${{ steps.diff.outputs.build }}
       version: ${{ steps.diff.outputs.version }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 0
       - id: diff
@@ -63,7 +63,7 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 0
       - name: Changelog
@@ -83,7 +83,7 @@ jobs:
             echo ""
             echo "$NOTES"
           } > release-notes.md
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version: '24'
           cache: npm
@@ -91,16 +91,25 @@ jobs:
       - run: npm run build
         env:
           ELECTRON_BUILDER_PUBLISH: never
-      - uses: softprops/action-gh-release@v2
-        with:
-          tag_name: v${{ needs.check-version.outputs.version }}
-          name: LiFE Parental Control ${{ needs.check-version.outputs.version }}
-          body_path: release-notes.md
-          files: |
-            dist/*.AppImage
-            dist/*.deb
-          fail_on_unmatched_files: true
-      - uses: actions/upload-artifact@v4
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          TAG="v${{ needs.check-version.outputs.version }}"
+          NAME="LiFE Parental Control ${{ needs.check-version.outputs.version }}"
+          echo "Creating release ${TAG}"
+          # (fail fast if no assets matched)
+          ASSET_FILES=(dist/*.AppImage dist/*.deb)
+          if [ "${#ASSET_FILES[@]}" -eq 0 ]; then
+            echo "No release assets found in dist/"
+            exit 1
+          fi
+          gh release create "$TAG" "${ASSET_FILES[@]}" \
+            --title "$NAME" \
+            --notes-file release-notes.md
+      - uses: actions/upload-artifact@v6
         with:
           name: linux-dist
           path: dist/*

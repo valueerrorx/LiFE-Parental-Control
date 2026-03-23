@@ -28,16 +28,25 @@
                             </div>
                             <div>
                                 <div class="small text-muted mb-1">{{ $t('settings.nodeJs') }}</div>
-                                <span class="status-badge" :class="nodeVersion ? 'active' : 'warning'">
+                                <span class="status-badge" :class="nodeVersionOk ? 'active' : 'warning'">
                                     <i class="bi bi-circle-fill" style="font-size:7px;" />
                                     {{ nodeVersion ?? $t('settings.notFound') }}
+                                </span>
+                            </div>
+                            <div>
+                                <div class="small text-muted mb-1">{{ $t('settings.appArmor') }}</div>
+                                <span class="status-badge" :class="appArmorOk ? 'active' : 'warning'">
+                                    <i class="bi bi-circle-fill" style="font-size:7px;" />
+                                    {{ appArmorOk ? $t('common.active') : $t('common.disabled') }}
                                 </span>
                             </div>
                             <button type="button" class="btn-pc-outline ms-auto" style="font-size:12px;" :disabled="daemonRefreshing" @click="loadDaemonInfo">
                                 <i class="bi bi-arrow-repeat me-1" :class="{ 'spin': daemonRefreshing }" />{{ $t('settings.refresh') }}
                             </button>
                         </div>
-                        <p v-if="!nodeVersion" class="small text-danger mb-3" v-html="$t('settings.nodeNotFound')" />
+                        <p v-if="nodeCheckReason === 'missing'" class="small text-danger mb-3" v-html="$t('settings.nodeNotFound')" />
+                        <p v-else-if="nodeCheckReason === 'too_old'" class="small text-warning mb-3" v-html="$t('settings.nodeTooOld', { version: nodeVersion, required: nodeRequiredVersion })" />
+                        <p v-if="appArmorReason !== 'ok'" class="small text-warning mb-3" v-html="$t(`settings.appArmor_${appArmorReason}`)" />
                         <div class="d-flex flex-wrap gap-2 mb-3">
                             <button type="button" class="btn-pc-primary" :disabled="daemonCtrlBusy" @click="onDaemonControl('install')" :title="$t('settings.installAndStart')">
                                 <i class="bi bi-download me-1" />{{ $t('settings.installAndStart') }}
@@ -250,6 +259,11 @@ const dangerError = ref(false)
 const daemonServiceStatus = ref(null)
 const daemonSocketConnected = ref(false)
 const nodeVersion = ref(null)
+const nodeVersionOk = ref(false)
+const nodeCheckReason = ref('')
+const nodeRequiredVersion = ref('>=22.22.0')
+const appArmorOk = ref(false)
+const appArmorReason = ref('ok')
 const daemonRefreshing = ref(false)
 const daemonCtrlBusy = ref(false)
 const daemonCtrlMsg = ref('')
@@ -261,17 +275,28 @@ async function loadDaemonInfo() {
         Promise.all([
             window.api.daemon.serviceControl({ action: 'status' }),
             window.api.daemon.isConnected(),
-            window.api.daemon.nodeCheck()
+            window.api.daemon.nodeCheck(),
+            window.api.daemon.apparmorCheck()
         ]),
         new Promise(r => setTimeout(r, 600))
     ])
     if (result.status === 'fulfilled') {
-        const [svc, connected, nodeCheck] = result.value
+        const [svc, connected, nodeCheck, apparmorCheck] = result.value
         daemonServiceStatus.value = svc?.status ?? null
         daemonSocketConnected.value = Boolean(connected)
-        nodeVersion.value = nodeCheck?.ok ? nodeCheck.version : null
+        nodeVersion.value = nodeCheck?.version ?? null
+        nodeVersionOk.value = nodeCheck?.ok === true
+        nodeCheckReason.value = nodeCheck?.reason ?? ''
+        nodeRequiredVersion.value = nodeCheck?.required ?? '>=22.22.0'
+        appArmorOk.value = apparmorCheck?.ok === true
+        appArmorReason.value = apparmorCheck?.reason ?? 'error'
     } else {
         daemonServiceStatus.value = null
+        nodeVersion.value = null
+        nodeVersionOk.value = false
+        nodeCheckReason.value = 'missing'
+        appArmorOk.value = false
+        appArmorReason.value = 'error'
     }
     daemonRefreshing.value = false
 }

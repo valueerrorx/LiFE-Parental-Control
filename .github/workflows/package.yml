@@ -16,8 +16,8 @@ jobs:
   linux:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v6
         with:
           node-version: '24'
           cache: npm
@@ -25,7 +25,7 @@ jobs:
       - run: npm run build
         env:
           ELECTRON_BUILDER_PUBLISH: never
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: linux-dist
           path: dist/*
