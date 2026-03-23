@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later; Copyright (c) 2026 Thomas Michael Weissel; Licensed under GPLv3+ (see http://www.gnu.org/licenses/). */
 import { app, BrowserWindow, ipcMain, Menu, shell } from 'electron'
 import path from 'path'
 import fs, { mkdirSync } from 'fs'
@@ -7,7 +8,7 @@ import { registerProfileIpc } from './ipc/profileIpc.js'
 import { registerSystemIpc } from './ipc/systemIpc.js'
 import { registerSettingsIpc, repairInvalidLockIdleInConfig } from './ipc/settingsIpc.js'
 import { pruneUsageArchives } from './ipc/usageArchivePrune.js'
-import { resolveWindowIconPath } from './trayIcon.js'
+import { resolveWindowIconPath } from './windowIcon.js'
 import { initWarningWindow } from './warningWindow.js'
 import { resolveElevatedExecutablePath } from './appImageResolve.js'
 
@@ -236,7 +237,7 @@ app.whenReady().then(async () => {
     mainWindow.on('close', e => {
         if (allowAppTermination) return
         e.preventDefault()
-        if (!mainWindow.isDestroyed()) mainWindow.webContents.send('app:quit-from-tray')
+        if (!mainWindow.isDestroyed()) mainWindow.webContents.send('app:quit-request')
     })
 
     ipcMain.handle('shell:openExternal', (_, url) => {

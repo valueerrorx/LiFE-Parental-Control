@@ -77,8 +77,8 @@ const busy = ref(false)
 const lockIdleMs = ref(0)
 let idleTimer = null
 
-function trayQuitListener() {
-    void handleQuitFromTray()
+function quitRequestListener() {
+    void handleQuitRequest()
 }
 
 function sessionLockListener() {
@@ -122,7 +122,7 @@ onMounted(async () => {
     window.addEventListener('wheel', onUserActivity, { passive: true })
     window.addEventListener('keydown', onUserActivity)
     window.addEventListener('life-parental-lock-prefs', onLockPrefsChanged)
-    window.api.system.onQuitFromTray(trayQuitListener)
+    window.api.system.onQuitRequest(quitRequestListener)
     window.api.system.onSessionLockRequest(sessionLockListener)
 })
 
@@ -130,7 +130,7 @@ onUnmounted(() => {
     window.removeEventListener('wheel', onUserActivity)
     window.removeEventListener('keydown', onUserActivity)
     window.removeEventListener('life-parental-lock-prefs', onLockPrefsChanged)
-    window.api.system.offQuitFromTray(trayQuitListener)
+    window.api.system.offQuitRequest(quitRequestListener)
     window.api.system.offSessionLockRequest(sessionLockListener)
     clearIdleLockTimer()
 })
@@ -176,7 +176,7 @@ async function onUnlock() {
     }
 }
 
-async function handleQuitFromTray() {
+async function handleQuitRequest() {
     await quitWithParentPassword(prompt)
 }
 

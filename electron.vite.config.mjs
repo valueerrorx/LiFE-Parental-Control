@@ -8,7 +8,6 @@ export default defineConfig({
             rollupOptions: {
                 input: {
                     index: resolve('src/main/index.js'),
-                    trayHelperMain: resolve('src/main/trayHelperMain.js')
                 },
                 output: {
                     entryFileNames: '[name].js'

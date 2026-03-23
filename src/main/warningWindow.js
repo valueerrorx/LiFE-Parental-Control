@@ -1,5 +1,6 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later; Copyright (c) 2026 Thomas Michael Weissel; Licensed under GPLv3+ (see http://www.gnu.org/licenses/). */
 import { BrowserWindow } from 'electron'
-import { resolveWindowIconPath } from './trayIcon.js'
+import { resolveWindowIconPath } from './windowIcon.js'
 
 let _imagesDir = null
 let warningWin = null

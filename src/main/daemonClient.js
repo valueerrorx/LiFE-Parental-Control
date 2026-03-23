@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later; Copyright (c) 2026 Thomas Michael Weissel; Licensed under GPLv3+ (see http://www.gnu.org/licenses/). */
 // Electron-side client for the parental-control root daemon Unix socket
 import net from 'net'
 

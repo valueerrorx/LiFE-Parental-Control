@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later; Copyright (c) 2026 Thomas Michael Weissel; Licensed under GPLv3+ (see http://www.gnu.org/licenses/). */
 import { execFile } from 'child_process'
 import { promisify } from 'util'
 import { localIsoDate } from './ipc/localCalendarDay.js'

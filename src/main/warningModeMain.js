@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later; Copyright (c) 2026 Thomas Michael Weissel; Licensed under GPLv3+ (see http://www.gnu.org/licenses/). */
 // Handles the Electron app running in --warning-mode (spawned by daemon as the desktop user).
 // Enforcement events (exhausted, allowed-hours) show a fullscreen lockscreen with no dismiss.
 // Soft warnings (low, app-low, …) show the regular bonus-time dialog.

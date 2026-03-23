@@ -4,7 +4,7 @@ import { BrowserWindow, app, ipcMain } from 'electron'
 import net from 'net'
 import path from 'path'
 import { fileURLToPath } from 'url'
-import { resolveWindowIconPath } from './trayIcon.js'
+import { resolveWindowIconPath } from './windowIcon.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const SOCKET_PATH = '/run/parental-control.sock'

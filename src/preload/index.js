@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later; Copyright (c) 2026 Thomas Michael Weissel; Licensed under GPLv3+ (see http://www.gnu.org/licenses/). */
 import { contextBridge, ipcRenderer } from 'electron'
 
 contextBridge.exposeInMainWorld('api', {
@@ -22,8 +23,8 @@ contextBridge.exposeInMainWorld('api', {
         showError: (payload) => ipcRenderer.invoke('dialog:showError', payload),
         showConfirm: (opts) => ipcRenderer.invoke('dialog:showConfirm', opts),
         quit: () => ipcRenderer.invoke('app:quit'),
-        onQuitFromTray: (cb) => ipcRenderer.on('app:quit-from-tray', cb),
-        offQuitFromTray: (cb) => ipcRenderer.removeListener('app:quit-from-tray', cb),
+        onQuitRequest: (cb) => ipcRenderer.on('app:quit-request', cb),
+        offQuitRequest: (cb) => ipcRenderer.removeListener('app:quit-request', cb),
         onSessionLockRequest: (cb) => ipcRenderer.on('app:session-lock-request', cb),
         offSessionLockRequest: (cb) => ipcRenderer.removeListener('app:session-lock-request', cb),
         isWindowObscured: () => ipcRenderer.invoke('window:isObscured'),
