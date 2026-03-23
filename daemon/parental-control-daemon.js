@@ -66,6 +66,14 @@ let wdFirstWarnAt = 0;        // timestamp when the warning cycle started (0 = n
 let wdLastWarnAt  = 0;        // timestamp of the most recent warning notification
 let wdExemptActiveTicks = 0;  // consecutive ticks where exempt app was actively used
 
+function resetExemptWatchdogState() {
+    // Reset grace timers so the next login starts a fresh window.
+    wdWarnCount = 0;
+    wdFirstWarnAt = 0;
+    wdLastWarnAt = 0;
+    wdExemptActiveTicks = 0;
+}
+
 // Connected socket clients (Electron UI instances)
 const clients = new Set();
 
@@ -742,8 +750,10 @@ async function runExemptWatchdog(processNames) {
     if (wdWarnCount < WD_WARN_MAX && (now - wdLastWarnAt) >= WD_WARN_INTERVAL_MS) {
         wdWarnCount++;
         wdLastWarnAt = now;
-        const remainingSec = Math.ceil((WD_GRACE_MS - elapsed) / 1000);
-        const msg = `Warnung ${wdWarnCount}/${WD_WARN_MAX}: Kehre zur erlaubten App zurück! Logout in ~${remainingSec}s.`;
+        const remainingMs = Math.max(0, WD_GRACE_MS - elapsed);
+        const remainingSec = Math.floor(remainingMs / 1000);
+        const remainingText = remainingSec > 0 ? `${remainingSec} Sekunden` : 'unter 1 Sekunde';
+        const msg = `Warnung ${wdWarnCount}/${WD_WARN_MAX} (Screen-Time erschöpft): Kehre zur erlaubten App zurück! Logout in ${remainingText}.`;
         log.warn(`exempt watchdog: warning ${wdWarnCount}/${WD_WARN_MAX} sent`);
         const info = getFirstActiveUserInfo();
         if (info) sendExemptWatchdogNotification(msg, info.user, info.uid);
@@ -1004,6 +1014,7 @@ async function tickScreenTime(logMinute) {
             startInputMonitor();
             const blocked = await runExemptWatchdog(exemptProcs);
             if (!blocked) {
+                resetExemptWatchdogState();
                 await terminateSessionsForPolicy(sessions, limitLu);
                 if (!usage.warnedScreenTimeExhausted) {
                     usage.warnedScreenTimeExhausted = true;
