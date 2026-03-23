@@ -11,9 +11,10 @@ import { replaceBlockedDesktopIds } from './appBlockerIpc.js'
 import { appendActivity } from './activityLog.js'
 
 const LIFE_MODES_FILE = 'life-modes.json'
-const RESERVED_KEYS = new Set(['school', 'leisure'])
+const DEFAULT_MODE_FILE = 'default.json'
+const RESERVED_KEYS = new Set(['school', 'leisure', 'default'])
 
-const BUILTIN_LABELS = { school: 'School', leisure: 'Leisure' }
+const BUILTIN_LABELS = { school: 'School', leisure: 'Leisure', default: 'Default' }
 
 const BUILTIN_LIFE_MODES = {
     school: {
@@ -45,6 +46,14 @@ const BUILTIN_LIFE_MODES = {
     }
 }
 
+const BUILTIN_DEFAULT_MODE = {
+    label: 'Default',
+    schedule: { ...DEFAULT_SCHEDULE },
+    mergeCategories: [],
+    stripCategories: [],
+    blockedDesktopIds: []
+}
+
 function filterCategoryNames(arr) {
     if (!Array.isArray(arr)) return []
     return arr.filter(c => isKnownWebFilterCategory(c))
@@ -74,8 +83,20 @@ function readCustomLifeModes(configDir) {
     }
 }
 
+function readDefaultMode(configDir) {
+    const file = path.join(configDir, DEFAULT_MODE_FILE)
+    try {
+        const raw = JSON.parse(fs.readFileSync(file, 'utf8'))
+        const normalized = normalizeCustomMode('default', raw)
+        if (normalized) return { ...BUILTIN_DEFAULT_MODE, ...normalized, label: normalized.label || 'Default' }
+    } catch {
+        // fallback to built-in empty default mode
+    }
+    return { ...BUILTIN_DEFAULT_MODE }
+}
+
 function getAllLifeModes(configDir) {
-    const out = { ...BUILTIN_LIFE_MODES }
+    const out = { ...BUILTIN_LIFE_MODES, default: readDefaultMode(configDir) }
     for (const [key, def] of Object.entries(readCustomLifeModes(configDir))) {
         if (RESERVED_KEYS.has(key)) continue
         const norm = normalizeCustomMode(key, def)
@@ -120,27 +141,31 @@ function stripCategoriesFromMirror(mirror, categoryNames) {
     return { entries, feedState }
 }
 
-export function registerLifeModeIpc(ipcMain, configDir) {
-    ipcMain.handle('lifeMode:list', () => {
-        const merged = getAllLifeModes(configDir)
-        const modes = Object.keys(merged)
-        const labels = {}
-        for (const k of modes) {
-            labels[k] = BUILTIN_LABELS[k] ?? merged[k].label ?? k
-        }
-        return { modes, labels, customPath: path.join(configDir, LIFE_MODES_FILE) }
-    })
+export async function applyLifeModeDirect(configDir, modeKey, { quiet = false } = {}) {
+    const all = getAllLifeModes(configDir)
+    const mode = all[modeKey]
+    if (!mode) return { error: `Unknown mode: ${modeKey}` }
 
-    ipcMain.handle('lifeMode:apply', async (_, modeKey) => {
-        const all = getAllLifeModes(configDir)
-        const mode = all[modeKey]
-        if (!mode) return { error: `Unknown mode: ${modeKey}` }
-        const errs = []
+    const errs = []
+    try {
+        persistSchedule(configDir, mode.schedule)
+    } catch (e) {
+        errs.push(`schedule: ${e.message}`)
+    }
+
+    // Default profile must fully clear webfilter mirror and blocked app list.
+    if (modeKey === 'default') {
         try {
-            persistSchedule(configDir, mode.schedule)
+            await persistWebFilterEntries(configDir, [], {}, [])
         } catch (e) {
-            errs.push(`schedule: ${e.message}`)
+            errs.push(`webfilter: ${e.message}`)
         }
+        try {
+            replaceBlockedDesktopIds(configDir, [])
+        } catch (e) {
+            errs.push(`apps: ${e.message}`)
+        }
+    } else {
         try {
             if (mode.mergeCategories?.length) {
                 const cur = readWebFilterMirror(configDir)
@@ -154,15 +179,33 @@ export function registerLifeModeIpc(ipcMain, configDir) {
         } catch (e) {
             errs.push(`webfilter: ${e.message}`)
         }
+
         try {
             replaceBlockedDesktopIds(configDir, mode.blockedDesktopIds ?? [])
         } catch (e) {
             errs.push(`apps: ${e.message}`)
         }
-        if (!errs.length) {
-            const label = BUILTIN_LABELS[modeKey] ?? mode.label ?? modeKey
-            appendActivity(configDir, { action: 'life_mode_apply', modeKey, label })
+    }
+
+    if (!errs.length && !quiet) {
+        const label = BUILTIN_LABELS[modeKey] ?? mode.label ?? modeKey
+        appendActivity(configDir, { action: 'life_mode_apply', modeKey, label })
+    }
+    return errs.length ? { error: errs.join(' — ') } : { ok: true }
+}
+
+export function registerLifeModeIpc(ipcMain, configDir) {
+    ipcMain.handle('lifeMode:list', () => {
+        const merged = getAllLifeModes(configDir)
+        const modes = Object.keys(merged)
+        const labels = {}
+        for (const k of modes) {
+            labels[k] = BUILTIN_LABELS[k] ?? merged[k].label ?? k
         }
-        return errs.length ? { error: errs.join(' — ') } : { ok: true }
+        return { modes, labels, customPath: path.join(configDir, LIFE_MODES_FILE) }
+    })
+
+    ipcMain.handle('lifeMode:apply', async (_, modeKey) => {
+        return applyLifeModeDirect(configDir, modeKey)
     })
 }

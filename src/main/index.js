@@ -134,6 +134,21 @@ app.whenReady().then(async () => {
     initWarningWindow(imagesDir)
     mkdirSync(profilesDir, { recursive: true })
     mkdirSync(APP_CONFIG_DIR, { recursive: true })
+    // Apply an empty default profile on first start when the systemd daemon is not installed/running yet.
+    if (app.isPackaged && process.platform === 'linux') {
+        const serviceUnitPath = '/etc/systemd/system/parental-control.service'
+        const daemonSocketPath = '/run/parental-control.sock'
+        const markerPath = path.join(APP_CONFIG_DIR, '.default-life-mode-applied-v1')
+        if (!fs.existsSync(serviceUnitPath) && !fs.existsSync(daemonSocketPath) && !fs.existsSync(markerPath)) {
+            try {
+                const { applyLifeModeDirect } = await import('./ipc/lifeModeIpc.js')
+                await applyLifeModeDirect(APP_CONFIG_DIR, 'default', { quiet: true })
+                fs.writeFileSync(markerPath, new Date().toISOString(), 'utf8')
+            } catch {
+                // best-effort: default apply should not block app startup
+            }
+        }
+    }
     // Store own executable path so the daemon can spawn the warning window
     // Only write when packaged — in dev, process.execPath is the bare Electron binary
     // which would open the wrong app when spawned by the daemon standalone.
