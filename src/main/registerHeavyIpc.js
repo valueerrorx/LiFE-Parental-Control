@@ -57,9 +57,52 @@ export function registerHeavyIpc(ipcMain, { appConfigDir, hageziBundledDir, getM
     ipcMain.handle('daemon:nodeCheck', async () => {
         try {
             const { stdout } = await execFileAsync('/usr/bin/node', ['--version'], { timeout: 5000 })
-            return { ok: true, version: stdout.trim() }
+            const version = String(stdout || '').trim()
+            const m = /^v?(\d+)\.(\d+)\.(\d+)/.exec(version)
+            if (!m) return { ok: false, version, reason: 'unparseable' }
+            const major = Number(m[1])
+            const minor = Number(m[2])
+            const patch = Number(m[3])
+            const requiredMajor = 22
+            const requiredMinor = 22
+            const ok = major > requiredMajor
+                || (major === requiredMajor && (minor > requiredMinor || (minor === requiredMinor && patch >= 0)))
+            return { ok, version, reason: ok ? 'ok' : 'too_old', required: '>=22.22.0' }
         } catch {
-            return { ok: false, error: '/usr/bin/node nicht gefunden — nodejs-Paket installieren.' }
+            return { ok: false, version: null, reason: 'missing', error: '/usr/bin/node nicht gefunden — nodejs-Paket installieren.' }
+        }
+    })
+
+    ipcMain.handle('daemon:apparmorCheck', async () => {
+        const profilePath = '/etc/apparmor.d/life-parental-blocked'
+        const enabledPath = '/sys/module/apparmor/parameters/enabled'
+        try {
+            let enabled = false
+            try {
+                const raw = fs.readFileSync(enabledPath, 'utf8')
+                enabled = String(raw).trim().toLowerCase().startsWith('y')
+            } catch {
+                enabled = fs.existsSync('/sys/kernel/security/apparmor')
+            }
+
+            let parser = false
+            try {
+                await execFileAsync('apparmor_parser', ['--version'], { timeout: 5000 })
+                parser = true
+            } catch { parser = false }
+
+            const profileExists = fs.existsSync(profilePath)
+            const ok = Boolean(enabled && parser && profileExists)
+            const reason = ok
+                ? 'ok'
+                : !enabled
+                    ? 'disabled'
+                    : !parser
+                        ? 'parser_missing'
+                        : 'profile_missing'
+            return { ok, enabled, parser, profileExists, reason }
+        } catch {
+            return { ok: false, enabled: false, parser: false, profileExists: false, reason: 'error' }
         }
     })
 

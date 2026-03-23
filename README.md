@@ -113,13 +113,41 @@ Settings in the app export **version 1** JSON (no password, no usage history). I
 
 Authoring conventions and stack notes: root **`claude.md`** and **`memory.md`**.
 
-### Troubleshooting
 
-| Topic | Hint |
-|-------|------|
-| **App quotas / `pgrep` does not see the game** | Enforcement uses the **`comm`** name (`pgrep -x -i`), not the window title. AppImages may report `AppRun` or a wrapper; Steam often spawns another binary—set the **process name** manually on **App Control** (see **Daily time limits for individual apps** above). |
-| **Window closes after “Weiter” / Polkit** | As a normal user you first see a small **elevation** window; **`Weiter`** runs **`pkexec`**, then this instance exits. If nothing else appears, check stderr for **`[LiFE Parental Control] pkexec relaunch failed:`** — ensure **`polkit`** and a PolicyKit agent are installed (`pkexec` in `PATH`). |
-| **`pkexec` / Polkit after renaming the AppImage or install path** | The shipped rule matches **`life-parental-control`** or **`life parental control`** in the `pkexec` command line (case-insensitive). If your path/name omits both, symlink/rename or edit [`packaging/polkit/50-org.tuxfamily.life-kiosk.rules`](packaging/polkit/50-org.tuxfamily.life-kiosk.rules) and install it under `/usr/share/polkit-1/rules.d/`. |
-| **Kiosk / session restart oddities** | Rare stale `loginctl` sessions or multi-seat setups may need a **manual re-login**; the app already skips greeter/background sessions and tries per-user then root `qdbus` logout. |
-| **`NODE_OPTIONS` warning when starting AppImage/deb** | Old builds or a fuse-disabled binary: **rebuild** with current `electron-builder.yml` (`electronFuses` → packaged app ignores `NODE_OPTIONS`). **`npm run dev`** already strips `NODE_OPTIONS` for the dev server. |
-| **DBus / `NameHasOwner` when `npm run dev`** | Same from a normal **Konsole**: Electron runs **as root** on **your** session bus; Chromium logs failed D-Bus probes sometimes. Usually **safe to ignore** if the UI works. **`npm run dev`** forces **`DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/$(id -u)/bus`**. (An AppImage IDE terminal can add *extra* env noise; root+Chromium is the main source.) |
+## Screenshots
+
+In the `App Control` module you can see the page for app quotas.
+![App-Control](images/app-control.png)
+
+In the Dashboard there is an alternative overview.
+![Dashboard (variant)](images/dashboard1.png)
+
+In the Dashboard you can see the main view with the family modules.
+![Dashboard](images/dashboard.png)
+
+In the `KDE Kiosk` module you can configure kiosk profiles.
+![KDE Kiosk Profiles](images/kiosk-profiles.png)
+
+In the `KDE Kiosk` module you can also find system and look & feel options.
+![KDE Kiosk System Settings](images/kiosk-systemsettings.png)
+
+In the `Quota Exemptions` module you can configure exceptions (process whitelist).
+![Quota Exemptions](images/quota-exemptions.png)
+
+In the `Screen Time` module you can configure screen time.
+![Screen Time](images/screentime.png)
+
+In `Settings → Systemd Daemon` you can see the daemon status.
+![Settings](images/settings.png)
+
+This image shows the tray icon at 24px.
+![Tray Icon 24px](images/tray-24.png)
+
+This image shows the tray icon at 64px.
+![Tray Icon 64px](images/tray-64.png)
+
+This is the overview/launcher graphic (PC).
+![PC Overview](images/pc.png)
+
+In the `Web Filter` module you can see domain rules and exceptions.
+![Web Filter](images/webfilter.png)
