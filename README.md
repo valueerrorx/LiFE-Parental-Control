@@ -10,9 +10,9 @@ Desktop app for **KDE Plasma (Linux)**: parental controls via **Electron**, **Vu
 |------|----------------|
 | **KDE kiosk** | Lockdown sections in `kdeglobals` (actions, URLs, control modules); session restart after apply |
 | **Web filter** | `webfilter.json` (custom domains + HaGeZi **feed** toggles) + `/etc/hosts` marker block; bundled [HaGeZi](https://github.com/hagezi/dns-blocklists) DNSMasq lists + optional CDN refresh (see below) |
-| **Screen time** | `schedules.json`; cron → `/usr/local/bin/life-parental-check` (limits, allowed hours, overnight windows); daily tally in `usage-YYYY-MM-DD.json` (`extraAllowanceMinutes` raises today’s cap without altering logged minutes); reset **today** on the Screen Time page; **add time** via parent-password dialog when the limit is reached |
+| **Screen time** | stored in `default.json` (`schedule`); enforced by daemon tick (limits, allowed hours, overnight windows); daily tally in `usage-YYYY-MM-DD.json` (`extraAllowanceMinutes` raises today’s cap without altering logged minutes); reset **today** on the Screen Time page; **add time** via parent-password dialog when the limit is reached |
 | **App blocking** | `.desktop` overrides under `/usr/local/share/applications/` (see below) |
-| **App quotas** | `quota.json`; cron → `/usr/local/bin/life-parental-quota` (`pgrep` / `pkill` per process name); per-app tally in `quota-usage-YYYY-MM-DD.json` (reset **today** from **App Control**). The same cron increments **`app-usage-YYYY-MM-DD.json`** for every app in **`app-monitor-catalog.json`** (built from the same `.desktop` list as **App Control**; refreshed at app start and when you open **App Control**) so the Dashboard donut can show the **top 10** most-used catalog apps. Warnings (~5 / ~2 / final minute) and kills are issued by that script via `notify-send` and `kdialog` (not the Electron window). Optional **Quota exemptions** (`process-whitelist.json`): listed apps are **not** stopped when their daily quota is reached. |
+| **App quotas** | stored in `default.json` (`quota` + `quotaExemptions` + `blockedDesktopIds`); daemon enforcement (`pgrep` / `pkill` per process name); per-app tally in `quota-usage-YYYY-MM-DD.json` (reset **today** from **App Control**). The same tick increments **`app-usage-YYYY-MM-DD.json`** for every app in **`app-monitor-catalog.json`** (built from the same `.desktop` list as **App Control**; refreshed at app start and when you open **App Control**) so the Dashboard donut can show the **top 10** most-used catalog apps. |
 | **Profiles** | School / Leisure + optional `life-modes.json`; backup/export JSON bundle |
 
 ### KDE kiosk: `kdeglobals` and Plasma layout lock
@@ -47,7 +47,7 @@ Counting only applies when the same **`loginctl`** rules as **Screen Time** appl
 
 ### Quota exemptions
 
-Settings are stored in **`/etc/life-parental/process-whitelist.json`**. The app quota cron (**`/usr/local/bin/life-parental-quota`**) reads this file each run. For apps with a daily limit, if the limit is reached and the app is **not** exempt, it is stopped like before; exempt apps keep running. **Apply Changes** on the Quota exemptions page updates the file and re-deploys the quota script (and removes any legacy **`life-parental-kill`** cron from older versions).
+Settings are stored in **`/etc/life-parental/default.json`** (`quotaExemptions`). For apps with a daily limit, if the limit is reached and the app is **not** exempt, it is stopped like before; exempt apps keep running. **Apply Changes** on the Quota exemptions page updates current settings and refreshes enforcement state (plus legacy **`life-parental-kill`** cleanup from older installs).
 
 ### Web filter: custom domains, HaGeZi lists, and `/etc/hosts`
 

@@ -47,7 +47,9 @@ contextBridge.exposeInMainWorld('api', {
     apps: {
         list: () => ipcRenderer.invoke('apps:list'),
         setBlocked: (appId, blocked) => ipcRenderer.invoke('apps:setBlocked', appId, blocked),
-        getBlocked: () => ipcRenderer.invoke('apps:getBlocked')
+        getBlocked: () => ipcRenderer.invoke('apps:getBlocked'),
+        getControlConfig: () => ipcRenderer.invoke('apps:getControlConfig'),
+        setControlConfig: (cfg) => ipcRenderer.invoke('apps:setControlConfig', cfg)
     },
     schedules: {
         get: () => ipcRenderer.invoke('schedules:get'),
@@ -66,6 +68,7 @@ contextBridge.exposeInMainWorld('api', {
         getList: () => ipcRenderer.invoke('quota:getList'),
         getUsage: () => ipcRenderer.invoke('quota:getUsage'),
         getAppMonitorUsage: () => ipcRenderer.invoke('quota:getAppMonitorUsage'),
+        getAppMonitorUsageForDate: (payload) => ipcRenderer.invoke('quota:getAppMonitorUsageForDate', payload),
         resetTodayUsage: () => ipcRenderer.invoke('quota:resetTodayUsage'),
         setEntry: (entry) => ipcRenderer.invoke('quota:setEntry', entry),
         removeEntry: (payload) => ipcRenderer.invoke('quota:removeEntry', typeof payload === 'string' ? { appId: payload } : payload),

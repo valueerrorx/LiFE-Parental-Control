@@ -25,6 +25,9 @@
     },
     "listAllowlist": []
   },
+  "appControl": {
+    "enabled": true
+  },
   "blockedDesktopIds": [
     "org.kde.konsole.desktop"
   ],

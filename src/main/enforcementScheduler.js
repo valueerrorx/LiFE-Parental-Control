@@ -15,6 +15,7 @@ import {
     readAppMonitorUsage
 } from './ipc/quotaIpc.js'
 import { normalizeQuotaLinuxUser, quotaUsageKey, quotaUsedMinutes, quotaBonusMinutes } from '@shared/quotaUsageKey.js'
+import { readDefaultJson } from './defaultProfileStore.js'
 
 const execFileAsync = promisify(execFile)
 
@@ -29,6 +30,11 @@ let tickInMinute = 0
 let quotaWarnDate = ''
 const appQuotaWarnOnce = new Set()
 let lastAllowedHoursWarnAt = 0
+
+function isAppControlEnabled(configDir) {
+    const def = readDefaultJson(configDir)
+    return def?.appControl?.enabled !== false
+}
 
 function uniqueUsers(sessions) {
     const seen = new Set()
@@ -242,6 +248,7 @@ function resetAppQuotaWarnIfNewDay() {
 }
 
 async function tickAppQuotas(configDir, { onAppQuotaWarn }, logMinute) {
+    if (!isAppControlEnabled(configDir)) return
     resetAppQuotaWarnIfNewDay()
     const quotas = readQuotaEntries(configDir)
     const exempt = loadQuotaExemptAppIds(configDir)

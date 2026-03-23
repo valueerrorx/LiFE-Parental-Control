@@ -6,9 +6,7 @@ import { checkParentPassword } from './settingsIpc.js'
 import { appendActivity } from './activityLog.js'
 import { effectiveScreenMinutes, effectiveScreenMinutesFromFileData } from '@shared/screenTimeUsage.js'
 import { normalizeQuotaLinuxUser } from '@shared/quotaUsageKey.js'
-import { patchDefaultJson } from '../defaultProfileStore.js'
-
-const CONFIG_FILE = 'schedules.json'
+import { patchDefaultJson, readDefaultJson } from '../defaultProfileStore.js'
 const BONUS_MIN = 5
 const BONUS_MAX = 180
 const BONUS_DEFAULT = 30
@@ -26,7 +24,9 @@ export const DEFAULT_SCHEDULE = {
 }
 
 export function readSchedule(configDir) {
-    try { return { ...DEFAULT_SCHEDULE, ...JSON.parse(fs.readFileSync(path.join(configDir, CONFIG_FILE), 'utf8')) } } catch { return { ...DEFAULT_SCHEDULE } }
+    const def = readDefaultJson(configDir)
+    const sched = def?.schedule && typeof def.schedule === 'object' && !Array.isArray(def.schedule) ? def.schedule : {}
+    return { ...DEFAULT_SCHEDULE, ...sched }
 }
 
 function emptyUsage(today) {
@@ -96,7 +96,10 @@ function readUsageHistory(configDir, maxDays, screenTimeLinuxUser) {
 
 export function persistSchedule(configDir, schedule) {
     const s = { ...schedule, screenTimeLinuxUser: normalizeQuotaLinuxUser(schedule?.screenTimeLinuxUser) }
-    fs.writeFileSync(path.join(configDir, CONFIG_FILE), JSON.stringify(s, null, 2), 'utf8')
+    patchDefaultJson(configDir, (d) => {
+        d.schedule = s
+        return d
+    })
     try {
         pruneUsageArchives(configDir)
     } catch {
@@ -136,10 +139,6 @@ export function registerSchedulesIpc(ipcMain, configDir) {
     ipcMain.handle('schedules:save', (_, schedule) => {
         try {
             persistSchedule(configDir, schedule)
-            patchDefaultJson(configDir, (d) => {
-                d.schedule = schedule
-                return d
-            })
             appendActivity(configDir, { action: 'schedule_saved', enabled: schedule?.enabled ?? false })
             return { ok: true }
         } catch (e) {

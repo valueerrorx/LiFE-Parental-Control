@@ -25,6 +25,9 @@ const EMPTY_DEFAULT = {
         entries: [],
         listAllowlist: []
     },
+    appControl: {
+        enabled: true
+    },
     blockedDesktopIds: [],
     quotaExemptions: {
         enabled: false,
@@ -296,6 +299,13 @@ function normalizeBlockedIds(blockedDesktopIds) {
     return out;
 }
 
+function normalizeAppControl(appControl) {
+    const c = appControl && typeof appControl === 'object' && !Array.isArray(appControl)
+        ? appControl
+        : {};
+    return { enabled: c.enabled !== false };
+}
+
 function normalizeQuotaExemptions(quotaExemptions) {
     const q = quotaExemptions && typeof quotaExemptions === 'object' && !Array.isArray(quotaExemptions)
         ? quotaExemptions
@@ -484,6 +494,7 @@ async function applyFromDefault({ configDir, log }) {
     const data = JSON.parse(raw);
 
     const schedule = normalizeSchedule(data.schedule);
+    const appControl = normalizeAppControl(data.appControl);
     const blockedIdsRaw = normalizeBlockedIds(data.blockedDesktopIds);
     const quotaExemptions = normalizeQuotaExemptions(data.quotaExemptions);
     const quotaEntries = normalizeQuotaEntries(data.quota);
@@ -495,18 +506,12 @@ async function applyFromDefault({ configDir, log }) {
     const blockedSet = new Set(blockedResolved);
     const quotaAllowed = quotaAllowedResolved.filter(id => !blockedSet.has(id));
 
-    // Write derived enforcement files so existing daemon readers keep working.
-    writeJsonFile(path.join(configDir, 'schedules.json'), schedule);
-    writeJsonFile(path.join(configDir, 'blocked-apps.json'), blockedResolved);
-    writeJsonFile(path.join(configDir, 'process-whitelist.json'), { enabled: quotaExemptions.enabled === true, allowedIds: quotaAllowed });
-    writeJsonFile(path.join(configDir, 'quota.json'), quotaEntries);
-
     // Enforce app blocking runtime (desktop overrides + AppArmor).
     try {
-        applyDesktopOverride(blockedResolved);
+        applyDesktopOverride(appControl.enabled ? blockedResolved : []);
     } catch { /* ignore */ }
     try {
-        syncAppArmor(blockedResolved, log);
+        syncAppArmor(appControl.enabled ? blockedResolved : [], log);
     } catch { /* ignore */ }
 
     // Enforce webfilter runtime (only by feedState/entries/allowlist from default.json).

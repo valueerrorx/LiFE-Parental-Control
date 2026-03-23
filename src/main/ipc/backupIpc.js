@@ -8,29 +8,21 @@ import { readQuotaEntries, replaceQuotaEntries } from './quotaIpc.js'
 import { readProcessWhitelistConfig, replaceProcessWhitelistFromBackup } from './processWhitelistIpc.js'
 import { readPreferencesForBackup, mergePreferencesFromBackup, clearSessionLockPreference } from './settingsIpc.js'
 import { appendActivity } from './activityLog.js'
+import { readDefaultJson } from '../defaultProfileStore.js'
 
 // Single-file bundle: no password hash, no usage history, no /etc/hosts aside from apply step below.
 const BUNDLE_VERSION = 1
-const SCHED_FILE = 'schedules.json'
-const BLOCKED_FILE = 'blocked-apps.json'
 const LIFE_MODES_FILE = 'life-modes.json'
 
 function readScheduleFromDisk(configDir) {
-    try {
-        return { ...DEFAULT_SCHEDULE, ...JSON.parse(fs.readFileSync(path.join(configDir, SCHED_FILE), 'utf8')) }
-    } catch {
-        return { ...DEFAULT_SCHEDULE }
-    }
+    const def = readDefaultJson(configDir)
+    return { ...DEFAULT_SCHEDULE, ...(def?.schedule || {}) }
 }
 
 function readBlockedFromDisk(configDir) {
-    try {
-        const raw = JSON.parse(fs.readFileSync(path.join(configDir, BLOCKED_FILE), 'utf8'))
-        if (!Array.isArray(raw)) return []
-        return raw.map(x => (typeof x === 'string' ? x : x?.id)).filter(Boolean)
-    } catch {
-        return []
-    }
+    const def = readDefaultJson(configDir)
+    const raw = Array.isArray(def?.blockedDesktopIds) ? def.blockedDesktopIds : []
+    return raw.map(x => (typeof x === 'string' ? x : x?.id)).filter(Boolean)
 }
 
 function readLifeModesFromDisk(configDir) {

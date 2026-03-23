@@ -27,14 +27,13 @@
                     <div class="stat-icon" style="background:#FFF3E0; color:#E65100;">
                         <i class="bi bi-app-indicator" />
                     </div>
-                    <div class="stat-label">{{ $t('dashboard.blockedApps') }}</div>
-                    <div class="stat-value">{{ blockedCount }}</div>
+                    <div class="stat-label">{{ $t('dashboard.blockedAppsQuota') }}</div>
+                    <div class="stat-value">{{ appControlCounts }}</div>
                     <div class="stat-sub">
-                        <span class="status-badge" :class="blockedCount > 0 ? 'warning' : 'inactive'">
+                        <span class="status-badge" :class="store.appControlEnabled ? (blockedCount > 0 ? 'warning' : 'active') : 'inactive'">
                             <i class="bi bi-circle-fill" style="font-size:7px;" />
-                            {{ blockedCount > 0 ? $t('common.active') : $t('common.none') }}
+                            {{ store.appControlEnabled ? $t('common.active') : $t('common.inactive') }}
                         </span>
-                        <span v-if="quotaCount" class="ms-1 text-muted" style="font-size:11px;">· {{ quotaCount }} {{ $t('dashboard.dayLimits') }}</span>
                     </div>
                 </div>
             </div>
@@ -46,9 +45,9 @@
                     <div class="stat-label">{{ $t('dashboard.appExemptions') }}</div>
                     <div class="stat-value">{{ effectiveExemptCount }}</div>
                     <div class="stat-sub">
-                        <span class="status-badge" :class="effectiveExemptCount > 0 ? 'active' : 'inactive'">
+                        <span class="status-badge" :class="store.whitelistEnabled ? 'active' : 'inactive'">
                             <i class="bi bi-circle-fill" style="font-size:7px;" />
-                            {{ effectiveExemptCount > 0 ? $t('common.active') : $t('common.none') }}
+                            {{ store.whitelistEnabled ? $t('common.active') : $t('common.inactive') }}
                         </span>
                     </div>
                 </div>
@@ -58,8 +57,8 @@
                     <div class="stat-icon" style="background:#E8F5E9; color:#2E7D32;">
                         <i class="bi bi-clock-history" />
                     </div>
-                    <div class="stat-label">{{ $t('dashboard.screenTime') }}</div>
-                    <div class="stat-value">{{ usageLabel }}</div>
+                    <div class="stat-label">{{ $t('dashboard.screenTimeLimit') }}</div>
+                    <div class="stat-value">{{ screenTimeCounts }}</div>
                     <div class="stat-sub">
                         <span class="status-badge" :class="scheduleEnabled ? 'active' : 'inactive'">
                             <i class="bi bi-circle-fill" style="font-size:7px;" />
@@ -137,7 +136,7 @@
                                 >
                                     <span class="donut-swatch" :style="{ background: row.color }" />
                                     <span class="donut-legend-name text-truncate flex-grow-1" :title="row.name">{{ row.name }}</span>
-                                    <span class="text-muted text-nowrap">{{ row.value }}m</span>
+                                    <span class="text-muted text-nowrap">{{ formatDonutLegendMinutes(row.value) }}</span>
                                 </li>
                             </ul>
                             <div class="donut-chart-side d-flex justify-content-center align-items-start">
@@ -148,7 +147,7 @@
                                 >
                                     <div class="donut-hole">
                                         <div class="donut-center-value">{{ donutModel.screen }}</div>
-                                        <div class="text-muted small">{{ $t('dashboard.minToday') }}</div>
+                                        <div class="text-muted small">{{ donutMinCaption }}</div>
                                         <div v-if="dailyCapSubtitle" class="text-muted small mt-1">{{ dailyCapSubtitle }}</div>
                                     </div>
                                 </div>
@@ -178,6 +177,14 @@
                                     v-for="d in weekUsage"
                                     :key="d.date"
                                     class="week-chart-col flex-fill d-flex flex-column align-items-center"
+                                    :class="{ 'week-chart-col--selected': isDonutDaySelected(d) }"
+                                    role="button"
+                                    tabindex="0"
+                                    :aria-pressed="isDonutDaySelected(d) ? 'true' : 'false'"
+                                    :title="$t('dashboard.weekBarSelectHint')"
+                                    @click="onWeekBarClick(d)"
+                                    @keydown.enter.prevent="onWeekBarClick(d)"
+                                    @keydown.space.prevent="onWeekBarClick(d)"
                                 >
                                     <div class="week-bar-track w-100" :style="{ height: WEEK_BAR_TRACK_PX + 'px' }">
                                         <div
@@ -275,8 +282,40 @@ const WEEK_BAR_FULL_MINUTES = 12 * 60
 
 const store = useAppStore()
 const weekUsage = ref([])
+/** null = today (live store); else YYYY-MM-DD for historical donut. */
+const selectedDonutDate = ref(null)
+const donutDayUsage = ref({})
 const daemonServiceActive = ref(null) // 'active' | 'inactive' | null
 const daemonSocketConnected = ref(false)
+
+function localIsoDate(d = new Date()) {
+    const y = d.getFullYear()
+    const m = String(d.getMonth() + 1).padStart(2, '0')
+    const day = String(d.getDate()).padStart(2, '0')
+    return `${y}-${m}-${day}`
+}
+
+function isDonutDaySelected(d) {
+    const todayIso = localIsoDate()
+    if (d.date === todayIso) return selectedDonutDate.value === null
+    return selectedDonutDate.value === d.date
+}
+
+async function onWeekBarClick(d) {
+    const todayIso = localIsoDate()
+    if (d.date === todayIso) {
+        selectedDonutDate.value = null
+        donutDayUsage.value = {}
+        return
+    }
+    selectedDonutDate.value = d.date
+    try {
+        const r = await window.api.quota.getAppMonitorUsageForDate({ date: d.date })
+        donutDayUsage.value = r?.usage && typeof r.usage === 'object' ? { ...r.usage } : {}
+    } catch {
+        donutDayUsage.value = {}
+    }
+}
 
 const daemonServiceLabel = computed(() => {
     if (daemonServiceActive.value !== 'active') return '—'
@@ -310,7 +349,7 @@ async function loadDaemonStatus() {
 }
 
 const filterCount = computed(() => store.webFilterHostRuleCount)
-const blockedCount = computed(() => store.blockedApps.length)
+const blockedCount = computed(() => (store.appControlEnabled ? store.blockedApps.length : 0))
 const effectiveExemptCount = computed(() => {
     const enabled = store.whitelistEnabled === true
     if (!enabled) return 0
@@ -324,6 +363,7 @@ const effectiveExemptCount = computed(() => {
     return count
 })
 const quotaCount = computed(() => {
+    if (store.appControlEnabled !== true) return 0
     const f = normalizeQuotaLinuxUser(store.quotaViewLinuxUser)
     const list = f
         ? store.appQuotas.filter((q) => {
@@ -332,6 +372,14 @@ const quotaCount = computed(() => {
         })
         : store.appQuotas
     return list.length
+})
+const appControlCounts = computed(() => `${blockedCount.value} / ${quotaCount.value}`)
+const screenTimeCounts = computed(() => {
+    const s = store.schedule
+    if (!s?.enabled) return '0 / 0'
+    const used = Number(store.todayUsageMinutes ?? 0)
+    const limit = s.dailyLimitEnabled ? Number(s.dailyLimitMinutes || 0) : 0
+    return `${used} / ${limit}`
 })
 const quotaSummaryRows = computed(() => {
     const usage = store.appQuotaUsage || {}
@@ -368,14 +416,6 @@ const quotaSummaryRows = computed(() => {
 })
 const scheduleEnabled = computed(() => store.schedule?.enabled ?? false)
 
-const usageLabel = computed(() => {
-    const s = store.schedule
-    if (!s) return '–'
-    if (!s.dailyLimitEnabled) return s.allowedHoursEnabled ? t('common.window') : '∞'
-    const used = store.todayUsageMinutes ?? 0
-    return `${used}m / ${s.dailyLimitMinutes}m`
-})
-
 const kioskStatValue = computed(() => {
     const k = store.kioskStatus
     if (!k.ok) return '–'
@@ -394,9 +434,27 @@ const kioskBadgeLabel = computed(() => {
     return k.active ? t('common.active') : t('common.inactive')
 })
 
+const screenMinutesForDonut = computed(() => {
+    if (selectedDonutDate.value === null) return Math.max(0, Number(store.todayUsageMinutes) || 0)
+    const row = weekUsage.value.find((x) => x.date === selectedDonutDate.value)
+    return row ? Math.max(0, Number(row.minutes) || 0) : 0
+})
+
+const usageMapForDonut = computed(() => {
+    if (selectedDonutDate.value === null) return store.appMonitorUsage || {}
+    return donutDayUsage.value
+})
+
+const donutMinCaption = computed(() => {
+    if (selectedDonutDate.value === null) return t('dashboard.minToday')
+    const row = weekUsage.value.find((x) => x.date === selectedDonutDate.value)
+    const dayLabel = row?.shortLabel || selectedDonutDate.value
+    return t('dashboard.minOnDay', { day: dayLabel })
+})
+
 const donutModel = computed(() => {
-    const screen = Math.max(0, Number(store.todayUsageMinutes) || 0)
-    const usage = store.appMonitorUsage || {}
+    const screen = screenMinutesForDonut.value
+    const usage = usageMapForDonut.value
     const labels = store.appMonitorLabels || {}
     const pairs = Object.entries(usage)
         .map(([appId, v]) => ({
@@ -439,13 +497,24 @@ const donutLegend = computed(() => donutModel.value.slices.map((s, i) => ({
 })))
 
 const dailyCapSubtitle = computed(() => {
+    if (selectedDonutDate.value !== null) return ''
     const s = store.schedule
-    if (!s?.dailyLimitEnabled) return ''
+    if (!s?.enabled || !s?.dailyLimitEnabled) return ''
     const cap = Number(s.dailyLimitMinutes) || 0
     const extra = Math.max(0, Number(store.todayExtraAllowanceMinutes) || 0)
     if (extra > 0) return t('dashboard.ofCapBonus', { cap: cap + extra })
     return t('dashboard.ofCap', { cap })
 })
+
+/** Legend duration: minutes below 1h, then "Xh" or "Xh Ym" for readability. */
+function formatDonutLegendMinutes(raw) {
+    const m = Math.max(0, Math.floor(Number(raw) || 0))
+    if (m < 60) return `${m}m`
+    const h = Math.floor(m / 60)
+    const rest = m % 60
+    if (rest === 0) return `${h}h`
+    return `${h}h ${rest}m`
+}
 
 function weekBarFillPx(minutes) {
     const m = Math.max(0, Number(minutes) || 0)
@@ -486,6 +555,14 @@ async function loadWeekUsage() {
 
 async function refreshScreenCharts() {
     await Promise.all([store.loadSchedule(), store.loadAppQuotas(), loadWeekUsage(), loadDaemonStatus()])
+    if (selectedDonutDate.value) {
+        try {
+            const r = await window.api.quota.getAppMonitorUsageForDate({ date: selectedDonutDate.value })
+            donutDayUsage.value = r?.usage && typeof r.usage === 'object' ? { ...r.usage } : {}
+        } catch {
+            donutDayUsage.value = {}
+        }
+    }
 }
 
 onMounted(async () => {
@@ -606,6 +683,20 @@ onMounted(async () => {
 }
 .week-chart-col {
     min-width: 0;
+    cursor: pointer;
+    border-radius: 6px;
+    padding: 4px 2px 0;
+    outline: none;
+    transition: background 0.15s ease;
+}
+.week-chart-col:hover {
+    background: rgba(0, 0, 0, 0.04);
+}
+.week-chart-col:focus-visible {
+    box-shadow: 0 0 0 2px rgba(25, 118, 210, 0.45);
+}
+.week-chart-col--selected {
+    background: rgba(25, 118, 210, 0.08);
 }
 .week-chart-col-wrap {
     min-height: 0;

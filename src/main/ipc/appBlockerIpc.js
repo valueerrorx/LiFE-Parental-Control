@@ -4,7 +4,7 @@ import { execFile, spawnSync } from 'child_process'
 import { desktopIconToDataUrl } from './desktopIconResolve.js'
 import { redeployQuotaFromDisk } from './quotaIpc.js'
 import { appendActivity } from './activityLog.js'
-import { patchDefaultJson } from '../defaultProfileStore.js'
+import { patchDefaultJson, readDefaultJson } from '../defaultProfileStore.js'
 
 const DESKTOP_DIRS = [
     '/usr/share/applications',
@@ -13,7 +13,6 @@ const DESKTOP_DIRS = [
 ]
 // Desktop file overrides placed here (per-system, root-writable)
 const OVERRIDE_DIR = '/usr/local/share/applications'
-const CONFIG_FILE = 'blocked-apps.json'
 const APP_MONITOR_CATALOG = 'app-monitor-catalog.json'
 
 // Best-effort name for pgrep -x: flatpak/snap, shell -c, electron, *.AppImage stem, first real executable.
@@ -264,15 +263,34 @@ function resolveBlockedIdsAgainstApps(ids, apps) {
 }
 
 function readBlocked(configDir) {
-    try {
-        return normalizeBlockedIds(JSON.parse(fs.readFileSync(path.join(configDir, CONFIG_FILE), 'utf8')))
-    } catch {
-        return []
-    }
+    const def = readDefaultJson(configDir)
+    return normalizeBlockedIds(Array.isArray(def?.blockedDesktopIds) ? def.blockedDesktopIds : [])
+}
+
+function readAppControlConfig(configDir) {
+    const def = readDefaultJson(configDir)
+    return { enabled: def?.appControl?.enabled !== false }
+}
+
+function clearDisabledAppControlState(configDir) {
+    const def = readDefaultJson(configDir)
+    const blocked = Array.isArray(def?.blockedDesktopIds) ? def.blockedDesktopIds : []
+    const quota = Array.isArray(def?.quota) ? def.quota : []
+    if (blocked.length === 0 && quota.length === 0) return
+    // Keep persisted app-control data empty while feature is disabled.
+    patchDefaultJson(configDir, (d) => {
+        d.blockedDesktopIds = []
+        d.quota = []
+        return d
+    })
 }
 
 function saveBlocked(configDir, list) {
-    fs.writeFileSync(path.join(configDir, CONFIG_FILE), JSON.stringify(list, null, 2), 'utf8')
+    const normalized = normalizeBlockedIds(Array.isArray(list) ? list : [])
+    patchDefaultJson(configDir, (d) => {
+        d.blockedDesktopIds = normalized
+        return d
+    })
 }
 
 /** Desktop entries only (no icons); same discovery order as App Control. */
@@ -373,7 +391,8 @@ function buildApparmorProfile(entries) {
 // Silently skips if apparmor_parser is not installed.
 export function syncAppArmor(configDir) {
     // Build exec-path list from current blocked app list
-    const blocked = readBlocked(configDir)
+    const control = readAppControlConfig(configDir)
+    const blocked = control.enabled ? readBlocked(configDir) : []
     const apps = readAllDesktopApps()
     const appMap = new Map(apps.map(a => [a.id, a]))
 
@@ -449,9 +468,46 @@ export function replaceBlockedDesktopIds(configDir, nextIds) {
 }
 
 export function registerAppBlockerIpc(ipcMain, configDir) {
+    ipcMain.handle('apps:getControlConfig', () => {
+        const cfg = readAppControlConfig(configDir)
+        if (!cfg.enabled) clearDisabledAppControlState(configDir)
+        return cfg
+    })
+
+    ipcMain.handle('apps:setControlConfig', (_, payload) => {
+        try {
+            const enabled = payload?.enabled !== false
+            const cfg = { enabled }
+            patchDefaultJson(configDir, (d) => {
+                d.appControl = { enabled: cfg.enabled }
+                return d
+            })
+            // Apply or remove runtime app-control enforcement immediately.
+            if (cfg.enabled) {
+                syncAppArmor(configDir)
+            } else {
+                const blocked = readBlocked(configDir)
+                for (const appId of blocked) applyDesktopOverride(configDir, appId, false)
+                patchDefaultJson(configDir, (d) => {
+                    // Disabling app control clears persisted blocked apps and per-app quotas for consistent state.
+                    d.blockedDesktopIds = []
+                    d.quota = []
+                    return d
+                })
+                syncAppArmor(configDir)
+            }
+            appendActivity(configDir, { action: 'app_control_toggle', enabled: cfg.enabled })
+            return { ok: true, ...cfg }
+        } catch (e) {
+            return { error: e.message }
+        }
+    })
+
     ipcMain.handle('apps:list', () => {
         const base = readAllDesktopApps()
+        if (!readAppControlConfig(configDir).enabled) clearDisabledAppControlState(configDir)
         const resolvedBlocked = resolveBlockedIdsAgainstApps(readBlocked(configDir), base)
+        const control = readAppControlConfig(configDir)
         const blocked = new Set(resolvedBlocked)
         // Keep disk in sync with canonical IDs discovered from installed apps.
         saveBlocked(configDir, resolvedBlocked)
@@ -464,7 +520,7 @@ export function registerAppBlockerIpc(ipcMain, configDir) {
                 icon: app.icon,
                 filePath: app.filePath,
                 processName: app.processName,
-                blocked: blocked.has(file)
+                blocked: control.enabled ? blocked.has(file) : false
             }
             const stem = path.basename(file, '.desktop')
             const iconDataUrl = desktopIconToDataUrl(app.icon, app.filePath, [
@@ -482,18 +538,17 @@ export function registerAppBlockerIpc(ipcMain, configDir) {
     ipcMain.handle('apps:setBlocked', (_, appId, block) => {
         try {
             const list = readBlocked(configDir)
+            const control = readAppControlConfig(configDir)
             if (block && !list.includes(appId)) list.push(appId)
             else if (!block) {
                 const i = list.indexOf(appId)
                 if (i !== -1) list.splice(i, 1)
             }
             saveBlocked(configDir, list)
-            patchDefaultJson(configDir, (d) => {
-                d.blockedDesktopIds = list
-                return d
-            })
-            applyDesktopOverride(configDir, appId, block)
-            syncAppArmor(configDir)
+            if (control.enabled) {
+                applyDesktopOverride(configDir, appId, block)
+                syncAppArmor(configDir)
+            }
             appendActivity(configDir, { action: block ? 'app_blocked' : 'app_unblocked', appId })
             return { ok: true }
         } catch (e) {

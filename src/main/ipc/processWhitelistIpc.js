@@ -1,29 +1,26 @@
 import fs from 'fs'
-import path from 'path'
 import { execFile } from 'child_process'
 import { redeployQuotaFromDisk } from './quotaIpc.js'
 import { appendActivity } from './activityLog.js'
-import { patchDefaultJson } from '../defaultProfileStore.js'
-
-const WHITELIST_FILE = 'process-whitelist.json'
+import { patchDefaultJson, readDefaultJson } from '../defaultProfileStore.js'
 // Legacy kill enforcement (removed); clean up on save so old installs drop the extra cron.
 const LEGACY_KILL_SCRIPT = '/usr/local/bin/life-parental-kill'
 const LEGACY_KILL_CRON = '/etc/cron.d/life-parental-kill'
 
 function readConfig(configDir) {
-    try {
-        const raw = JSON.parse(fs.readFileSync(path.join(configDir, WHITELIST_FILE), 'utf8'))
-        return {
-            enabled: Boolean(raw.enabled),
-            allowedIds: Array.isArray(raw.allowedIds) ? raw.allowedIds : []
-        }
-    } catch {
-        return { enabled: false, allowedIds: [] }
+    const def = readDefaultJson(configDir)
+    const raw = def?.quotaExemptions && typeof def.quotaExemptions === 'object' ? def.quotaExemptions : {}
+    return {
+        enabled: raw.enabled === true,
+        allowedIds: Array.isArray(raw.allowedIds) ? raw.allowedIds : []
     }
 }
 
 function saveConfig(configDir, config) {
-    fs.writeFileSync(path.join(configDir, WHITELIST_FILE), JSON.stringify(config, null, 2), 'utf8')
+    patchDefaultJson(configDir, (d) => {
+        d.quotaExemptions = { enabled: config?.enabled === true, allowedIds: Array.isArray(config?.allowedIds) ? config.allowedIds : [] }
+        return d
+    })
 }
 
 export function removeLegacyProcessKillCronArtifacts() {
@@ -71,18 +68,11 @@ export function registerProcessWhitelistIpc(ipcMain, configDir) {
                 ? payload.allowedIds.filter(s => typeof s === 'string')
                 : []
             // Blocked apps must not be exempt.
-            let blocked = []
-            try {
-                const raw = JSON.parse(fs.readFileSync(path.join(configDir, 'blocked-apps.json'), 'utf8'))
-                blocked = Array.isArray(raw) ? raw.filter(s => typeof s === 'string') : []
-            } catch { /* ignore */ }
+            const def = readDefaultJson(configDir)
+            const blocked = Array.isArray(def?.blockedDesktopIds) ? def.blockedDesktopIds.filter(s => typeof s === 'string') : []
             const cleanedAllowedIds = allowedIds.filter(id => !blocked.includes(id))
             const config = { enabled, allowedIds: cleanedAllowedIds }
             saveConfig(configDir, config)
-            patchDefaultJson(configDir, (d) => {
-                d.quotaExemptions = { enabled, allowedIds: cleanedAllowedIds }
-                return d
-            })
             removeLegacyProcessKillCronArtifacts()
             redeployQuotaFromDisk(configDir)
             appendActivity(configDir, {

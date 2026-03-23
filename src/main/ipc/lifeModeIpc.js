@@ -10,10 +10,10 @@ import { readWebFilterMirror, persistWebFilterEntries } from './webFilterIpc.js'
 import { replaceBlockedDesktopIds } from './appBlockerIpc.js'
 import { appendActivity } from './activityLog.js'
 import { redeployQuotaFromDisk, replaceQuotaEntries } from './quotaIpc.js'
+import { patchDefaultJson } from '../defaultProfileStore.js'
 
 const LIFE_MODES_FILE = 'life-modes.json'
 const DEFAULT_MODE_FILE = 'default.json'
-const QUOTA_EXEMPTIONS_FILE = 'process-whitelist.json'
 const RESERVED_KEYS = new Set(['school', 'leisure', 'default'])
 
 const BUILTIN_LABELS = { school: 'School', leisure: 'Leisure', default: 'Default' }
@@ -173,11 +173,10 @@ function normalizeDefaultQuotaExemptions(raw) {
 function persistQuotaExemptions(configDir, quotaExemptions) {
     const enabled = Boolean(quotaExemptions?.enabled)
     const allowedIds = Array.isArray(quotaExemptions?.allowedIds) ? quotaExemptions.allowedIds.filter(id => typeof id === 'string') : []
-    fs.writeFileSync(
-        path.join(configDir, QUOTA_EXEMPTIONS_FILE),
-        JSON.stringify({ enabled, allowedIds }, null, 2),
-        'utf8'
-    )
+    patchDefaultJson(configDir, (d) => {
+        d.quotaExemptions = { enabled, allowedIds }
+        return d
+    })
 }
 
 function getAllLifeModes(configDir) {

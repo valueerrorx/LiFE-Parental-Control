@@ -30,21 +30,6 @@
             </div>
         </div>
 
-        <div class="pc-card mb-3">
-            <div class="pc-card-header"><h6>{{ $t('schedules.profilePresets') }}</h6></div>
-            <div class="pc-card-body">
-                <p class="text-muted mb-2" style="font-size:12px;" v-html="$t('schedules.presetsHint')" />
-                <div class="d-flex flex-wrap gap-2">
-                    <button type="button" class="btn-pc-outline" @click="applyPreset('school')">
-                        <i class="bi bi-mortarboard me-1" />{{ $t('schedules.schoolWeek') }}
-                    </button>
-                    <button type="button" class="btn-pc-outline" @click="applyPreset('leisure')">
-                        <i class="bi bi-brightness-high me-1" />{{ $t('schedules.leisure') }}
-                    </button>
-                </div>
-            </div>
-        </div>
-
         <div :class="{ 'opacity-50 pe-none': !schedule.enabled }">
             <!-- Daily time limit -->
             <div class="pc-card mb-3">
@@ -165,6 +150,21 @@
             </div>
         </div>
 
+        <div class="pc-card mb-3">
+            <div class="pc-card-header"><h6>{{ $t('schedules.profilePresets') }}</h6></div>
+            <div class="pc-card-body">
+                <p class="text-muted mb-2" style="font-size:12px;" v-html="$t('schedules.presetsHint')" />
+                <div class="d-flex flex-wrap gap-2">
+                    <button type="button" class="btn-pc-outline" @click="applyPreset('school')">
+                        <i class="bi bi-mortarboard me-1" />{{ $t('schedules.schoolWeek') }}
+                    </button>
+                    <button type="button" class="btn-pc-outline" @click="applyPreset('leisure')">
+                        <i class="bi bi-brightness-high me-1" />{{ $t('schedules.leisure') }}
+                    </button>
+                </div>
+            </div>
+        </div>
+
         <p v-if="saveMsg" class="mt-2" :class="saveError ? 'text-danger' : 'text-success'">
             <i class="bi me-1" :class="saveError ? 'bi-exclamation-circle' : 'bi-check-circle'" />
             {{ saveMsg }}
@@ -173,7 +173,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { confirm } from '../composables/useConfirm.js'
 import { normalizeQuotaLinuxUser } from '@shared/quotaUsageKey.js'
@@ -210,6 +210,12 @@ const usagePercent  = computed(() => Math.min(100, Math.round((todayMinutes.valu
 const usageBarColor = computed(() => usagePercent.value >= 100 ? '#C62828' : usagePercent.value >= 80 ? '#E65100' : '#1565C0')
 const usageColor    = computed(() => ({ color: usageBarColor.value }))
 
+watch(() => schedule.enabled, (enabled) => {
+    if (enabled) return
+    schedule.dailyLimitEnabled = false
+    schedule.allowedHoursEnabled = false
+})
+
 function historyBarStyle(row) {
     const limit = schedule.dailyLimitEnabled ? (schedule.dailyLimitMinutes || 120) : 0
     if (limit > 0) {
@@ -241,7 +247,14 @@ onMounted(async () => {
     await refreshUsageData()
 })
 
-function applyPreset(kind) {
+async function applyPreset(kind) {
+    const presetLabel = kind === 'school' ? t('schedules.schoolWeek') : t('schedules.leisure')
+    if (!await confirm({
+        title: t('schedules.presetConfirmTitle'),
+        message: t('schedules.presetConfirmMsg', { preset: presetLabel }),
+        okLabel: t('common.applyChanges')
+    })) return
+
     if (kind === 'school') {
         Object.assign(schedule, {
             enabled: true,

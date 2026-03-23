@@ -312,6 +312,7 @@ function getDefaultConfig() {
         const installedIds = readInstalledDesktopIds()
 
         const schedule = normalizeScheduleFromDefault(data?.schedule)
+        const appControlEnabled = data?.appControl?.enabled !== false
         const blockedResolved = resolveBlockedIdsAgainstInstalled(data?.blockedDesktopIds, installedIds)
         const blockedSet = new Set(blockedResolved)
 
@@ -331,6 +332,7 @@ function getDefaultConfig() {
 
         cachedDefaultConfig = {
             schedule,
+            appControlEnabled,
             blockedDesktopIds: blockedResolved,
             blockedSet,
             quotaExemptionsEnabled,
@@ -342,6 +344,7 @@ function getDefaultConfig() {
         if (cachedDefaultConfig) return cachedDefaultConfig
         cachedDefaultConfig = {
             schedule: { ...DEFAULT_SCHEDULE },
+            appControlEnabled: true,
             blockedDesktopIds: [],
             blockedSet: new Set(),
             quotaExemptionsEnabled: false,
@@ -454,7 +457,7 @@ function hashPassword(password, salt) {
 let cachedPasswordSecurity = null;
 let cachedPasswordSecurityLoaded = false;
 
-function readPasswordSecurityWithMigration() {
+function readPasswordSecurity() {
     if (cachedPasswordSecurityLoaded) return cachedPasswordSecurity;
     cachedPasswordSecurityLoaded = true;
 
@@ -463,7 +466,6 @@ function readPasswordSecurityWithMigration() {
     }
 
     const defaultPath = path.join(CONFIG_DIR, DEFAULT_JSON_FILE);
-    const configPath = path.join(CONFIG_DIR, 'config.json');
 
     const def = readJsonSafe(defaultPath);
     const sec = def && typeof def === 'object' ? def.security : null;
@@ -472,24 +474,12 @@ function readPasswordSecurityWithMigration() {
         return cachedPasswordSecurity;
     }
 
-    // Best-effort migration: if password exists in config.json, copy into default.json for consistency.
-    const cfg = readJsonSafe(configPath);
-    if (cfg && typeof cfg === 'object' && typeof cfg.passwordHash === 'string' && typeof cfg.salt === 'string') {
-        try {
-            const next = def && typeof def === 'object' ? def : {};
-            next.security = { passwordHash: cfg.passwordHash, salt: cfg.salt };
-            fs.writeFileSync(defaultPath, JSON.stringify(next, null, 2), { encoding: 'utf8', mode: 0o600 });
-        } catch { /* ignore */ }
-        cachedPasswordSecurity = { passwordHash: cfg.passwordHash, salt: cfg.salt };
-        return cachedPasswordSecurity;
-    }
-
     cachedPasswordSecurity = { passwordHash: '', salt: '' };
     return cachedPasswordSecurity;
 }
 
 function checkParentPassword(plain) {
-    const sec = readPasswordSecurityWithMigration();
+    const sec = readPasswordSecurity();
     if (!sec.passwordHash) return { ok: false, reason: 'no_password' };
     if (typeof plain !== 'string' || plain.length === 0) return { ok: false, reason: 'invalid' };
     if (hashPassword(plain, sec.salt) !== sec.passwordHash) return { ok: false, reason: 'invalid' };
@@ -1057,6 +1047,8 @@ function resetAppQuotaWarnIfNewDay() {
 }
 
 async function tickAppQuotas(logMinute) {
+    const def = getDefaultConfig();
+    if (def.appControlEnabled !== true) return;
     resetAppQuotaWarnIfNewDay();
     const quotas = readQuotaEntries();
     const exempt = loadQuotaExemptAppIds();

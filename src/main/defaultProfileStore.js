@@ -20,6 +20,14 @@ const EMPTY_DEFAULT = {
         entries: [],
         listAllowlist: []
     },
+    appControl: {
+        enabled: true
+    },
+    preferences: {
+        lockIdleMinutes: null,
+        autostartEnabled: false,
+        quotaViewLinuxUser: ''
+    },
     blockedDesktopIds: [],
     security: {
         passwordHash: '',
@@ -86,6 +94,15 @@ export function readDefaultJson(configDir) {
             .filter(e => e && typeof e.domain === 'string')
             .map(e => ({ domain: String(e.domain).toLowerCase(), enabled: e.enabled !== false }))
         if (Array.isArray(wf.listAllowlist)) next.webfilter.listAllowlist = wf.listAllowlist.filter(d => typeof d === 'string')
+    }
+    if (raw.appControl && typeof raw.appControl === 'object' && !Array.isArray(raw.appControl)) {
+        next.appControl.enabled = raw.appControl.enabled !== false
+    }
+    if (raw.preferences && typeof raw.preferences === 'object' && !Array.isArray(raw.preferences)) {
+        const p = raw.preferences
+        if (Object.hasOwn(p, 'lockIdleMinutes')) next.preferences.lockIdleMinutes = p.lockIdleMinutes
+        next.preferences.autostartEnabled = p.autostartEnabled === true
+        next.preferences.quotaViewLinuxUser = typeof p.quotaViewLinuxUser === 'string' ? p.quotaViewLinuxUser : ''
     }
     if (Array.isArray(raw.blockedDesktopIds)) next.blockedDesktopIds = raw.blockedDesktopIds.filter(s => typeof s === 'string')
     if (raw.quotaExemptions && typeof raw.quotaExemptions === 'object' && !Array.isArray(raw.quotaExemptions)) {

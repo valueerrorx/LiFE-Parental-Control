@@ -7,6 +7,7 @@ export const useAppStore = defineStore('app', () => {
     const webFilterHostRuleCount = ref(0)
     const webFilterAllowlist = ref([])
     const blockedApps = ref([])
+    const appControlEnabled = ref(true)
     const quotaExemptAllowedIds = ref([])
     const schedule = ref(null)
     const todayUsageMinutes = ref(0)
@@ -59,6 +60,11 @@ export const useAppStore = defineStore('app', () => {
 
     async function loadBlockedApps() {
         blockedApps.value = await window.api.apps.getBlocked()
+    }
+
+    async function loadAppControlConfig() {
+        const cfg = await window.api.apps.getControlConfig()
+        appControlEnabled.value = cfg?.enabled !== false
     }
 
     async function loadSchedule() {
@@ -114,7 +120,7 @@ export const useAppStore = defineStore('app', () => {
             window.api.settings.getConfig()
         ])
         await Promise.all([
-            loadWebFilter(), loadBlockedApps(), loadSchedule(), loadKioskStatus(), loadAppQuotas(), loadProcessWhitelist()
+            loadWebFilter(), loadAppControlConfig(), loadBlockedApps(), loadSchedule(), loadKioskStatus(), loadAppQuotas(), loadProcessWhitelist()
         ])
         runningAsRoot.value = info?.runningAsRoot ?? null
         xdgCurrentDesktop.value = info?.xdgCurrentDesktop ?? ''
@@ -129,11 +135,11 @@ export const useAppStore = defineStore('app', () => {
     }
 
     return {
-        webFilterEntries, webFilterFeedState, webFilterHostRuleCount, webFilterAllowlist, blockedApps, quotaExemptAllowedIds, schedule, todayUsageMinutes, todayExtraAllowanceMinutes, kioskStatus,
+        webFilterEntries, webFilterFeedState, webFilterHostRuleCount, webFilterAllowlist, blockedApps, appControlEnabled, quotaExemptAllowedIds, schedule, todayUsageMinutes, todayExtraAllowanceMinutes, kioskStatus,
         appQuotas, appQuotaUsage, appQuotaExtra, appMonitorUsage, appMonitorLabels, statusMessage, whitelistEnabled, runningAsRoot, xdgCurrentDesktop,
         invokingLinuxUser, quotaViewLinuxUser,
         webFilterEnabled,
-        loadWebFilter, saveWebFilter, persistWebFilterAllowlist, loadBlockedApps, loadSchedule, loadKioskStatus, loadAppQuotas,
+        loadWebFilter, saveWebFilter, persistWebFilterAllowlist, loadAppControlConfig, loadBlockedApps, loadSchedule, loadKioskStatus, loadAppQuotas,
         loadProcessWhitelist, applyLifeMode, refreshProtectionsState, setQuotaViewLinuxUser
     }
 })

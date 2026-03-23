@@ -5,19 +5,21 @@ import { pruneUsageArchives } from './usageArchivePrune.js'
 import { localIsoDate } from './localCalendarDay.js'
 import { appendActivity } from './activityLog.js'
 import { checkParentPassword } from './settingsIpc.js'
-import { patchDefaultJson } from '../defaultProfileStore.js'
-
-const QUOTA_FILE = 'quota.json'
+import { patchDefaultJson, readDefaultJson } from '../defaultProfileStore.js'
 const BONUS_MIN = 5
 const BONUS_MAX = 180
 const BONUS_DEFAULT = 30
 
 function readQuotas(configDir) {
-    try { return JSON.parse(fs.readFileSync(path.join(configDir, QUOTA_FILE), 'utf8')) } catch { return [] }
+    const def = readDefaultJson(configDir)
+    return Array.isArray(def?.quota) ? def.quota : []
 }
 
 function saveQuotas(configDir, quotas) {
-    fs.writeFileSync(path.join(configDir, QUOTA_FILE), JSON.stringify(quotas, null, 2), 'utf8')
+    patchDefaultJson(configDir, (d) => {
+        d.quota = Array.isArray(quotas) ? quotas : []
+        return d
+    })
 }
 
 export function normalizeQuotaEntry(e) {
@@ -75,6 +77,19 @@ export function readAppMonitorUsage(configDir) {
     } catch { return {} }
 }
 
+/** App monitor tally for a specific calendar day (local YYYY-MM-DD). */
+export function readAppMonitorUsageForDate(configDir, dateIso) {
+    if (typeof dateIso !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(dateIso)) return {}
+    const file = path.join(configDir, `app-usage-${dateIso}.json`)
+    try {
+        const data = JSON.parse(fs.readFileSync(file, 'utf8'))
+        if (data.date !== dateIso) return {}
+        return typeof data.usage === 'object' && data.usage ? { ...data.usage } : {}
+    } catch {
+        return {}
+    }
+}
+
 function monitorLabelsFromCatalog(configDir) {
     try {
         const c = JSON.parse(fs.readFileSync(path.join(configDir, 'app-monitor-catalog.json'), 'utf8'))
@@ -108,30 +123,20 @@ export function writeAppMonitorUsage(configDir, usageMap) {
 }
 
 function loadBlockedAppIds(configDir) {
-    try {
-        const raw = JSON.parse(fs.readFileSync(path.join(configDir, 'blocked-apps.json'), 'utf8'))
-        if (!Array.isArray(raw)) return new Set()
-        const ids = raw
-            .map(item => (typeof item === 'string' ? item : item?.id))
-            .filter(Boolean)
-        return new Set(ids)
-    } catch {
-        return new Set()
-    }
+    const def = readDefaultJson(configDir)
+    const raw = Array.isArray(def?.blockedDesktopIds) ? def.blockedDesktopIds : []
+    return new Set(raw.filter(Boolean))
 }
 
 export function loadQuotaExemptAppIds(configDir) {
-    try {
-        const wl = JSON.parse(fs.readFileSync(path.join(configDir, 'process-whitelist.json'), 'utf8'))
-        if (!wl?.enabled) return new Set()
-        const blocked = loadBlockedAppIds(configDir)
-        const ids = wl?.allowedIds
-        const allowed = Array.isArray(ids) ? new Set(ids) : new Set()
-        for (const id of blocked) allowed.delete(id)
-        return allowed
-    } catch {
-        return new Set()
-    }
+    const def = readDefaultJson(configDir)
+    const wl = def?.quotaExemptions && typeof def.quotaExemptions === 'object' ? def.quotaExemptions : {}
+    if (!wl?.enabled) return new Set()
+    const blocked = loadBlockedAppIds(configDir)
+    const ids = wl?.allowedIds
+    const allowed = Array.isArray(ids) ? new Set(ids) : new Set()
+    for (const id of blocked) allowed.delete(id)
+    return allowed
 }
 
 export function readQuotaEntries(configDir) {
@@ -178,6 +183,14 @@ export function registerQuotaIpc(ipcMain, configDir) {
         usage: readAppMonitorUsage(configDir),
         labels: monitorLabelsFromCatalog(configDir)
     }))
+
+    ipcMain.handle('quota:getAppMonitorUsageForDate', (_, payload) => {
+        const dateIso = typeof payload?.date === 'string' ? payload.date : ''
+        return {
+            usage: readAppMonitorUsageForDate(configDir, dateIso),
+            labels: monitorLabelsFromCatalog(configDir)
+        }
+    })
 
     ipcMain.handle('quota:resetTodayUsage', () => {
         try {
@@ -234,10 +247,6 @@ export function registerQuotaIpc(ipcMain, configDir) {
             if (idx >= 0) quotas[idx] = entry
             else quotas.push(entry)
             saveQuotas(configDir, quotas)
-            patchDefaultJson(configDir, (d) => {
-                d.quota = quotas
-                return d
-            })
             try {
                 pruneUsageArchives(configDir)
             } catch { /* ignore */ }
@@ -255,10 +264,6 @@ export function registerQuotaIpc(ipcMain, configDir) {
                 q => !(q.appId === appId && normalizeQuotaLinuxUser(q.linuxUser) === lu)
             )
             saveQuotas(configDir, quotas)
-            patchDefaultJson(configDir, (d) => {
-                d.quota = quotas
-                return d
-            })
             try {
                 pruneUsageArchives(configDir)
             } catch { /* ignore */ }

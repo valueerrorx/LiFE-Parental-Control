@@ -31,7 +31,7 @@
         </div>
 
         <!-- App list -->
-        <div class="pc-card mb-3">
+        <div class="pc-card mb-3" :class="{ 'section-disabled': !config.enabled }" :aria-disabled="!config.enabled">
             <div class="pc-card-header d-flex align-items-center justify-content-between flex-wrap gap-2">
                 <h6 class="mb-0">
                     {{ $t('processWhitelist.exemptApps') }}
@@ -40,9 +40,9 @@
                     </span>
                 </h6>
                 <div class="d-flex align-items-center gap-2 flex-wrap">
-                    <button type="button" class="btn-pc-outline btn-sm" @click="onAllowAll">{{ $t('processWhitelist.exemptAll') }}</button>
-                    <button type="button" class="btn-pc-outline btn-sm" @click="onAllowNone">{{ $t('processWhitelist.exemptNone') }}</button>
-                    <input v-model="search" class="pc-input" style="width:200px;" :placeholder="$t('processWhitelist.searchApps')" />
+                    <button type="button" class="btn-pc-outline btn-sm" :disabled="!config.enabled" @click="onAllowAll">{{ $t('processWhitelist.exemptAll') }}</button>
+                    <button type="button" class="btn-pc-outline btn-sm" :disabled="!config.enabled" @click="onAllowNone">{{ $t('processWhitelist.exemptNone') }}</button>
+                    <input v-model="search" class="pc-input" style="width:200px;" :placeholder="$t('processWhitelist.searchApps')" :disabled="!config.enabled" />
                 </div>
             </div>
 
@@ -72,11 +72,12 @@
                             <code>{{ app.processName }}</code>
                         </div>
                     </div>
+                    <span v-if="isAppUnsaved(app)" class="text-muted me-2" style="font-size:11px;">{{ $t('common.unsaved') }}</span>
                     <label class="pc-toggle">
                         <input
                             type="checkbox"
                             :checked="isEffectiveExempt(app)"
-                            :disabled="isAppBlocked(app)"
+                            :disabled="!config.enabled || isAppBlocked(app)"
                             @change="onToggleApp(app.id)"
                         />
                         <span class="slider" />
@@ -124,6 +125,8 @@ const search   = ref('')
 
 const config = ref({ enabled: false, allowedIds: [] })
 const allowedIds = ref(new Set())
+const savedEnabled = ref(false)
+const savedAllowedIds = ref(new Set())
 const allApps = ref([])
 
 const blockedIdSet = computed(() => new Set(store.blockedApps))
@@ -135,6 +138,15 @@ function isAppBlocked(app) {
 function isEffectiveExempt(app) {
     if (!app?.id) return false
     return allowedIds.value.has(app.id) && !isAppBlocked(app)
+}
+
+function isSavedEffectiveExempt(app) {
+    if (!app?.id) return false
+    return savedEnabled.value && savedAllowedIds.value.has(app.id) && !isAppBlocked(app)
+}
+
+function isAppUnsaved(app) {
+    return isEffectiveExempt(app) !== isSavedEffectiveExempt(app)
 }
 
 // Only apps that have a known processName
@@ -173,6 +185,8 @@ onMounted(async () => {
     allApps.value = Array.isArray(apps) ? apps : []
     config.value  = cfg ?? { enabled: false, allowedIds: [] }
     allowedIds.value = new Set(Array.isArray(cfg?.allowedIds) ? cfg.allowedIds : [])
+    savedEnabled.value = config.value.enabled !== false
+    savedAllowedIds.value = new Set(Array.isArray(cfg?.allowedIds) ? cfg.allowedIds : [])
     loading.value = false
 })
 
@@ -208,6 +222,8 @@ async function onSave() {
     if (r?.error) {
         saveError.value = r.error
     } else {
+        savedEnabled.value = config.value.enabled !== false
+        savedAllowedIds.value = new Set(allowedIds.value)
         await store.loadProcessWhitelist()
         saveMsg.value = t('processWhitelist.exemptionsSaved')
         setTimeout(() => { saveMsg.value = '' }, 4000)
@@ -215,3 +231,9 @@ async function onSave() {
 }
 
 </script>
+
+<style scoped>
+.section-disabled {
+    opacity: 0.6;
+}
+</style>
