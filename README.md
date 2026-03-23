@@ -122,9 +122,6 @@ In the `App Control` module you can see the page for app quotas.
 In the Dashboard there is an alternative overview.
 ![Dashboard (variant)](images/dashboard1.png)
 
-In the Dashboard you can see the main view with the family modules.
-![Dashboard](images/dashboard.png)
-
 In the `KDE Kiosk` module you can configure kiosk profiles.
 ![KDE Kiosk Profiles](images/kiosk-profiles.png)
 
