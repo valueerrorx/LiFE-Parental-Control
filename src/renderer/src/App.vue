@@ -49,7 +49,6 @@
                     </div>
                     <p v-if="error" class="text-danger small">{{ error }}</p>
                     <button class="btn-pc-primary w-100" @click="onUnlock" :disabled="busy">{{ $t('app.unlock') }}</button>
-                    <button class="btn-pc-outline w-100 mt-2" @click="onExit">{{ $t('app.exit') }}</button>
                 </div>
             </div>
         </Transition>
@@ -63,6 +62,8 @@ import { normalizedLockIdleMinutesOrUndefined } from '@shared/lockIdleMinutes.js
 import AppModal from './components/AppModal.vue'
 import { useModal } from './composables/useModal.js'
 import { quitWithParentPassword } from './parentQuit.js'
+
+const isDevRelaxSessionLock = import.meta.env.DEV
 
 const { t } = useI18n()
 const { prompt } = useModal()
@@ -82,6 +83,7 @@ function quitRequestListener() {
 }
 
 function sessionLockListener() {
+    if (isDevRelaxSessionLock) return
     if (!passwordSet.value) return
     unlocked.value = false
     password.value = ''
@@ -118,6 +120,10 @@ function onUserActivity() {
 
 onMounted(async () => {
     passwordSet.value = await window.api.settings.isPasswordSet()
+    if (isDevRelaxSessionLock && passwordSet.value) {
+        unlocked.value = true
+        lockIdleMs.value = 0
+    }
     void window.api.app.deferredHeavyWork()
     window.addEventListener('wheel', onUserActivity, { passive: true })
     window.addEventListener('keydown', onUserActivity)
@@ -144,6 +150,11 @@ watch(unlocked, (open) => {
 })
 
 async function applyUnlockIdlePolicy() {
+    if (isDevRelaxSessionLock) {
+        lockIdleMs.value = 0
+        clearIdleLockTimer()
+        return
+    }
     const cfg = await window.api.settings.getConfig()
     lockIdleMs.value = idleMsFromConfig(cfg)
     scheduleIdleLock()
@@ -177,10 +188,6 @@ async function onUnlock() {
 }
 
 async function handleQuitRequest() {
-    await quitWithParentPassword(prompt)
-}
-
-async function onExit() {
     await quitWithParentPassword(prompt)
 }
 </script>

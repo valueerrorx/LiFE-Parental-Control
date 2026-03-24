@@ -63,10 +63,15 @@ export function registerProcessWhitelistIpc(ipcMain, configDir) {
 
     ipcMain.handle('processWhitelist:save', (_, payload) => {
         try {
-            const enabled = payload.enabled === true
-            const allowedIds = Array.isArray(payload.allowedIds)
-                ? payload.allowedIds.filter(s => typeof s === 'string')
-                : []
+            const p = payload != null && typeof payload === 'object' ? payload : {}
+            const enabled = p.enabled === true
+            // When feature is off, clear the list (same idea as app control toggle); keep config simple.
+            let allowedIds = []
+            if (enabled) {
+                allowedIds = Array.isArray(p.allowedIds)
+                    ? p.allowedIds.filter(s => typeof s === 'string')
+                    : []
+            }
             // Blocked apps must not be exempt.
             const def = readDefaultJson(configDir)
             const blocked = Array.isArray(def?.blockedDesktopIds) ? def.blockedDesktopIds.filter(s => typeof s === 'string') : []

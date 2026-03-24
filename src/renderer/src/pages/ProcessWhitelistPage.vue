@@ -137,16 +137,17 @@ function isAppBlocked(app) {
 }
 
 function isEffectiveExempt(app) {
-    if (!app?.id) return false
+    if (!app?.id || !config.value.enabled) return false
     return allowedIds.value.has(app.id) && !isAppBlocked(app)
 }
 
 function isSavedEffectiveExempt(app) {
-    if (!app?.id) return false
-    return savedEnabled.value && savedAllowedIds.value.has(app.id) && !isAppBlocked(app)
+    if (!app?.id || !savedEnabled.value) return false
+    return savedAllowedIds.value.has(app.id) && !isAppBlocked(app)
 }
 
 function isAppUnsaved(app) {
+    if (!config.value.enabled || !savedEnabled.value) return false
     return isEffectiveExempt(app) !== isSavedEffectiveExempt(app)
 }
 
@@ -186,7 +187,7 @@ onMounted(async () => {
     allApps.value = Array.isArray(apps) ? apps : []
     config.value  = cfg ?? { enabled: false, allowedIds: [] }
     allowedIds.value = new Set(Array.isArray(cfg?.allowedIds) ? cfg.allowedIds : [])
-    savedEnabled.value = config.value.enabled !== false
+    savedEnabled.value = config.value.enabled === true
     savedAllowedIds.value = new Set(Array.isArray(cfg?.allowedIds) ? cfg.allowedIds : [])
     loading.value = false
 })
@@ -223,7 +224,8 @@ async function onSave() {
     if (r?.error) {
         saveError.value = r.error
     } else {
-        savedEnabled.value = config.value.enabled !== false
+        if (!config.value.enabled) allowedIds.value = new Set()
+        savedEnabled.value = config.value.enabled === true
         savedAllowedIds.value = new Set(allowedIds.value)
         await store.loadProcessWhitelist()
         saveMsg.value = t('processWhitelist.exemptionsSaved')

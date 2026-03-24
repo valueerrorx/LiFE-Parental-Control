@@ -126,7 +126,9 @@ function readDefaultMode(configDir) {
             ...normalized,
             label: normalized.label || 'Default',
             webfilterMirror,
-            quotaExemptions
+            quotaExemptions,
+            // normalizeCustomMode omits quota; without this, applyLifeModeDirect(default) replaces disk with [] on every app start.
+            quota: Array.isArray(raw.quota) ? raw.quota : []
         }
     } catch {
         // fallback to built-in empty default mode
@@ -171,8 +173,10 @@ function normalizeDefaultQuotaExemptions(raw) {
 }
 
 function persistQuotaExemptions(configDir, quotaExemptions) {
-    const enabled = Boolean(quotaExemptions?.enabled)
-    const allowedIds = Array.isArray(quotaExemptions?.allowedIds) ? quotaExemptions.allowedIds.filter(id => typeof id === 'string') : []
+    const enabled = quotaExemptions?.enabled === true
+    const allowedIds = enabled && Array.isArray(quotaExemptions?.allowedIds)
+        ? quotaExemptions.allowedIds.filter(id => typeof id === 'string')
+        : []
     patchDefaultJson(configDir, (d) => {
         d.quotaExemptions = { enabled, allowedIds }
         return d

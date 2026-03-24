@@ -5,36 +5,10 @@ case "$1" in
     *) exit 0 ;;
 esac
 
-# ── Ensure Node.js >= 22 ─────────────────────────────────────────────────────
-# On Ubuntu 24.04+ the apt dependency above provides Node.js 22 automatically.
-# On older systems (dpkg -i without a compatible repo) we try NodeSource as a
-# fallback. If that also fails we abort so dpkg marks the install as failed.
-_node_major() {
-    node -e 'process.stdout.write(process.version.split(".")[0].replace("v",""))' 2>/dev/null || echo 0
-}
-if [ "$(_node_major)" -lt 22 ] 2>/dev/null; then
-    echo "[LiFE] Node.js >= 22 not found — attempting NodeSource 22.x .deb install..." >&2
-    _ok=false
-    if command -v curl >/dev/null 2>&1; then
-        curl -fsSL https://deb.nodesource.com/setup_22.x | sh - && \
-            DEBIAN_FRONTEND=noninteractive apt-get install -y nodejs && _ok=true
-    elif command -v wget >/dev/null 2>&1; then
-        wget -qO- https://deb.nodesource.com/setup_22.x | sh - && \
-            DEBIAN_FRONTEND=noninteractive apt-get install -y nodejs && _ok=true
-    fi
-    if [ "$_ok" = "false" ] || [ "$(_node_major)" -lt 22 ] 2>/dev/null; then
-        echo "[LiFE] ERROR: Node.js >= 22 could not be installed." >&2
-        echo "[LiFE] On Ubuntu 24.04+ it is available via apt. On older systems" >&2
-        echo "[LiFE] add the NodeSource repo first: https://github.com/nodesource/distributions" >&2
-        exit 1
-    fi
-fi
-# ─────────────────────────────────────────────────────────────────────────────
-
 PKG=life-parental-control
 POLICY_DST=/usr/share/polkit-1/actions/org.tuxfamily.life-parental-control.policy
 RULES_DST=/usr/share/polkit-1/rules.d/50-org.tuxfamily.life-parental-control.rules
-DAEMON_DST=/usr/bin/parental-control-daemon.js
+DAEMON_LIB=/usr/lib/life-parental
 SERVICE_DST=/etc/systemd/system/parental-control.service
 
 # Find package resource directory
@@ -43,7 +17,7 @@ if command -v dpkg >/dev/null 2>&1; then
     pkg_res=$(dpkg -L "$PKG" 2>/dev/null | grep -E '/resources/polkit/.*\.policy$' | head -n1 | sed 's|/polkit/.*||') || true
 fi
 if [ -z "$pkg_res" ]; then
-    for base in "/opt/LiFE Parental Control" "/opt/life-parental-control"; do
+    for base in "/opt/LiFE_Parental_Control" "/opt/life-parental-control" "/opt/LiFE Parental Control"; do
         if [ -d "$base/resources" ]; then
             pkg_res="$base/resources"
             break
@@ -57,11 +31,23 @@ rules_src="${pkg_res}/polkit/50-org.tuxfamily.life-parental-control.rules"
 if [ -f "$policy_src" ]; then install -D -m 644 "$policy_src" "$POLICY_DST"; fi
 if [ -f "$rules_src" ]; then install -D -m 644 "$rules_src" "$RULES_DST"; fi
 
-# Install parental-control daemon script
-daemon_src="${pkg_res}/daemon/parental-control-daemon.js"
-if [ -f "$daemon_src" ]; then
-    install -D -m 755 "$daemon_src" "$DAEMON_DST"
+# Install daemon modules (parental-control-daemon.js requires ./defaultSync.js in the same dir)
+rm -f /usr/bin/parental-control-daemon.js /usr/bin/defaultSync.js 2>/dev/null || true
+daemon_dir="${pkg_res}/daemon"
+if [ -d "$daemon_dir" ]; then
+    mkdir -p "$DAEMON_LIB"
+    for f in "$daemon_dir"/*.js; do
+        [ -f "$f" ] || continue
+        install -D -m 755 "$f" "$DAEMON_LIB/$(basename "$f")"
+    done
 fi
+
+# Wrapper script in /usr/bin — passes --no-sandbox (required when Electron runs as root)
+cat > /usr/bin/life-parental-control << 'WRAPPER'
+#!/bin/sh
+exec "/opt/LiFE_Parental_Control/life-parental-control" --no-sandbox "$@"
+WRAPPER
+chmod 755 /usr/bin/life-parental-control
 
 # Install and enable the systemd service
 service_src="${pkg_res}/systemd/parental-control.service"

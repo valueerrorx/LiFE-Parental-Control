@@ -62,7 +62,14 @@
                             </button>
                         </div>
                         <p v-if="daemonCtrlMsg" class="small mb-2" :class="daemonCtrlError ? 'text-danger' : 'text-success'">{{ daemonCtrlMsg }}</p>
-                        <p class="text-muted small mb-0" v-html="$t('settings.installDesc')" />
+                        <p class="text-muted small mb-2" v-html="$t('settings.installDesc')" />
+                        <div class="border-top pt-3 mt-2">
+                            <div class="small text-muted mb-2">{{ $t('settings.warningTestHint') }}</div>
+                            <button type="button" class="btn-pc-outline" :disabled="warningTestBusy" @click="onQueueDaemonWarningTest">
+                                <i class="bi bi-window-stack me-1" />{{ $t('settings.warningTestBtn') }}
+                            </button>
+                            <p v-if="warningTestMsg" class="small mb-0 mt-2" :class="warningTestError ? 'text-danger' : 'text-muted'">{{ warningTestMsg }}</p>
+                        </div>
 
                     </div>
                 </div>
@@ -270,6 +277,9 @@ const daemonRefreshing = ref(false)
 const daemonCtrlBusy = ref(false)
 const daemonCtrlMsg = ref('')
 const daemonCtrlError = ref(false)
+const warningTestBusy = ref(false)
+const warningTestMsg = ref('')
+const warningTestError = ref(false)
 
 async function loadDaemonInfo() {
     daemonRefreshing.value = true
@@ -319,6 +329,21 @@ async function onDaemonControl(action) {
         await loadDaemonInfo()
     }
     setTimeout(() => { daemonCtrlMsg.value = '' }, 6000)
+}
+
+async function onQueueDaemonWarningTest() {
+    warningTestMsg.value = ''
+    warningTestError.value = false
+    warningTestBusy.value = true
+    const r = await window.api.settings.queueDaemonWarningTest()
+    warningTestBusy.value = false
+    if (r?.error) {
+        warningTestMsg.value = r.error
+        warningTestError.value = true
+    } else {
+        warningTestMsg.value = t('settings.warningTestQueued')
+    }
+    setTimeout(() => { warningTestMsg.value = '' }, 12000)
 }
 
 onMounted(async () => {

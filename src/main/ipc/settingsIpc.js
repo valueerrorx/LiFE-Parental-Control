@@ -143,6 +143,19 @@ export function registerSettingsIpc(ipcMain, configDir) {
     })
 
 
+    ipcMain.handle('settings:queueDaemonWarningTest', () => {
+        try {
+            patchDefaultJson(configDir, (d) => {
+                d.requestDaemonWarningTest = true
+                return d
+            })
+            appendActivity(configDir, { action: 'daemon_warning_test_queued' })
+            return { ok: true }
+        } catch (e) {
+            return { error: e.message || String(e) }
+        }
+    })
+
     ipcMain.handle('settings:pruneUsageArchives', () => {
         try {
             const { removed } = pruneUsageArchives(configDir)

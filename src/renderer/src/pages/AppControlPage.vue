@@ -123,7 +123,7 @@
                                     </td>
                                     <td>{{ $t('appControl.usedMin', { min: quotaUsedForRow(q) }) }}</td>
                                     <td class="text-nowrap">
-                                        <button type="button" class="btn btn-sm btn-outline-danger" :disabled="quotaBusy" @click="onRemoveQuota(q.appId, q.linuxUser)">
+                                        <button type="button" class="btn btn-sm btn-outline-danger" :disabled="quotaBusy" @click="onRemoveQuota(q)">
                                             {{ $t('common.remove') }}
                                         </button>
                                     </td>
@@ -198,6 +198,7 @@ const quotaBusy = ref(false)
 const applyMsg = ref('')
 const applyError = ref(false)
 const pendingBlocked = ref(new Set()) // appIds with unsaved block-state changes
+const pendingDeletes = ref([]) // { appId, linuxUser } rows removed in UI before Apply (persisted rows only)
 const addAppId = ref('')
 const addMinutes = ref(60)
 const addProcessOverride = ref('')
@@ -209,7 +210,9 @@ const isDirty = computed(() => {
     if (savedAppControlEnabled.value === null) return false
     if (pendingBlocked.value.size > 0) return true
     if (appControlEnabled.value !== savedAppControlEnabled.value) return true
-    return quotas.value.some(q => q.editLimit !== q.minutesPerDay || q.editProcess.trim() !== (q.processName || '').trim())
+    if (pendingDeletes.value.length > 0) return true
+    if (quotas.value.some(q => q.isNew)) return true
+    return quotas.value.some(q => !q.isNew && (q.editLimit !== q.minutesPerDay || q.editProcess.trim() !== (q.processName || '').trim()))
 })
 
 const filtered = computed(() => {
@@ -311,12 +314,12 @@ async function onResetQuotaTodayUsage() {
         await window.api.system.showError({ title: 'LiFE Parental Control', message: r.error })
         return
     }
-    await loadQuotas()
     await store.loadAppQuotas()
 }
 
 async function loadQuotas() {
     await store.loadAppQuotas()
+    pendingDeletes.value = []
     quotas.value = store.appQuotas.map(q => ({
         appId: q.appId,
         appName: q.appName,
@@ -324,30 +327,27 @@ async function loadQuotas() {
         linuxUser: q.linuxUser || '',
         minutesPerDay: q.minutesPerDay,
         editLimit: q.minutesPerDay,
-        editProcess: q.processName || ''
+        editProcess: q.processName || '',
+        isNew: false
     }))
 }
 
-async function onAddQuota() {
+function onAddQuota() {
     const app = apps.value.find(a => a.id === addAppId.value)
     if (!app) return
     const proc = (addProcessOverride.value || '').trim() || (app.processName || '').trim()
     if (!proc) return
-    quotaBusy.value = true
-    const r = await window.api.quota.setEntry({
+    const minutes = Math.max(1, Math.min(1440, Number(addMinutes.value) || 60))
+    quotas.value.push({
         appId: app.id,
         appName: app.name,
         processName: proc,
-        minutesPerDay: Math.max(1, Math.min(1440, Number(addMinutes.value) || 60)),
-        linuxUser: addLinuxUser.value
+        linuxUser: addLinuxUser.value,
+        minutesPerDay: minutes,
+        editLimit: minutes,
+        editProcess: proc,
+        isNew: true
     })
-    quotaBusy.value = false
-    if (r?.error) {
-        await window.api.system.showError({ title: 'LiFE Parental Control', message: r.error })
-        return
-    }
-    await loadQuotas()
-    await store.loadAppQuotas()
     addAppId.value = appsForQuota.value[0]?.id ?? ''
     addProcessOverride.value = ''
 }
@@ -396,6 +396,7 @@ async function onApplyAllQuotas() {
     if (!appControlEnabled.value) {
         await store.loadAppQuotas()
         quotas.value = []
+        pendingDeletes.value = []
         addAppId.value = appsForQuota.value[0]?.id ?? ''
         quotaBusy.value = false
         savedAppControlEnabled.value = appControlEnabled.value
@@ -405,14 +406,18 @@ async function onApplyAllQuotas() {
         return
     }
 
-    if (!quotas.value.length) {
-        quotaBusy.value = false
-        savedAppControlEnabled.value = appControlEnabled.value
-        applyMsg.value = t('appControl.changesSaved')
-        applyError.value = false
-        setTimeout(() => { applyMsg.value = '' }, 4000)
-        return
+    for (const del of pendingDeletes.value) {
+        const r = await window.api.quota.removeEntry({ appId: del.appId, linuxUser: del.linuxUser || '' })
+        if (r?.error) {
+            quotaBusy.value = false
+            applyMsg.value = r.error
+            applyError.value = true
+            setTimeout(() => { applyMsg.value = '' }, 5000)
+            return
+        }
     }
+    pendingDeletes.value = []
+
     for (const q of quotas.value) {
         const minutes = Math.max(1, Math.min(1440, Number(q.editLimit) || 1))
         const proc = (q.editProcess || '').trim()
@@ -439,6 +444,7 @@ async function onApplyAllQuotas() {
         }
         q.minutesPerDay = minutes
         q.processName = proc
+        q.isNew = false
     }
     await loadQuotas()
     await Promise.all([store.loadAppControlConfig(), store.loadBlockedApps(), store.loadAppQuotas()])
@@ -449,17 +455,11 @@ async function onApplyAllQuotas() {
     setTimeout(() => { applyMsg.value = '' }, 4000)
 }
 
-async function onRemoveQuota(appId, linuxUser) {
-    quotaBusy.value = true
-    const r = await window.api.quota.removeEntry({ appId, linuxUser: linuxUser || '' })
-    quotaBusy.value = false
-    if (r?.error) {
-        await window.api.system.showError({ title: 'LiFE Parental Control', message: r.error })
-        return
-    }
-    await loadQuotas()
-    await store.loadAppQuotas()
-    if (!addAppId.value) addAppId.value = appsForQuota.value[0]?.id ?? ''
+function onRemoveQuota(q) {
+    const key = quotaRowKey(q)
+    quotas.value = quotas.value.filter((row) => quotaRowKey(row) !== key)
+    if (q.isNew) return
+    pendingDeletes.value.push({ appId: q.appId, linuxUser: q.linuxUser || '' })
 }
 
 function onToggle(app) {

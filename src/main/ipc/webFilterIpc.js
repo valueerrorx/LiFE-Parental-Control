@@ -1,6 +1,5 @@
 import fs from 'fs'
 import { readFile as readFileAsync, writeFile as writeFileAsync } from 'fs/promises'
-import path from 'path'
 import { execFile } from 'child_process'
 import {
     WEB_FILTER_STATIC_CATEGORIES,

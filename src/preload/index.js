@@ -98,6 +98,7 @@ contextBridge.exposeInMainWorld('api', {
         pruneUsageArchives: () => ipcRenderer.invoke('settings:pruneUsageArchives'),
         stopAllProtections: () => ipcRenderer.invoke('settings:stopAllProtections'),
         deleteAllUsageHistory: () => ipcRenderer.invoke('settings:deleteAllUsageHistory'),
+        queueDaemonWarningTest: () => ipcRenderer.invoke('settings:queueDaemonWarningTest')
     },
     daemon: {
         isConnected: () => ipcRenderer.invoke('daemon:isConnected'),

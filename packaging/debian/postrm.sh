@@ -10,7 +10,9 @@ case "$1" in
             systemctl try-reload-or-restart polkit.service 2>/dev/null || true
         fi
         rm -f /etc/systemd/system/parental-control.service
-        rm -f /usr/bin/parental-control-daemon.js
+        rm -f /usr/bin/life-parental-control
+        rm -rf /usr/lib/life-parental
+        rm -f /etc/xdg/autostart/org.tuxfamily.life-parental-control.desktop
         rm -f /run/parental-control.sock
         ;;
 esac

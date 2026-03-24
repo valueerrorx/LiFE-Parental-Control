@@ -25,7 +25,6 @@
     "processWhitelist": { "enabled": false, "allowedIds": [] },
     "lifeModes": {},
     "preferences": {
-        "lockIdleMinutes": 15,
-        "autostartEnabled": true
+        "lockIdleMinutes": 15
     }
 }

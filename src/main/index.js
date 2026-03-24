@@ -15,6 +15,22 @@ import { ensureDefaultJsonExistsForUi } from './defaultProfileStore.js'
 
 const APP_CONFIG_DIR = '/etc/life-parental'
 
+// Set LIFE_DEVTOOLS=1 when debugging a packaged build (e.g. white window on Ubuntu); opens DevTools after load.
+function isMainWindowDevtoolsEnabled() {
+    if (process.env.NODE_ENV === 'development') return true
+    const v = process.env.LIFE_DEVTOOLS
+    return v === '1' || v === 'true' || v === 'yes'
+}
+
+// In dev, blur/minimize/hide no longer fire session lock (detach DevTools); opt back in with LIFE_SESSION_LOCK=1.
+function isSessionLockOnFocusLossEnabled() {
+    if (process.env.NODE_ENV === 'development') {
+        const v = process.env.LIFE_SESSION_LOCK
+        return v === '1' || v === 'true' || v === 'yes'
+    }
+    return true
+}
+
 let mainWindow = null
 let allowAppTermination = false
 let deferredHeavyWorkPromise = null
@@ -23,7 +39,8 @@ function buildPkexecForwardEnvPairs() {
     const envPairs = []
     const passKeys = [
         'DISPLAY', 'XAUTHORITY', 'WAYLAND_DISPLAY', 'XDG_RUNTIME_DIR', 'DBUS_SESSION_BUS_ADDRESS',
-        'XDG_SESSION_TYPE', 'XDG_CURRENT_DESKTOP', 'QT_QPA_PLATFORM', 'APPIMAGE'
+        'XDG_SESSION_TYPE', 'XDG_CURRENT_DESKTOP', 'QT_QPA_PLATFORM', 'APPIMAGE', 'LIFE_DEVTOOLS',
+        'LIFE_DISABLE_GPU', 'LIFE_OZONE_PLATFORM', 'ELECTRON_OZONE_PLATFORM_HINT', 'LIFE_SESSION_LOCK'
     ]
     for (const k of passKeys) {
         const v = process.env[k]
@@ -81,9 +98,45 @@ const isWarningMode = Boolean(warningModeArg)
 if (!isWarningMode && typeof process.getuid === 'function' && process.getuid() === 0) {
     if (process.platform === 'linux') {
         app.commandLine.appendSwitch('no-sandbox')
+        // Root on Linux: seccomp/shm often breaks Chromium surfaces (white window + white DevTools); see platform_shared_memory_region_posix / disable-dev-shm-usage.
+        app.commandLine.appendSwitch('no-zygote')
+        app.commandLine.appendSwitch('disable-dev-shm-usage')
+        app.commandLine.appendSwitch('disable-seccomp-filter-sandbox')
     }
     app.commandLine.appendSwitch('disable-features', 'HardwareMediaKeyHandling,MediaSessionService')
     app.commandLine.appendSwitch('disable-dbus')
+}
+
+// Main UI only (unchanged): optional Ozone/GPU from env — never mix with warning-mode spawn logic.
+if (process.platform === 'linux' && !isWarningMode) {
+    const oz = process.env.LIFE_OZONE_PLATFORM || process.env.ELECTRON_OZONE_PLATFORM_HINT
+    if (oz === 'x11' || oz === 'wayland') {
+        app.commandLine.appendSwitch('ozone-platform', oz)
+    }
+    const dg = process.env.LIFE_DISABLE_GPU
+    if (dg === '1' || dg === 'true' || dg === 'yes') {
+        app.commandLine.appendSwitch('disable-gpu')
+        app.commandLine.appendSwitch('disable-gpu-compositing')
+    }
+}
+
+// Warning window only: systemd daemon spawns with session env (deb/AppImage); must pick Ozone explicitly — main window path does not apply.
+if (process.platform === 'linux' && isWarningMode) {
+    applyWarningModeLinuxChromiumSwitches()
+}
+
+function applyWarningModeLinuxChromiumSwitches() {
+    const wl = process.env.WAYLAND_DISPLAY
+    const xdg = process.env.XDG_SESSION_TYPE
+    const disp = process.env.DISPLAY
+    let oz = process.env.ELECTRON_OZONE_PLATFORM_HINT || process.env.LIFE_OZONE_PLATFORM
+    if (!oz) {
+        if (wl || xdg === 'wayland') oz = 'wayland'
+        else if (xdg === 'x11' || (disp && !wl)) oz = 'x11'
+    }
+    if (oz === 'x11' || oz === 'wayland') {
+        app.commandLine.appendSwitch('ozone-platform', oz)
+    }
 }
 
 // Single-instance lock — warning-mode windows are exempt (each is a separate short-lived process)
@@ -141,8 +194,8 @@ app.whenReady().then(async () => {
     // which would open the wrong app when spawned by the daemon standalone.
     if (app.isPackaged) {
         try {
-            const execPath = process.env.APPIMAGE || process.execPath
-            fs.writeFileSync(path.join(APP_CONFIG_DIR, '.electron-exec'), execPath, 'utf8')
+            const execPath = resolveElevatedExecutablePath()
+            fs.writeFileSync(path.join(APP_CONFIG_DIR, '.electron-exec'), `${execPath}\n`, 'utf8')
         } catch { /* best-effort */ }
     }
     try {
@@ -190,6 +243,7 @@ app.whenReady().then(async () => {
     }
 
     const windowIconPath = resolveWindowIconPath(imagesDir)
+    const mainDevtools = isMainWindowDevtoolsEnabled()
 
     mainWindow = new BrowserWindow({
         width: 1600,
@@ -203,22 +257,38 @@ app.whenReady().then(async () => {
             contextIsolation: true,
             nodeIntegration: false,
             sandbox: false,
-            devTools: false
+            devTools: mainDevtools
         }
+    })
+
+    mainWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription, validatedURL, isMainFrame) => {
+        console.error('[LiFE Parental Control] did-fail-load', { errorCode, errorDescription, validatedURL, isMainFrame })
+    })
+    mainWindow.webContents.on('render-process-gone', (_event, details) => {
+        console.error('[LiFE Parental Control] render-process-gone', details)
     })
 
     // Lock UI on any focus loss — covers minimize, hide, click-away on all platforms including KDE/Wayland.
     let rendererLoaded = false
     mainWindow.webContents.once('did-finish-load', () => {
         rendererLoaded = true
+        if (mainDevtools) {
+            try {
+                mainWindow.webContents.openDevTools({ mode: 'detach' })
+            } catch {
+                /* ignore */
+            }
+        }
     })
     const sendSessionLock = () => {
         if (!rendererLoaded || !mainWindow || mainWindow.isDestroyed()) return
         mainWindow.webContents.send('app:session-lock-request')
     }
-    mainWindow.on('blur', sendSessionLock)
-    mainWindow.on('minimize', sendSessionLock)
-    mainWindow.on('hide', sendSessionLock)
+    if (isSessionLockOnFocusLossEnabled()) {
+        mainWindow.on('blur', sendSessionLock)
+        mainWindow.on('minimize', sendSessionLock)
+        mainWindow.on('hide', sendSessionLock)
+    }
 
     // Open target="_blank" links in a new Electron window, never in the same window.
     mainWindow.webContents.setWindowOpenHandler(({ url }) => {

@@ -1,5 +1,6 @@
 appId: "org.tuxfamily.life-parental-control"
-productName: "LiFE Parental Control"
+# Install dir /opt/LiFE_Parental_Control (no spaces); UI name set via linux.desktop.
+productName: "LiFE_Parental_Control"
 copyright: "Copyright © 2024 Thomas Michael Weissel"
 
 # Packaged Electron ignores NODE_OPTIONS (dev shells often set it); avoids startup warning and matches production expectations.
@@ -29,13 +30,19 @@ extraResources:
   - from: "packaging/polkit"
     to: "polkit"
     filter: ["**/*.policy", "**/*.rules"]
-  - from: "daemon/parental-control-daemon.js"
-    to: "daemon/parental-control-daemon.js"
+  - from: "daemon"
+    to: "daemon"
+    filter: ["**/*.js"]
   - from: "packaging/systemd/parental-control.service"
     to: "systemd/parental-control.service"
 
 linux:
   executableName: life-parental-control
+  executableArgs:
+    - --no-sandbox
+  desktop:
+    entry:
+      Name: "LiFE Parental Control"
   target:
     - target: AppImage
       arch: [x64]
@@ -43,11 +50,11 @@ linux:
       arch: [x64]
   category: System
   maintainer: "Thomas Michael Weissel"
-  description: "Parental controls for KDE Plasma: kiosk lockdown, web filter, screen time, app blocking and daily app quotas."
+  description: "Parental controls for Linux: kiosk lockdown, web filter, screen time, app blocking and daily app quotas."
   icon: images/pc.png
 
 deb:
+  depends:
+    - nodejs
   afterInstall: packaging/debian/postinst.sh
   afterRemove: packaging/debian/postrm.sh
-  depends:
-    - "nodejs (>= 22)"

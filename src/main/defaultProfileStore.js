@@ -37,7 +37,8 @@ const EMPTY_DEFAULT = {
         enabled: false,
         allowedIds: []
     },
-    quota: []
+    quota: [],
+    requestDaemonWarningTest: false
 }
 
 function defaultJsonPath(configDir) {
@@ -109,10 +110,13 @@ export function readDefaultJson(configDir) {
     if (Array.isArray(raw.blockedDesktopIds)) next.blockedDesktopIds = raw.blockedDesktopIds.filter(s => typeof s === 'string')
     if (raw.quotaExemptions && typeof raw.quotaExemptions === 'object' && !Array.isArray(raw.quotaExemptions)) {
         const q = raw.quotaExemptions
-        next.quotaExemptions.enabled = q.enabled === true
-        next.quotaExemptions.allowedIds = Array.isArray(q.allowedIds) ? q.allowedIds.filter(s => typeof s === 'string') : []
+        const qeOn = q.enabled === true
+        next.quotaExemptions.enabled = qeOn
+        // When exemptions are off, ignore stale IDs on disk (match app-control semantics; next persist writes clean JSON).
+        next.quotaExemptions.allowedIds = qeOn && Array.isArray(q.allowedIds) ? q.allowedIds.filter(s => typeof s === 'string') : []
     }
     if (Array.isArray(raw.quota)) next.quota = raw.quota
+    next.requestDaemonWarningTest = raw.requestDaemonWarningTest === true
     return next
 }
 

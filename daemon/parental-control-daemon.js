@@ -337,7 +337,8 @@ function getDefaultConfig() {
             blockedSet,
             quotaExemptionsEnabled,
             quotaAllowedIds,
-            quotaEntries: quotas
+            quotaEntries: quotas,
+            requestDaemonWarningTest: data?.requestDaemonWarningTest === true
         }
         return cachedDefaultConfig
     } catch {
@@ -349,7 +350,8 @@ function getDefaultConfig() {
             blockedSet: new Set(),
             quotaExemptionsEnabled: false,
             quotaAllowedIds: new Set(),
-            quotaEntries: []
+            quotaEntries: [],
+            requestDaemonWarningTest: false
         }
         return cachedDefaultConfig
     }
@@ -775,8 +777,9 @@ function findElectronExecPath() {
         if (stored && fs.existsSync(stored)) return stored;
     } catch { /* ignore */ }
     const candidates = [
-        '/opt/LiFE Parental Control/life-parental-control',
+        '/opt/LiFE_Parental_Control/life-parental-control',
         '/opt/life-parental-control/life-parental-control',
+        '/opt/LiFE Parental Control/life-parental-control',
         '/usr/bin/life-parental-control',
         '/usr/local/bin/life-parental-control',
     ];
@@ -784,28 +787,232 @@ function findElectronExecPath() {
     return null;
 }
 
-// Get info about the first active graphical desktop session
+function queryLoginctlSessionFields(sessionId) {
+    try {
+        const { stdout } = spawnSync('loginctl', [
+            'show-session', String(sessionId),
+            '-p', 'Type', '-p', 'Display', '-p', 'State', '-p', 'Class', '-p', 'Remote'
+        ], { encoding: 'utf8', timeout: 3000 });
+        const p = parseLoginctlSession(stdout || '');
+        return {
+            type: p.Type || '',
+            display: p.Display || '',
+            state: p.State || '',
+            class: p.Class || '',
+            remote: p.Remote || ''
+        };
+    } catch {
+        return { type: '', display: '', state: '', class: '', remote: '' };
+    }
+}
+
+function userHasDesktopEnvironmentSync(user) {
+    for (const name of DESKTOP_COMM_NAMES) {
+        try {
+            const r = spawnSync('pgrep', ['-u', user, '-x', name], { encoding: 'utf8', timeout: 2000 });
+            if (String(r.stdout || '').trim().length > 0) return true;
+        } catch { /* process not running */ }
+    }
+    return false;
+}
+
+function waylandSocketName(uid) {
+    let waylandDisplay = 'wayland-0';
+    try {
+        const files = fs.readdirSync(`/run/user/${uid}`);
+        const wl = files.find(f => /^wayland-\d+$/.test(f));
+        if (wl) waylandDisplay = wl;
+    } catch { /* ignore */ }
+    return waylandDisplay;
+}
+
+function getUnixHomeDir(user) {
+    try {
+        const { stdout } = spawnSync('getent', ['passwd', user], { encoding: 'utf8', timeout: 2000 });
+        const line = String(stdout || '').trim().split('\n')[0];
+        if (!line) return `/home/${user}`;
+        const parts = line.split(':');
+        if (parts.length >= 6 && parts[5]) return parts[5];
+    } catch { /* ignore */ }
+    return `/home/${user}`;
+}
+
+// Prefer systemd session env (same cookie GNOME/KDE/SDDM use); then known file locations.
+function querySessionXauthorityFromLogind(sessionId) {
+    if (sessionId == null || sessionId === '') return '';
+    try {
+        const { stdout } = spawnSync('loginctl', ['show-session', String(sessionId), '-p', 'Environment'], { encoding: 'utf8', timeout: 3000 });
+        const m = String(stdout || '').match(/(?:^|\s)XAUTHORITY=(\S+)/);
+        if (m && m[1]) {
+            const p = m[1].trim();
+            try {
+                if (p && fs.existsSync(p) && fs.statSync(p).isFile()) return p;
+            } catch { /* ignore */ }
+        }
+    } catch { /* ignore */ }
+    return '';
+}
+
+function findUserXauthorityPath(uid, homeDir) {
+    const runUser = `/run/user/${uid}`;
+    const candidates = [
+        path.join(runUser, 'gdm', 'Xauthority'),
+        path.join(runUser, 'sddm', 'Xauthority'),
+        path.join(runUser, 'lightdm', 'Xauthority'),
+        path.join(String(homeDir), '.Xauthority'),
+    ];
+    for (const p of candidates) {
+        try {
+            if (fs.existsSync(p) && fs.statSync(p).isFile()) return p;
+        } catch { /* ignore */ }
+    }
+    try {
+        for (const name of fs.readdirSync(runUser)) {
+            const full = path.join(runUser, name);
+            let st;
+            try { st = fs.statSync(full); } catch { continue; }
+            if (!st.isFile()) continue;
+            if (/^\.mutter-Xwayland-auth/.test(name)) return full;
+            if (/^xauth/i.test(name)) return full;
+        }
+    } catch { /* ignore */ }
+    return '';
+}
+
+function resolveXauthorityForX11Session(sessionId, uid, homeDir) {
+    const fromLogind = querySessionXauthorityFromLogind(sessionId);
+    if (fromLogind) return fromLogind;
+    return findUserXauthorityPath(uid, homeDir);
+}
+
+const SKIP_LOGIN_USERS = new Set(['gdm', 'lightdm', 'sddm', 'lxdm', 'display', 'Debian-gdm']);
+
+// Same rules as getActiveGraphicalSessions (active/online, not greeter) so Wayland is not mistaken for blind X11 :0.
 function getFirstActiveUserInfo() {
     try {
         const { stdout } = spawnSync('loginctl', ['list-sessions', '--no-legend'], { encoding: 'utf8', timeout: 3000 });
         for (const line of (stdout || '').trim().split('\n').filter(Boolean)) {
             const parts = line.trim().split(/\s+/);
             if (parts.length < 3) continue;
+            const sessionId = parts[0];
+            const uid = parts[1];
             const user = parts[2];
             if (!user || user === 'root') continue;
-            const uid = spawnSync('id', ['-u', user], { encoding: 'utf8' }).stdout.trim();
-            if (!uid || uid === '0') continue;
-            // Detect Wayland socket in user's runtime dir
-            let waylandDisplay = 'wayland-0';
+            if (uid === '0') continue;
+            if (SKIP_LOGIN_USERS.has(user)) continue;
+            const p = queryLoginctlSessionFields(sessionId);
+            if (p.class === 'greeter' || p.class === 'background') continue;
+            if (p.state !== 'active' && p.state !== 'online') continue;
+            let hasWl = false;
             try {
                 const files = fs.readdirSync(`/run/user/${uid}`);
-                const wl = files.find(f => /^wayland-\d+$/.test(f));
-                if (wl) waylandDisplay = wl;
+                hasWl = files.some(f => /^wayland-\d+$/.test(f));
             } catch { /* ignore */ }
-            return { user, uid, waylandDisplay };
+            if (p.type === 'wayland') {
+                return {
+                    user,
+                    uid,
+                    sessionId,
+                    sessionKind: 'wayland',
+                    waylandDisplay: waylandSocketName(uid),
+                    x11Display: ''
+                };
+            }
+            if (p.type === 'x11') {
+                const x11 = p.display && /^:[0-9]+(\.[0-9]+)?$/.test(p.display) ? p.display : ':0';
+                return {
+                    user,
+                    uid,
+                    sessionId,
+                    sessionKind: 'x11',
+                    waylandDisplay: '',
+                    x11Display: x11
+                };
+            }
+            if (p.type === 'mir' && hasWl) {
+                return {
+                    user,
+                    uid,
+                    sessionId,
+                    sessionKind: 'wayland',
+                    waylandDisplay: waylandSocketName(uid),
+                    x11Display: ''
+                };
+            }
+            if (p.type === 'tty' && p.class === 'user' && p.remote !== 'yes') {
+                if (hasWl) {
+                    return {
+                        user,
+                        uid,
+                        sessionId,
+                        sessionKind: 'wayland',
+                        waylandDisplay: waylandSocketName(uid),
+                        x11Display: ''
+                    };
+                }
+                if (userHasDesktopEnvironmentSync(user)) {
+                    const x11 = p.display && /^:[0-9]+(\.[0-9]+)?$/.test(p.display) ? p.display : ':0';
+                    return {
+                        user,
+                        uid,
+                        sessionId,
+                        sessionKind: 'x11',
+                        waylandDisplay: '',
+                        x11Display: x11
+                    };
+                }
+            }
         }
     } catch { /* ignore */ }
     return null;
+}
+
+// Logind Environment keys merged into warning spawn (session identity for GNOME vs KDE; after base, before DISPLAY/WAYLAND).
+const WARNING_LOGIND_ENV_KEYS = ['XDG_CURRENT_DESKTOP'];
+
+function envPairsFromLoginctlSessionEnvironment(sessionId, keys) {
+    const pairs = [];
+    if (sessionId == null || sessionId === '') return pairs;
+    try {
+        const { stdout } = spawnSync('loginctl', ['show-session', String(sessionId), '-p', 'Environment'], { encoding: 'utf8', timeout: 3000 });
+        const s = String(stdout || '');
+        for (const k of keys) {
+            const re = new RegExp(`(?:^|\\s)${k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}=(\\S+)`);
+            const m = s.match(re);
+            if (m && m[1]) pairs.push(`${k}=${m[1]}`);
+        }
+    } catch { /* ignore */ }
+    return pairs;
+}
+
+// Env for systemd-spawned --warning-mode only (deb or AppImage × X11 or Wayland); main UI uses a different code path.
+function buildWarningWindowEnvPairs(info, homeDir, xauthorityPath, isAppImage, execPath) {
+    const { uid, sessionKind, waylandDisplay, x11Display, sessionId, user } = info;
+    const basePairs = [
+        `XDG_RUNTIME_DIR=/run/user/${uid}`,
+        `DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/${uid}/bus`,
+        `HOME=${homeDir}`,
+        `USER=${user}`,
+        `LOGNAME=${user}`
+    ];
+    const forkPairs = envPairsFromLoginctlSessionEnvironment(sessionId, WARNING_LOGIND_ENV_KEYS);
+    const sessionPairs =
+        sessionKind === 'x11'
+            ? [
+                `DISPLAY=${x11Display}`,
+                'XDG_SESSION_TYPE=x11',
+                'ELECTRON_OZONE_PLATFORM_HINT=x11',
+                ...(xauthorityPath ? [`XAUTHORITY=${xauthorityPath}`] : [])
+            ]
+            : [
+                `WAYLAND_DISPLAY=${waylandDisplay}`,
+                'XDG_SESSION_TYPE=wayland',
+                'ELECTRON_OZONE_PLATFORM_HINT=wayland'
+            ];
+    const appImagePairs = isAppImage
+        ? [`APPIMAGE=${execPath}`, 'APPIMAGE_EXTRACT_AND_RUN=1', 'APPIMAGELAUNCHER_DISABLE=1']
+        : [];
+    return [...basePairs, ...forkPairs, ...sessionPairs, ...appImagePairs];
 }
 
 // PID of currently running warning window (spawned by daemon)
@@ -815,13 +1022,12 @@ let warningWindowPid = null;
 function spawnWarningWindow(payload) {
     log.info(`spawnWarningWindow called type=${payload.type || '?'} clients=${clients.size}`);
 
-    // De-duplicate: do not spawn if a window is already open
+    // End previous warning-mode process so a new notification always gets a window (notify-send has no such skip).
     if (warningWindowPid != null) {
         try {
-            process.kill(warningWindowPid, 0);
-            log.info(`spawnWarningWindow skipped — existing window PID=${warningWindowPid} still running`);
-            return;
-        } catch { warningWindowPid = null; }
+            process.kill(warningWindowPid, 'SIGTERM');
+        } catch { /* ESRCH: already gone */ }
+        warningWindowPid = null;
     }
 
     const execPath = findElectronExecPath();
@@ -837,24 +1043,26 @@ function spawnWarningWindow(payload) {
         return;
     }
 
-    const { user, uid, waylandDisplay } = info;
-    log.info(`spawnWarningWindow session user=${user} uid=${uid} WAYLAND_DISPLAY=${waylandDisplay}`);
+    const { user, uid, sessionKind, waylandDisplay, x11Display, sessionId } = info;
+    const homeDir = getUnixHomeDir(user);
+    const xauthorityPath = sessionKind === 'x11' ? resolveXauthorityForX11Session(sessionId, uid, homeDir) : '';
+    log.info(`spawnWarningWindow session user=${user} uid=${uid} kind=${sessionKind} wl=${waylandDisplay || '-'} x11=${x11Display || '-'}`);
 
     const payloadArg = `--warning-mode=${JSON.stringify(payload)}`;
     const isAppImage = execPath.toLowerCase().endsWith('.appimage');
+    const pkgKind = isAppImage ? 'appimage' : 'deb';
+    log.info(`spawnWarningWindow pkg=${pkgKind} session=${sessionKind}`);
 
-    const envPairs = [
-        `WAYLAND_DISPLAY=${waylandDisplay}`,
-        `XDG_RUNTIME_DIR=/run/user/${uid}`,
-        `DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/${uid}/bus`,
-        `HOME=/home/${user}`,
-        `USER=${user}`,
-        `LOGNAME=${user}`,
-        'DISPLAY=',
-        'XDG_SESSION_TYPE=wayland',
-        ...(isAppImage ? ['APPIMAGELAUNCHER_DISABLE=1'] : [])
-    ];
+    const envPairs = buildWarningWindowEnvPairs(info, homeDir, xauthorityPath, isAppImage, execPath);
+    if (sessionKind === 'x11') {
+        if (xauthorityPath) {
+            log.info(`spawnWarningWindow X11 XAUTHORITY=${xauthorityPath}`);
+        } else {
+            log.warn(`spawnWarningWindow X11: no Xauthority cookie found for uid=${uid} home=${homeDir} (Electron may exit immediately)`);
+        }
+    }
     const appArgs = [
+        ...(isAppImage ? ['--appimage-extract-and-run'] : []),
         '--no-sandbox',
         payloadArg
     ];
@@ -885,7 +1093,7 @@ function spawnWarningWindow(payload) {
 // so the --warning-mode process (running as desktop user) handles the actual UI.
 function notifyOrSpawn(payload, notifySummary, notifyBody, urgency = 'normal', skipWindow = false) {
     broadcastWarn(payload); // broadcast to connected clients (for status/dashboard updates)
-    if (!skipWindow) spawnWarningWindow(payload); // spawn user-context window (skipped for post-kill events)
+    if (!skipWindow) spawnWarningWindow(payload); // user-context Electron dialog (password / bonus time); skip only if caller handles UI
     // notify-send as additional fallback so the user sees something even if Electron fails
     try {
         const info = getFirstActiveUserInfo();
@@ -1090,7 +1298,7 @@ async function tickAppQuotas(logMinute) {
                 if (!appQuotaWarnOnce.has(key)) {
                     appQuotaWarnOnce.add(key);
                     const warnPayload = { type: 'app-exhausted', appId, appName: name, processName: proc, effectiveLimit: limit, usedMinutes: usedBefore, linuxUser: lu || undefined };
-                    notifyOrSpawn(warnPayload, `${name}: Zeit aufgebraucht`, `Tageslimit von ${limit} Min. erreicht.`, 'critical', true);
+                    notifyOrSpawn(warnPayload, `${name}: Zeit aufgebraucht`, `Tageslimit von ${limit} Min. erreicht.`, 'critical');
                 }
                 await pkillAllUsers(usersForQuota, proc);
             } else if (!exempt.has(appId) && usedBefore === limit - 1) {
@@ -1156,7 +1364,37 @@ async function tickAppMonitor(logMinute) {
 
 // --- Main tick function ---
 
+function clearRequestDaemonWarningTestFlag() {
+    const p = path.join(CONFIG_DIR, DEFAULT_JSON_FILE);
+    try {
+        const raw = fs.readFileSync(p, 'utf8');
+        const data = JSON.parse(raw);
+        if (data.requestDaemonWarningTest !== true) return;
+        delete data.requestDaemonWarningTest;
+        const tmp = path.join(CONFIG_DIR, `.default.json.tmp-daemon-${process.pid}-${Date.now()}`);
+        fs.writeFileSync(tmp, JSON.stringify(data, null, 2) + '\n', { encoding: 'utf8', mode: 0o600 });
+        fs.renameSync(tmp, p);
+        cachedDefaultConfig = null;
+        cachedDefaultMtimeMs = 0;
+    } catch (e) {
+        log.warn(`clearRequestDaemonWarningTestFlag: ${e && e.message ? e.message : String(e)}`);
+    }
+}
+
+function maybeHandleDaemonWarningTestRequest() {
+    let want;
+    try {
+        want = getDefaultConfig().requestDaemonWarningTest === true;
+    } catch { return; }
+    if (!want) return;
+    clearRequestDaemonWarningTestFlag();
+    log.info('default.json requestDaemonWarningTest: spawning daemon warning test window');
+    const payload = { type: 'low', effectiveLimit: 99, usedMinutes: 0, remaining: 99 };
+    notifyOrSpawn(payload, 'LiFE Test', 'Warnfenster-Test (Systemd-Daemon).', 'normal');
+}
+
 async function tick() {
+    maybeHandleDaemonWarningTestRequest();
     const logMinute = atLoggedMinuteBoundary();
     if (logMinute) {
         try { await defaultSync.maybeSync(); } catch (e) { log.warn(`defaultSync tick: ${e && e.message ? e.message : String(e)}`); }
