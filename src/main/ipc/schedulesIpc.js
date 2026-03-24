@@ -147,7 +147,15 @@ export function registerSchedulesIpc(ipcMain, configDir) {
         }
     })
 
-    ipcMain.handle('schedules:redeploy', () => ({ ok: true }))
+    ipcMain.handle('schedules:redeploy', () => {
+        try {
+            const { removed } = pruneUsageArchives(configDir)
+            appendActivity(configDir, { action: 'schedule_cron_redeploy' })
+            return { ok: true, removed }
+        } catch (e) {
+            return { error: e.message }
+        }
+    })
 
     ipcMain.handle('schedules:resetTodayUsage', () => {
         try {

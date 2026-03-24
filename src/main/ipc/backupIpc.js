@@ -2,7 +2,7 @@ import fs from 'fs'
 import path from 'path'
 import { app, dialog } from 'electron'
 import { DEFAULT_SCHEDULE, persistSchedule } from './schedulesIpc.js'
-import { readWebFilterMirror, persistWebFilterEntries } from './webFilterIpc.js'
+import { persistWebFilterEntries } from './webFilterIpc.js'
 import { replaceBlockedDesktopIds } from './appBlockerIpc.js'
 import { readQuotaEntries, replaceQuotaEntries } from './quotaIpc.js'
 import { readProcessWhitelistConfig, replaceProcessWhitelistFromBackup } from './processWhitelistIpc.js'
@@ -50,7 +50,7 @@ export function registerBackupIpc(ipcMain, configDir, getWindow) {
                 version: BUNDLE_VERSION,
                 exportedAt: new Date().toISOString(),
                 schedules: readScheduleFromDisk(configDir),
-                webFilter: readWebFilterMirror(configDir),
+                webFilter: (({ entries, feedState, listAllowlist }) => ({ entries, feedState, listAllowlist }))(readDefaultJson(configDir)?.webfilter || {}),
                 blockedApps: readBlockedFromDisk(configDir),
                 lifeModes: readLifeModesFromDisk(configDir),
                 quotas: readQuotaEntries(configDir),

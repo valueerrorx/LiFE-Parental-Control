@@ -42,7 +42,8 @@ contextBridge.exposeInMainWorld('api', {
         setFeedEnabled: (feedId, enabled) => ipcRenderer.invoke('webfilter:setFeedEnabled', feedId, enabled),
         clearAll: () => ipcRenderer.invoke('webfilter:clearAll'),
         syncFeeds: () => ipcRenderer.invoke('webfilter:syncFeeds'),
-        reapplyMirror: () => ipcRenderer.invoke('webfilter:reapplyMirror')
+        reapplyMirror: () => ipcRenderer.invoke('webfilter:reapplyMirror'),
+        saveAll: (data) => ipcRenderer.invoke('webfilter:saveAll', data)
     },
     apps: {
         list: () => ipcRenderer.invoke('apps:list'),
@@ -94,7 +95,6 @@ contextBridge.exposeInMainWorld('api', {
         changePassword: (oldPass, newPass) => ipcRenderer.invoke('settings:changePassword', oldPass, newPass),
         getConfig: () => ipcRenderer.invoke('settings:getConfig'),
         saveConfig: (cfg) => ipcRenderer.invoke('settings:saveConfig', cfg),
-        setAutostart: (enabled) => ipcRenderer.invoke('settings:setAutostart', enabled),
         pruneUsageArchives: () => ipcRenderer.invoke('settings:pruneUsageArchives'),
         stopAllProtections: () => ipcRenderer.invoke('settings:stopAllProtections'),
         deleteAllUsageHistory: () => ipcRenderer.invoke('settings:deleteAllUsageHistory'),

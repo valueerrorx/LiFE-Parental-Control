@@ -15,12 +15,11 @@ import {
     HAGEZI_FEED_BY_ID
 } from './webFilterHagezi.js'
 import { appendActivity } from './activityLog.js'
-import { patchDefaultJson } from '../defaultProfileStore.js'
+import { patchDefaultJson, readDefaultJson } from '../defaultProfileStore.js'
 
 const HOSTS_FILE = '/etc/hosts'
 const MARKER_BEGIN = '# LiFE Parental Control - BEGIN'
 const MARKER_END = '# LiFE Parental Control - END'
-const CONFIG_FILE = 'webfilter.json'
 
 /** @type {string|null} */
 let hageziBundledDir = null
@@ -45,59 +44,30 @@ function normalizeAllowlist(raw) {
     return [...out].sort()
 }
 
-function readMirrorRaw(configDir) {
-    try {
-        const parsed = JSON.parse(fs.readFileSync(path.join(configDir, CONFIG_FILE), 'utf8'))
-        if (Array.isArray(parsed)) {
-            return { entries: parsed, feedState: {}, listAllowlist: [], cachedHostRuleCount: undefined }
-        }
-        const entries = Array.isArray(parsed.entries)
-            ? parsed.entries
-                .filter(e => e && typeof e.domain === 'string')
-                .map(e => ({ domain: String(e.domain).toLowerCase(), enabled: e.enabled !== false }))
-            : []
-        let feedState = {}
-        if (parsed.feedState && typeof parsed.feedState === 'object' && !Array.isArray(parsed.feedState)) {
-            feedState = { ...parsed.feedState }
-        }
-        const listAllowlist = normalizeAllowlist(parsed.listAllowlist)
-        const n = parsed.cachedHostRuleCount
-        const cachedHostRuleCount = typeof n === 'number' && Number.isFinite(n) && n >= 0 ? Math.floor(n) : undefined
-        return { entries, feedState, listAllowlist, cachedHostRuleCount }
-    } catch {
-        return { entries: [], feedState: {}, listAllowlist: [], cachedHostRuleCount: undefined }
+function readWebfilterFromConfig(configDir) {
+    const wf = readDefaultJson(configDir)?.webfilter || {}
+    return {
+        enabled: wf.enabled !== false,
+        entries: Array.isArray(wf.entries) ? wf.entries : [],
+        feedState: (wf.feedState && typeof wf.feedState === 'object' && !Array.isArray(wf.feedState))
+            ? { ...wf.feedState }
+            : {},
+        listAllowlist: Array.isArray(wf.listAllowlist) ? wf.listAllowlist : [],
+        cachedHostRuleCount: typeof wf.cachedHostRuleCount === 'number' ? wf.cachedHostRuleCount : undefined
     }
 }
 
-export function readWebFilterMirror(configDir) {
-    return readMirrorRaw(configDir)
-}
-
-function writeMirrorToDisk(configDir, mirror) {
-    fs.mkdirSync(configDir, { recursive: true })
-    const payload = {
-        entries: mirror.entries,
-        feedState: mirror.feedState,
-        listAllowlist: normalizeAllowlist(mirror.listAllowlist),
-        updatedAt: new Date().toISOString()
-    }
-    if (typeof mirror.cachedHostRuleCount === 'number' && Number.isFinite(mirror.cachedHostRuleCount) && mirror.cachedHostRuleCount >= 0) {
-        payload.cachedHostRuleCount = Math.floor(mirror.cachedHostRuleCount)
-    }
-    fs.writeFileSync(path.join(configDir, CONFIG_FILE), JSON.stringify(payload, null, 2), 'utf8')
-}
-
-function buildCombinedEntries(configDir, mirror) {
+function buildCombinedEntries(configDir, wf) {
     const bd = requireBundledDir()
     const blocked = new Set()
-    for (const e of mirror.entries) {
+    for (const e of wf.entries) {
         if (e.enabled === false) continue
         blocked.add(String(e.domain).toLowerCase())
     }
-    for (const d of domainsForEnabledFeeds(bd, configDir, mirror.feedState)) {
+    for (const d of domainsForEnabledFeeds(bd, configDir, wf.feedState)) {
         blocked.add(d)
     }
-    const allow = new Set(normalizeAllowlist(mirror.listAllowlist))
+    const allow = new Set(normalizeAllowlist(wf.listAllowlist))
     for (const a of allow) blocked.delete(a)
     return [...blocked].sort().map(domain => ({ domain, enabled: true }))
 }
@@ -120,7 +90,7 @@ function readHostsSection() {
 
 async function writeHostsSectionAsync(entries) {
     const content = await readFileAsync(HOSTS_FILE, 'utf8')
-    const lines = entries.map(e => `${e.enabled ? '' : '#'}0.0.0.0 ${e.domain}`)
+    const lines = entries.map(e => `${e.enabled ? '' : '#'}127.0.0.2 ${e.domain}`)
     const section = `\n${lines.join('\n')}\n`
     const begin = content.indexOf(MARKER_BEGIN)
     const end = content.indexOf(MARKER_END)
@@ -140,35 +110,34 @@ function flushDns() {
     execFile('dnsmasq', ['--clear-on-reload'], { timeout: 3000 }, () => {})
 }
 
-async function persistMirrorAndHosts(configDir, mirror) {
+async function persistWebfilterAndHosts(configDir, wf) {
     const full = {
-        entries: mirror.entries,
-        feedState: mirror.feedState || {},
-        listAllowlist: mirror.listAllowlist ?? []
+        enabled: wf.enabled !== false,
+        entries: wf.entries,
+        feedState: wf.feedState || {},
+        listAllowlist: wf.listAllowlist ?? []
     }
     await new Promise((resolve) => globalThis.setImmediate(resolve))
-    const combined = buildCombinedEntries(configDir, full)
-    full.cachedHostRuleCount = combined.length
-    writeMirrorToDisk(configDir, full)
+    const combined = full.enabled ? buildCombinedEntries(configDir, full) : []
+    patchDefaultJson(configDir, (d) => {
+        d.webfilter = {
+            enabled: full.enabled,
+            entries: full.entries,
+            feedState: full.feedState,
+            listAllowlist: full.listAllowlist,
+            cachedHostRuleCount: combined.length
+        }
+        return d
+    })
     await writeHostsSectionAsync(combined)
     flushDns()
-    try {
-        patchDefaultJson(configDir, (d) => {
-            d.webfilter = {
-                entries: full.entries,
-                feedState: full.feedState,
-                listAllowlist: full.listAllowlist
-            }
-            return d
-        })
-    } catch { /* ignore */ }
 }
 
 export function registerWebFilterIpc(ipcMain, configDir, opts = {}) {
     setBundledDir(opts.hageziBundledDir ?? null)
 
     ipcMain.handle('webfilter:getList', () => {
-        const mirror = readMirrorRaw(configDir)
+        const wf = readWebfilterFromConfig(configDir)
         const bd = hageziBundledDir
         const feedsMeta = bd ? getFeedsMetaForUi(configDir, bd) : {}
         let source = 'hosts'
@@ -176,58 +145,52 @@ export function registerWebFilterIpc(ipcMain, configDir, opts = {}) {
         try {
             readHostsSection()
         } catch (e) {
-            source = 'mirror'
-            error = `Could not read ${HOSTS_FILE}: ${e.message}. Showing data from ${CONFIG_FILE} (Apply may fail until permissions are fixed).`
+            source = 'config'
+            error = `Could not read ${HOSTS_FILE}: ${e.message}. Showing data from default.json (Apply may fail until permissions are fixed).`
         }
-        // Use cached count from last persist — never call buildCombinedEntries here (multi‑MB feeds block the main process for seconds).
-        let hostRuleCount = mirror.entries.filter(e => e.enabled !== false).length
-        if (hageziBundledDir && typeof mirror.cachedHostRuleCount === 'number' && Number.isFinite(mirror.cachedHostRuleCount)) {
-            hostRuleCount = Math.max(0, Math.floor(mirror.cachedHostRuleCount))
+        // Use cached count from last persist — never call buildCombinedEntries here (multi-MB feeds block the main process for seconds).
+        let hostRuleCount = wf.entries.filter(e => e.enabled !== false).length
+        if (hageziBundledDir && typeof wf.cachedHostRuleCount === 'number' && Number.isFinite(wf.cachedHostRuleCount)) {
+            hostRuleCount = Math.max(0, Math.floor(wf.cachedHostRuleCount))
         }
         return {
-            entries: mirror.entries,
-            feedState: mirror.feedState,
-            listAllowlist: mirror.listAllowlist,
+            enabled: wf.enabled,
+            entries: wf.entries,
+            feedState: wf.feedState,
+            listAllowlist: wf.listAllowlist,
             categories: WEB_FILTER_QUICK_ADD_ORDER,
+            staticCategories: WEB_FILTER_STATIC_CATEGORIES,
             feedsMeta,
             source,
             error,
-            manualCount: mirror.entries.filter(e => e.enabled !== false).length,
-            feedEnabledCount: Object.values(mirror.feedState).filter(Boolean).length,
-            allowlistCount: mirror.listAllowlist.length,
+            manualCount: wf.entries.filter(e => e.enabled !== false).length,
+            feedEnabledCount: Object.values(wf.feedState).filter(Boolean).length,
+            allowlistCount: wf.listAllowlist.length,
             hostRuleCount
         }
     })
 
     ipcMain.handle('webfilter:setList', async (_, entries) => {
         try {
-            const mirror = readMirrorRaw(configDir)
-            mirror.entries = Array.isArray(entries)
+            const wf = readWebfilterFromConfig(configDir)
+            wf.entries = Array.isArray(entries)
                 ? entries.filter(e => e && typeof e.domain === 'string').map(e => ({
                     domain: String(e.domain).toLowerCase(),
                     enabled: e.enabled !== false
                 }))
                 : []
-            await persistMirrorAndHosts(configDir, mirror)
+            await persistWebfilterAndHosts(configDir, wf)
             return { ok: true }
         } catch (e) {
-            try {
-                const mirror = readMirrorRaw(configDir)
-                mirror.entries = Array.isArray(entries) ? entries : []
-                delete mirror.cachedHostRuleCount
-                writeMirrorToDisk(configDir, mirror)
-            } catch {
-                /* ignore */
-            }
             return { error: e.message }
         }
     })
 
     ipcMain.handle('webfilter:setAllowlist', async (_, domains) => {
         try {
-            const mirror = readMirrorRaw(configDir)
-            mirror.listAllowlist = normalizeAllowlist(Array.isArray(domains) ? domains : [])
-            await persistMirrorAndHosts(configDir, mirror)
+            const wf = readWebfilterFromConfig(configDir)
+            wf.listAllowlist = normalizeAllowlist(Array.isArray(domains) ? domains : [])
+            await persistWebfilterAndHosts(configDir, wf)
             return { ok: true }
         } catch (e) {
             return { error: e.message }
@@ -237,9 +200,9 @@ export function registerWebFilterIpc(ipcMain, configDir, opts = {}) {
     ipcMain.handle('webfilter:setFeedEnabled', async (_, feedId, enabled) => {
         try {
             if (!HAGEZI_FEED_BY_ID.has(feedId)) return { error: 'Unknown feed' }
-            const mirror = readMirrorRaw(configDir)
-            mirror.feedState = { ...mirror.feedState, [feedId]: Boolean(enabled) }
-            await persistMirrorAndHosts(configDir, mirror)
+            const wf = readWebfilterFromConfig(configDir)
+            wf.feedState = { ...wf.feedState, [feedId]: Boolean(enabled) }
+            await persistWebfilterAndHosts(configDir, wf)
             return { ok: true }
         } catch (e) {
             return { error: e.message }
@@ -249,17 +212,17 @@ export function registerWebFilterIpc(ipcMain, configDir, opts = {}) {
     ipcMain.handle('webfilter:addCategory', async (_, categoryName) => {
         try {
             if (!isKnownWebFilterCategory(categoryName)) return { error: 'Unknown category' }
-            const mirror = readMirrorRaw(configDir)
+            const wf = readWebfilterFromConfig(configDir)
             const feedId = CATEGORY_TO_HAGEZI_FEED[categoryName]
             if (feedId) {
-                mirror.feedState = { ...mirror.feedState, [feedId]: true }
-                await persistMirrorAndHosts(configDir, mirror)
+                wf.feedState = { ...wf.feedState, [feedId]: true }
+                await persistWebfilterAndHosts(configDir, wf)
                 return { added: -1, feed: feedId }
             }
-            const existing = new Set(mirror.entries.map(e => e.domain))
+            const existing = new Set(wf.entries.map(e => e.domain))
             const toAdd = (WEB_FILTER_STATIC_CATEGORIES[categoryName] || []).filter(d => !existing.has(d))
-            mirror.entries = [...mirror.entries, ...toAdd.map(d => ({ domain: d, enabled: true }))]
-            await persistMirrorAndHosts(configDir, mirror)
+            wf.entries = [...wf.entries, ...toAdd.map(d => ({ domain: d, enabled: true }))]
+            await persistWebfilterAndHosts(configDir, wf)
             return { added: toAdd.length }
         } catch (e) {
             return { error: e.message }
@@ -268,7 +231,31 @@ export function registerWebFilterIpc(ipcMain, configDir, opts = {}) {
 
     ipcMain.handle('webfilter:clearAll', async () => {
         try {
-            await persistMirrorAndHosts(configDir, { entries: [], feedState: {}, listAllowlist: [] })
+            const wf = readWebfilterFromConfig(configDir)
+            await persistWebfilterAndHosts(configDir, { enabled: wf.enabled, entries: [], feedState: {}, listAllowlist: [] })
+            return { ok: true }
+        } catch (e) {
+            return { error: e.message }
+        }
+    })
+
+    ipcMain.handle('webfilter:saveAll', async (_, data) => {
+        try {
+            if (!data || typeof data !== 'object') return { error: 'Invalid data' }
+            const wf = readWebfilterFromConfig(configDir)
+            wf.enabled = data.enabled !== false
+            if (Array.isArray(data.entries)) {
+                wf.entries = data.entries
+                    .filter(e => e && typeof e.domain === 'string')
+                    .map(e => ({ domain: String(e.domain).toLowerCase(), enabled: e.enabled !== false }))
+            }
+            if (data.feedState && typeof data.feedState === 'object' && !Array.isArray(data.feedState)) {
+                wf.feedState = { ...data.feedState }
+            }
+            if (Array.isArray(data.listAllowlist)) {
+                wf.listAllowlist = normalizeAllowlist(data.listAllowlist)
+            }
+            await persistWebfilterAndHosts(configDir, wf)
             return { ok: true }
         } catch (e) {
             return { error: e.message }
@@ -280,8 +267,8 @@ export function registerWebFilterIpc(ipcMain, configDir, opts = {}) {
             const bd = requireBundledDir()
             const r = await syncHageziFeeds(bd, configDir)
             try {
-                const mirror = readMirrorRaw(configDir)
-                await persistMirrorAndHosts(configDir, mirror)
+                const wf = readWebfilterFromConfig(configDir)
+                await persistWebfilterAndHosts(configDir, wf)
             } catch {
                 /* hosts may be unreadable */
             }
@@ -293,7 +280,7 @@ export function registerWebFilterIpc(ipcMain, configDir, opts = {}) {
 
     ipcMain.handle('webfilter:reapplyMirror', async () => {
         try {
-            await reapplyWebFilterFromMirror(configDir)
+            await reapplyWebFilter(configDir)
             appendActivity(configDir, { action: 'webfilter_reapply_mirror' })
             return { ok: true }
         } catch (e) { return { error: e.message } }
@@ -305,8 +292,8 @@ export function runStartupHageziSync(configDir) {
     return syncHageziFeeds(hageziBundledDir, configDir)
         .then(async () => {
             try {
-                const mirror = readMirrorRaw(configDir)
-                await persistMirrorAndHosts(configDir, mirror)
+                const wf = readWebfilterFromConfig(configDir)
+                await persistWebfilterAndHosts(configDir, wf)
             } catch {
                 /* non-fatal */
             }
@@ -316,29 +303,29 @@ export function runStartupHageziSync(configDir) {
         })
 }
 
-/** @deprecated name — use readWebFilterMirror */
-export function readWebFilterEntries(configDir) {
-    return readMirrorRaw(configDir).entries
-}
-
 export async function persistWebFilterEntries(configDir, entries, feedState = undefined, listAllowlist = undefined) {
-    const mirror = readMirrorRaw(configDir)
-    mirror.entries = Array.isArray(entries)
+    const wf = readWebfilterFromConfig(configDir)
+    wf.entries = Array.isArray(entries)
         ? entries.filter(e => e && typeof e.domain === 'string').map(e => ({
             domain: String(e.domain).toLowerCase(),
             enabled: e.enabled !== false
         }))
         : []
     if (feedState !== undefined && feedState !== null && typeof feedState === 'object') {
-        mirror.feedState = { ...feedState }
+        wf.feedState = { ...feedState }
     }
     if (listAllowlist !== undefined) {
-        mirror.listAllowlist = normalizeAllowlist(listAllowlist)
+        wf.listAllowlist = normalizeAllowlist(listAllowlist)
     }
-    await persistMirrorAndHosts(configDir, mirror)
+    await persistWebfilterAndHosts(configDir, wf)
 }
 
-export async function reapplyWebFilterFromMirror(configDir) {
-    const mirror = readMirrorRaw(configDir)
-    await persistMirrorAndHosts(configDir, mirror)
+export async function reapplyWebFilter(configDir) {
+    const wf = readWebfilterFromConfig(configDir)
+    await persistWebfilterAndHosts(configDir, wf)
+}
+
+export function readWebFilterConfig(configDir) {
+    const wf = readWebfilterFromConfig(configDir)
+    return { entries: wf.entries, feedState: wf.feedState, listAllowlist: wf.listAllowlist }
 }

@@ -95,8 +95,8 @@
                         <p class="text-muted small mb-3">
                             {{ $t('settings.sessionLockHint') }}
                         </p>
-                        <label class="form-label small text-muted mt-2">{{ $t('settings.autoLockAfterIdle') }}</label>
-                        <select v-model.number="sessionPrefs.lockIdleMinutes" class="pc-input mb-3 mt-1" style="max-width:220px;">
+                        <label class="form-label small text-muted session-lock-field-label">{{ $t('settings.autoLockAfterIdle') }}</label>
+                        <select v-model.number="sessionPrefs.lockIdleMinutes" class="pc-input mb-3 session-lock-field-input" style="max-width:220px;">
                             <option v-for="opt in LOCK_IDLE_OPTIONS" :key="opt.value" :value="opt.value">
                                 {{ opt.label }}
                             </option>
@@ -510,5 +510,14 @@ async function onBackupImport() {
 .spin {
     display: inline-block;
     animation: spin 0.7s linear infinite;
+}
+.session-lock-field-label {
+    display: block;
+    margin-top: 4px;
+    margin-bottom: 4px;
+}
+.session-lock-field-input {
+    display: block;
+    margin-top: 4px;
 }
 </style>

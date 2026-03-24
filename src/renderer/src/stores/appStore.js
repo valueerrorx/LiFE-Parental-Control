@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { ref, computed, toRaw } from 'vue'
+import { ref, toRaw } from 'vue'
 
 export const useAppStore = defineStore('app', () => {
     const webFilterEntries = ref([])
@@ -25,13 +25,11 @@ export const useAppStore = defineStore('app', () => {
     const invokingLinuxUser = ref('')
     const quotaViewLinuxUser = ref('')
 
-    const webFilterEnabled = computed(() =>
-        webFilterEntries.value.some(e => e.enabled)
-        || Object.values(webFilterFeedState.value).some(Boolean)
-    )
+    const webFilterEnabled = ref(true)
 
     async function loadWebFilter() {
         const result = await window.api.webFilter.getList()
+        webFilterEnabled.value = result.enabled !== false
         webFilterEntries.value = result.entries ?? []
         webFilterFeedState.value = result.feedState && typeof result.feedState === 'object'
             ? { ...result.feedState }
@@ -55,6 +53,21 @@ export const useAppStore = defineStore('app', () => {
             return { domain: String(o.domain), enabled: Boolean(o.enabled) }
         })
         const result = await window.api.webFilter.setList(entries)
+        return result
+    }
+
+    async function saveWebFilterAll() {
+        const entries = webFilterEntries.value.map((e) => {
+            const o = toRaw(e)
+            return { domain: String(o.domain), enabled: Boolean(o.enabled) }
+        })
+        const result = await window.api.webFilter.saveAll({
+            enabled: webFilterEnabled.value,
+            entries,
+            feedState: { ...toRaw(webFilterFeedState.value) },
+            listAllowlist: webFilterAllowlist.value.map(d => String(d))
+        })
+        if (!result?.error) await loadWebFilter()
         return result
     }
 
@@ -139,7 +152,7 @@ export const useAppStore = defineStore('app', () => {
         appQuotas, appQuotaUsage, appQuotaExtra, appMonitorUsage, appMonitorLabels, statusMessage, whitelistEnabled, runningAsRoot, xdgCurrentDesktop,
         invokingLinuxUser, quotaViewLinuxUser,
         webFilterEnabled,
-        loadWebFilter, saveWebFilter, persistWebFilterAllowlist, loadAppControlConfig, loadBlockedApps, loadSchedule, loadKioskStatus, loadAppQuotas,
+        loadWebFilter, saveWebFilter, saveWebFilterAll, persistWebFilterAllowlist, loadAppControlConfig, loadBlockedApps, loadSchedule, loadKioskStatus, loadAppQuotas,
         loadProcessWhitelist, applyLifeMode, refreshProtectionsState, setQuotaViewLinuxUser
     }
 })

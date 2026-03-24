@@ -16,6 +16,7 @@ const EMPTY_DEFAULT = {
         allowedDays: [1, 2, 3, 4, 5, 6, 7]
     },
     webfilter: {
+        enabled: true,
         feedState: {},
         entries: [],
         listAllowlist: []
@@ -25,7 +26,6 @@ const EMPTY_DEFAULT = {
     },
     preferences: {
         lockIdleMinutes: null,
-        autostartEnabled: false,
         quotaViewLinuxUser: ''
     },
     blockedDesktopIds: [],
@@ -94,6 +94,9 @@ export function readDefaultJson(configDir) {
             .filter(e => e && typeof e.domain === 'string')
             .map(e => ({ domain: String(e.domain).toLowerCase(), enabled: e.enabled !== false }))
         if (Array.isArray(wf.listAllowlist)) next.webfilter.listAllowlist = wf.listAllowlist.filter(d => typeof d === 'string')
+        next.webfilter.enabled = wf.enabled !== false
+        const n = wf.cachedHostRuleCount
+        if (typeof n === 'number' && Number.isFinite(n) && n >= 0) next.webfilter.cachedHostRuleCount = Math.floor(n)
     }
     if (raw.appControl && typeof raw.appControl === 'object' && !Array.isArray(raw.appControl)) {
         next.appControl.enabled = raw.appControl.enabled !== false
@@ -101,7 +104,6 @@ export function readDefaultJson(configDir) {
     if (raw.preferences && typeof raw.preferences === 'object' && !Array.isArray(raw.preferences)) {
         const p = raw.preferences
         if (Object.hasOwn(p, 'lockIdleMinutes')) next.preferences.lockIdleMinutes = p.lockIdleMinutes
-        next.preferences.autostartEnabled = p.autostartEnabled === true
         next.preferences.quotaViewLinuxUser = typeof p.quotaViewLinuxUser === 'string' ? p.quotaViewLinuxUser : ''
     }
     if (Array.isArray(raw.blockedDesktopIds)) next.blockedDesktopIds = raw.blockedDesktopIds.filter(s => typeof s === 'string')

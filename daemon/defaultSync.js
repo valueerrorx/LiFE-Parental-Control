@@ -21,6 +21,7 @@ const EMPTY_DEFAULT = {
         allowedDays: [1, 2, 3, 4, 5, 6, 7]
     },
     webfilter: {
+        enabled: true,
         feedState: {},
         entries: [],
         listAllowlist: []
@@ -215,6 +216,8 @@ function buildWebBlockedDomains(defaultWebfilter) {
         ? defaultWebfilter
         : {};
 
+    if (wf.enabled === false) return [];
+
     const feedState = (wf.feedState && typeof wf.feedState === 'object' && !Array.isArray(wf.feedState))
         ? wf.feedState
         : {};
@@ -252,7 +255,7 @@ async function writeHostsBlockedDomains(domains) {
     let content = '';
     try { content = fs.readFileSync(HOSTS_FILE, 'utf8'); } catch { return; }
 
-    const lines = domains.map(d => `0.0.0.0 ${d}`);
+    const lines = domains.map(d => `127.0.0.2 ${d}`);
     const section = `\n${lines.join('\n')}\n`;
     const begin = content.indexOf(MARKER_BEGIN);
     const end = content.indexOf(MARKER_END);
@@ -514,28 +517,10 @@ async function applyFromDefault({ configDir, log }) {
         syncAppArmor(appControl.enabled ? blockedResolved : [], log);
     } catch { /* ignore */ }
 
-    // Enforce webfilter runtime (only by feedState/entries/allowlist from default.json).
+    // Enforce webfilter runtime (respects enabled flag; reads entries/feedState/allowlist from default.json).
     const wf = data.webfilter && typeof data.webfilter === 'object' && !Array.isArray(data.webfilter) ? data.webfilter : {};
     const blockedDomains = buildWebBlockedDomains(wf);
     await writeHostsBlockedDomains(blockedDomains);
-
-    // Persist webfilter.json mirror for UI.
-    try {
-        const webfilterJson = {
-            entries: Array.isArray(wf.entries)
-                ? wf.entries
-                    .filter(e => e && typeof e.domain === 'string')
-                    .map(e => ({ domain: String(e.domain).toLowerCase(), enabled: e.enabled !== false }))
-                : [],
-            feedState: (wf.feedState && typeof wf.feedState === 'object' && !Array.isArray(wf.feedState)) ? { ...wf.feedState } : {},
-            listAllowlist: normalizeAllowlist(wf.listAllowlist),
-            cachedHostRuleCount: blockedDomains.length
-        };
-        fs.writeFileSync(path.join(configDir, 'webfilter.json'), JSON.stringify({
-            ...webfilterJson,
-            updatedAt: new Date().toISOString()
-        }, null, 2), 'utf8');
-    } catch { /* ignore */ }
 }
 
 function ensureDefaultJsonExists({ configDir, log }) {

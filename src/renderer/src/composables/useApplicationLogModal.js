@@ -44,12 +44,6 @@ function activityLabel(e) {
         return t('activityLog.kioskApply')
     case 'kiosk_strip':
         return t('activityLog.kioskStrip')
-    case 'autostart_enabled':
-        return e.reason === 'first_password'
-            ? t('activityLog.autostartEnabled')
-            : t('activityLog.autostartEnabled2')
-    case 'autostart_disabled':
-        return t('activityLog.autostartDisabled')
     case 'parent_password_set':
         return t('activityLog.parentPasswordSet')
     case 'parent_password_changed':

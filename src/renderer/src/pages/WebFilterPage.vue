@@ -5,9 +5,9 @@
             <p>{{ $t('webFilter.subtitle') }}</p>
         </div>
         <div class="d-flex align-items-center gap-3 pt-1">
-            <span class="status-badge" :class="activeRuleCount > 0 ? 'active' : 'inactive'">
+            <span class="status-badge" :class="!store.webFilterEnabled ? 'inactive' : activeRuleCount > 0 ? 'active' : 'inactive'">
                 <i class="bi bi-circle-fill" style="font-size:7px;" />
-                {{ activeRuleCount > 0 ? $t('webFilter.hostRules', { count: activeRuleCount }) : $t('webFilter.noActiveRules') }}
+                {{ !store.webFilterEnabled ? $t('common.disabled') : activeRuleCount > 0 ? $t('webFilter.hostRules', { count: activeRuleCount }) : $t('webFilter.noActiveRules') }}
             </span>
             <button class="btn-pc-primary" @click="onSave" :disabled="saving">
                 <i class="bi bi-floppy me-1" />{{ saving ? $t('common.saving') : $t('common.applyChanges') }}
@@ -19,176 +19,192 @@
         <div v-if="hostsBackupWarning" class="alert alert-warning py-2 px-3 mb-3" style="font-size:13px;">
             <i class="bi bi-exclamation-triangle me-2" />{{ hostsBackupWarning }}
         </div>
-        <div class="row g-3 align-items-start">
-            <!-- Domain list -->
-            <div class="col-8">
-                <div class="pc-card">
-                    <div class="pc-card-header">
-                        <h6>{{ $t('webFilter.customDomains') }} ({{ search ? `${filteredEntries.length} / ${entries.length}` : entries.length }})</h6>
-                        <div class="d-flex gap-2 flex-wrap">
-                            <input
-                                v-model="search"
-                                class="pc-input"
-                                style="width:170px;"
-                                :placeholder="$t('webFilter.searchDomains')"
-                            />
-                            <input
-                                v-model="newDomain"
-                                class="pc-input"
-                                style="width:190px;"
-                                :placeholder="$t('webFilter.domainPlaceholder')"
-                                @keyup.enter="onAdd"
-                            />
-                            <button type="button" class="btn-pc-primary" @click="onAdd">
-                                <i class="bi bi-plus-lg me-1" />{{ $t('webFilter.blockHost') }}
-                            </button>
-                        </div>
-                    </div>
 
-                    <div v-if="entries.length === 0" class="pc-card-body text-center text-muted py-5">
-                        <i class="bi bi-shield-check" style="font-size:40px;opacity:0.3;" />
-                        <p class="mt-2">{{ $t('webFilter.noDomainsYet') }}</p>
-                    </div>
-
-                    <div v-else-if="filteredEntries.length === 0" class="pc-card-body text-center text-muted py-5">
-                        <i class="bi bi-search" style="font-size:40px;opacity:0.3;" />
-                        <p class="mt-2">{{ $t('webFilter.noDomainsMatch', { search }) }}</p>
-                    </div>
-
-                    <div v-else class="pc-scroll-list">
-                        <div v-for="entry in filteredEntries" :key="entry.domain" class="pc-list-item pc-list-item--compact">
-                            <div class="item-icon">
-                                <i class="bi bi-globe" />
-                            </div>
-                            <div class="flex-grow-1">
-                                <div class="item-name">{{ entry.domain }}</div>
-                            </div>
-                            <label class="pc-toggle me-3">
-                                <input type="checkbox" v-model="entry.enabled" />
-                                <span class="slider" />
-                            </label>
-                            <button class="btn-pc-danger" style="padding:4px 10px;" @click="onRemove(entry)">
-                                <i class="bi bi-trash" />
-                            </button>
-                        </div>
-                    </div>
+        <!-- Master toggle -->
+        <div class="pc-card mb-3">
+            <div class="pc-card-body d-flex align-items-center justify-content-between">
+                <div>
+                    <div class="fw-semibold">{{ $t('webFilter.enableWebFilter') }}</div>
+                    <div class="text-muted" style="font-size:12px;">{{ $t('webFilter.enableWebFilterHint') }}</div>
                 </div>
-                <div class="pc-card mt-3">
-                    <div class="pc-card-header">
-                        <h6>{{ $t('webFilter.allowExceptions') }} ({{ allowSearch ? `${filteredAllowlist.length} / ${allowlist.length}` : allowlist.length }})</h6>
-                        <div class="d-flex gap-2 flex-wrap">
-                            <input
-                                v-model="allowSearch"
-                                class="pc-input"
-                                style="width:170px;"
-                                :placeholder="$t('webFilter.searchHosts')"
-                            />
-                            <input
-                                v-model="allowNewDomain"
-                                class="pc-input"
-                                style="width:190px;"
-                                :placeholder="$t('webFilter.allowPlaceholder')"
-                                :disabled="saving"
-                                @keyup.enter="onAddAllow"
-                            />
-                            <button type="button" class="btn-pc-primary" :disabled="saving" @click="onAddAllow">
-                                <i class="bi bi-plus-lg me-1" />{{ $t('webFilter.allowHost') }}
-                            </button>
-                        </div>
-                    </div>
-                    <div v-if="!allowlist.length" class="pc-card-body text-center text-muted py-5">
-                        <i class="bi bi-shield-check" style="font-size:40px;opacity:0.3;" />
-                        <p class="mt-2">{{ $t('webFilter.noExceptionsYet') }}</p>
-                    </div>
-                    <div v-else-if="filteredAllowlist.length === 0" class="pc-card-body text-center text-muted py-5">
-                        <i class="bi bi-search" style="font-size:40px;opacity:0.3;" />
-                        <p class="mt-2">{{ $t('webFilter.noHostsMatch', { search: allowSearch }) }}</p>
-                    </div>
-                    <div v-else class="pc-scroll-list">
-                        <div v-for="h in filteredAllowlist" :key="h" class="pc-list-item pc-list-item--compact">
-                            <div class="item-icon">
-                                <i class="bi bi-globe" />
-                            </div>
-                            <div class="flex-grow-1">
-                                <div class="item-name">{{ h }}</div>
-                            </div>
-                            <button type="button" class="btn-pc-danger" style="padding:4px 10px;" :disabled="saving" @click="onRemoveAllow(h)">
-                                <i class="bi bi-trash" />
-                            </button>
-                        </div>
-                    </div>
-                </div>
-                <div
-                    v-if="saveMsg"
-                    class="alert mt-3 mb-0 py-2 px-3"
-                    style="font-size: 13px;"
-                    :class="saveError ? 'alert-danger' : 'alert-success'"
-                    role="status"
-                >
-                    <i class="bi me-1" :class="saveError ? 'bi-exclamation-circle' : 'bi-check-circle'" />
-                    {{ saveMsg }}
-                </div>
+                <label class="pc-toggle">
+                    <input type="checkbox" v-model="store.webFilterEnabled" />
+                    <span class="slider" />
+                </label>
             </div>
+        </div>
 
-            <!-- Quick add categories -->
-            <div class="col-4">
-                <div class="pc-card">
-                    <div class="pc-card-header">
-                        <h6>{{ $t('webFilter.quickAddCategories') }}</h6>
+        <div :class="{ 'opacity-50 pe-none': !store.webFilterEnabled }">
+            <div class="row g-3 align-items-start">
+                <!-- Domain list -->
+                <div class="col-8">
+                    <div class="pc-card">
+                        <div class="pc-card-header">
+                            <h6>{{ $t('webFilter.customDomains') }} ({{ search ? `${filteredEntries.length} / ${entries.length}` : entries.length }})</h6>
+                            <div class="d-flex gap-2 flex-wrap">
+                                <input
+                                    v-model="search"
+                                    class="pc-input"
+                                    style="width:170px;"
+                                    :placeholder="$t('webFilter.searchDomains')"
+                                />
+                                <input
+                                    v-model="newDomain"
+                                    class="pc-input"
+                                    style="width:190px;"
+                                    :placeholder="$t('webFilter.domainPlaceholder')"
+                                    @keyup.enter="onAdd"
+                                />
+                                <button type="button" class="btn-pc-primary" @click="onAdd">
+                                    <i class="bi bi-plus-lg me-1" />{{ $t('webFilter.blockHost') }}
+                                </button>
+                            </div>
+                        </div>
+
+                        <div v-if="entries.length === 0" class="pc-card-body text-center text-muted py-5">
+                            <i class="bi bi-shield-check" style="font-size:40px;opacity:0.3;" />
+                            <p class="mt-2">{{ $t('webFilter.noDomainsYet') }}</p>
+                        </div>
+
+                        <div v-else-if="filteredEntries.length === 0" class="pc-card-body text-center text-muted py-5">
+                            <i class="bi bi-search" style="font-size:40px;opacity:0.3;" />
+                            <p class="mt-2">{{ $t('webFilter.noDomainsMatch', { search }) }}</p>
+                        </div>
+
+                        <div v-else class="pc-scroll-list">
+                            <div v-for="entry in filteredEntries" :key="entry.domain" class="pc-list-item pc-list-item--compact">
+                                <div class="item-icon">
+                                    <i class="bi bi-globe" />
+                                </div>
+                                <div class="flex-grow-1">
+                                    <div class="item-name">{{ entry.domain }}</div>
+                                </div>
+                                <label class="pc-toggle me-3">
+                                    <input type="checkbox" v-model="entry.enabled" />
+                                    <span class="slider" />
+                                </label>
+                                <button class="btn-pc-danger" style="padding:4px 10px;" @click="onRemove(entry)">
+                                    <i class="bi bi-trash" />
+                                </button>
+                            </div>
+                        </div>
                     </div>
-                    <div class="pc-card-body d-flex flex-column gap-2">
-                        <button
-                            v-for="cat in staticQuickCats"
-                            :key="'static-' + cat"
-                            type="button"
-                            class="text-start btn-pc-outline"
-                            :disabled="saving"
-                            @click="onQuickCategory(cat)"
-                        >
-                            <i class="bi me-2" :class="categoryIcon(cat)" />
-                            {{ $t('webFilter.addCategory', { cat }) }}
-                        </button>
-                        <hr
-                            v-if="staticQuickCats.length && hageziQuickCats.length"
-                            class="my-2 opacity-50"
-                        />
-                        <div
-                            v-if="hageziQuickCats.length"
-                            class="d-flex align-items-center justify-content-between gap-2 flex-wrap"
-                        >
-                            <h6 class="mb-0 webfilter-hagezi-subhead">{{ $t('webFilter.hageziLists') }}</h6>
+                    <div class="pc-card mt-3">
+                        <div class="pc-card-header">
+                            <h6>{{ $t('webFilter.allowExceptions') }} ({{ allowSearch ? `${filteredAllowlist.length} / ${allowlist.length}` : allowlist.length }})</h6>
+                            <div class="d-flex gap-2 flex-wrap">
+                                <input
+                                    v-model="allowSearch"
+                                    class="pc-input"
+                                    style="width:170px;"
+                                    :placeholder="$t('webFilter.searchHosts')"
+                                />
+                                <input
+                                    v-model="allowNewDomain"
+                                    class="pc-input"
+                                    style="width:190px;"
+                                    :placeholder="$t('webFilter.allowPlaceholder')"
+                                    @keyup.enter="onAddAllow"
+                                />
+                                <button type="button" class="btn-pc-primary" @click="onAddAllow">
+                                    <i class="bi bi-plus-lg me-1" />{{ $t('webFilter.allowHost') }}
+                                </button>
+                            </div>
+                        </div>
+                        <div v-if="!allowlist.length" class="pc-card-body text-center text-muted py-5">
+                            <i class="bi bi-shield-check" style="font-size:40px;opacity:0.3;" />
+                            <p class="mt-2">{{ $t('webFilter.noExceptionsYet') }}</p>
+                        </div>
+                        <div v-else-if="filteredAllowlist.length === 0" class="pc-card-body text-center text-muted py-5">
+                            <i class="bi bi-search" style="font-size:40px;opacity:0.3;" />
+                            <p class="mt-2">{{ $t('webFilter.noHostsMatch', { search: allowSearch }) }}</p>
+                        </div>
+                        <div v-else class="pc-scroll-list">
+                            <div v-for="h in filteredAllowlist" :key="h" class="pc-list-item pc-list-item--compact">
+                                <div class="item-icon">
+                                    <i class="bi bi-globe" />
+                                </div>
+                                <div class="flex-grow-1">
+                                    <div class="item-name">{{ h }}</div>
+                                </div>
+                                <button type="button" class="btn-pc-danger" style="padding:4px 10px;" @click="onRemoveAllow(h)">
+                                    <i class="bi bi-trash" />
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <div
+                        v-if="saveMsg"
+                        class="alert mt-3 mb-0 py-2 px-3"
+                        style="font-size: 13px;"
+                        :class="saveError ? 'alert-danger' : 'alert-success'"
+                        role="status"
+                    >
+                        <i class="bi me-1" :class="saveError ? 'bi-exclamation-circle' : 'bi-check-circle'" />
+                        {{ saveMsg }}
+                    </div>
+                </div>
+
+                <!-- Quick add categories -->
+                <div class="col-4">
+                    <div class="pc-card">
+                        <div class="pc-card-header">
+                            <h6>{{ $t('webFilter.quickAddCategories') }}</h6>
+                        </div>
+                        <div class="pc-card-body d-flex flex-column gap-2">
                             <button
+                                v-for="cat in staticQuickCats"
+                                :key="'static-' + cat"
                                 type="button"
-                                class="btn-pc-outline flex-shrink-0"
-                                :title="$t('webFilter.updateListsTitle')"
+                                class="text-start btn-pc-outline"
                                 :disabled="saving"
-                                @click="onSyncFeeds"
+                                @click="onQuickCategory(cat)"
                             >
-                                <i class="bi bi-cloud-download me-1" />{{ $t('webFilter.updateLists') }}
+                                <i class="bi me-2" :class="categoryIcon(cat)" />
+                                {{ $t('webFilter.addCategory', { cat }) }}
+                            </button>
+                            <hr
+                                v-if="staticQuickCats.length && hageziQuickCats.length"
+                                class="my-2 opacity-50"
+                            />
+                            <div
+                                v-if="hageziQuickCats.length"
+                                class="d-flex align-items-center justify-content-between gap-2 flex-wrap"
+                            >
+                                <h6 class="mb-0 webfilter-hagezi-subhead">{{ $t('webFilter.hageziLists') }}</h6>
+                                <button
+                                    type="button"
+                                    class="btn-pc-outline flex-shrink-0"
+                                    :title="$t('webFilter.updateListsTitle')"
+                                    :disabled="saving"
+                                    @click="onSyncFeeds"
+                                >
+                                    <i class="bi bi-cloud-download me-1" />{{ $t('webFilter.updateLists') }}
+                                </button>
+                            </div>
+                            <button
+                                v-for="cat in hageziQuickCats"
+                                :key="'hagezi-' + cat"
+                                type="button"
+                                class="text-start"
+                                :class="feedOn(categoryFeedId(cat)) ? 'btn-pc-success-active' : 'btn-pc-outline'"
+                                :disabled="saving"
+                                @click="onQuickCategory(cat)"
+                            >
+                                <template v-if="feedOn(categoryFeedId(cat))">
+                                    <i class="bi bi-check-lg me-2" />
+                                    {{ $t('webFilter.categoryEnabled', { cat }) }}
+                                </template>
+                                <template v-else>
+                                    <i class="bi me-2" :class="categoryIcon(cat)" />
+                                    {{ $t('webFilter.categoryDisabled', { cat }) }}
+                                </template>
+                            </button>
+                            <hr class="my-1" />
+                            <button class="btn-pc-danger" :disabled="saving" @click="onClearAll">
+                                <i class="bi bi-trash me-1" />{{ $t('webFilter.clearAllRules') }}
                             </button>
                         </div>
-                        <button
-                            v-for="cat in hageziQuickCats"
-                            :key="'hagezi-' + cat"
-                            type="button"
-                            class="text-start"
-                            :class="feedOn(categoryFeedId(cat)) ? 'btn-pc-success-active' : 'btn-pc-outline'"
-                            :disabled="saving"
-                            @click="onQuickCategory(cat)"
-                        >
-                            <template v-if="feedOn(categoryFeedId(cat))">
-                                <i class="bi bi-check-lg me-2" />
-                                {{ $t('webFilter.categoryEnabled', { cat }) }}
-                            </template>
-                            <template v-else>
-                                <i class="bi me-2" :class="categoryIcon(cat)" />
-                                {{ $t('webFilter.categoryDisabled', { cat }) }}
-                            </template>
-                        </button>
-                        <hr class="my-1" />
-                        <button class="btn-pc-danger" :disabled="saving" @click="onClearAll">
-                            <i class="bi bi-trash me-1" />{{ $t('webFilter.clearAllRules') }}
-                        </button>
                     </div>
                 </div>
             </div>
@@ -206,6 +222,7 @@ const { t } = useI18n()
 const store = useAppStore()
 const entries = computed(() => store.webFilterEntries)
 const categories = ref([])
+const staticCategoryDomains = ref({})
 const newDomain = ref('')
 const search = ref('')
 const saving = ref(false)
@@ -260,6 +277,7 @@ const hageziQuickCats = computed(() => categories.value.filter((c) => categoryFe
 onMounted(async () => {
     const result = await store.loadWebFilter()
     categories.value = result.categories ?? []
+    staticCategoryDomains.value = result.staticCategories ?? {}
     hostsBackupWarning.value = result.error || ''
 })
 
@@ -281,33 +299,30 @@ function onRemove(entry) {
     if (idx >= 0) store.webFilterEntries.splice(idx, 1)
 }
 
-async function onQuickCategory(cat) {
+function onQuickCategory(cat) {
     const fid = categoryFeedId(cat)
-    saving.value = true
-    let result
-    if (fid && feedOn(fid)) {
-        result = await window.api.webFilter.setFeedEnabled(fid, false)
-    } else {
-        result = await window.api.webFilter.addCategory(cat)
-    }
-    await store.loadWebFilter()
-    saving.value = false
-    if (result?.error) { saveMsg.value = `Error: ${result.error}`; saveError.value = true }
-    else if (fid) {
-        saveMsg.value = store.webFilterFeedState[fid]
+    if (fid) {
+        // Toggle feed state locally — no IPC until Apply
+        store.webFilterFeedState[fid] = !feedOn(fid)
+        saveMsg.value = feedOn(fid)
             ? t('webFilter.enabledList', { cat })
             : t('webFilter.disabledList', { cat })
         saveError.value = false
     } else {
-        saveMsg.value = t('webFilter.addedDomains', { count: result?.added ?? 0, cat })
+        // Add static category domains locally using server-provided lists
+        const domains = staticCategoryDomains.value[cat] || []
+        const existing = new Set(entries.value.map(e => e.domain))
+        const toAdd = domains.filter(d => !existing.has(d))
+        store.webFilterEntries.push(...toAdd.map(d => ({ domain: d, enabled: true })))
+        saveMsg.value = t('webFilter.addedDomains', { count: toAdd.length, cat })
         saveError.value = false
     }
-    setTimeout(() => { saveMsg.value = '' }, 4000)
+    setTimeout(() => { saveMsg.value = '' }, 3000)
 }
 
 async function onSave() {
     saving.value = true
-    const result = await store.saveWebFilter()
+    const result = await store.saveWebFilterAll()
     saving.value = false
     if (result?.error) { saveMsg.value = `Error: ${result.error}`; saveError.value = true }
     else {
@@ -321,22 +336,16 @@ async function onSave() {
 async function onClearAll() {
     const n = entries.value.length + Object.values(store.webFilterFeedState).filter(Boolean).length
     if (!await confirm({ title: t('webFilter.clearAllConfirmTitle'), message: t('webFilter.clearAllConfirmMsg', { count: n }), okLabel: t('webFilter.clearLabel'), danger: true })) return
-    saving.value = true
-    const r = await window.api.webFilter.clearAll()
-    saving.value = false
-    if (r?.error) {
-        saveMsg.value = `Error: ${r.error}`
-        saveError.value = true
-    } else {
-        await store.loadWebFilter()
-        search.value = ''
-        saveMsg.value = t('webFilter.allRulesCleared')
-        saveError.value = false
-    }
+    store.webFilterEntries.splice(0)
+    store.webFilterFeedState = {}
+    store.webFilterAllowlist.splice(0)
+    search.value = ''
+    saveMsg.value = t('webFilter.allRulesCleared')
+    saveError.value = false
     setTimeout(() => { saveMsg.value = '' }, 4000)
 }
 
-async function onAddAllow() {
+function onAddAllow() {
     const d = allowNewDomain.value.trim().toLowerCase().replace(/^https?:\/\//, '').replace(/\/.*$/, '').split('/')[0]
     if (!d) return
     if (allowlist.value.includes(d)) {
@@ -347,36 +356,19 @@ async function onAddAllow() {
     }
     store.webFilterAllowlist.push(d)
     allowNewDomain.value = ''
-    saving.value = true
-    const r = await store.persistWebFilterAllowlist()
-    saving.value = false
-    if (r?.error) {
-        store.webFilterAllowlist.pop()
-        saveMsg.value = `Error: ${r.error}`
-        saveError.value = true
-    } else {
-        saveMsg.value = t('webFilter.allowed', { host: d })
-        saveError.value = false
-    }
-    setTimeout(() => { saveMsg.value = '' }, 4000)
+    saveMsg.value = t('webFilter.allowed', { host: d })
+    saveError.value = false
+    setTimeout(() => { saveMsg.value = '' }, 3000)
 }
 
-async function onRemoveAllow(h) {
+function onRemoveAllow(h) {
     const idx = store.webFilterAllowlist.indexOf(h)
-    if (idx < 0) return
-    saving.value = true
-    store.webFilterAllowlist.splice(idx, 1)
-    const r = await store.persistWebFilterAllowlist()
-    saving.value = false
-    if (r?.error) {
-        store.webFilterAllowlist.splice(idx, 0, h)
-        saveMsg.value = `Error: ${r.error}`
-        saveError.value = true
-    } else {
+    if (idx >= 0) {
+        store.webFilterAllowlist.splice(idx, 1)
         saveMsg.value = t('webFilter.removedException', { host: h })
         saveError.value = false
+        setTimeout(() => { saveMsg.value = '' }, 3000)
     }
-    setTimeout(() => { saveMsg.value = '' }, 4000)
 }
 
 async function onSyncFeeds() {

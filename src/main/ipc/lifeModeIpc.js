@@ -6,7 +6,7 @@ import {
     isKnownWebFilterCategory
 } from './webFilterCategories.js'
 import { DEFAULT_SCHEDULE, persistSchedule } from './schedulesIpc.js'
-import { readWebFilterMirror, persistWebFilterEntries } from './webFilterIpc.js'
+import { readWebFilterConfig, persistWebFilterEntries } from './webFilterIpc.js'
 import { replaceBlockedDesktopIds } from './appBlockerIpc.js'
 import { appendActivity } from './activityLog.js'
 import { redeployQuotaFromDisk, replaceQuotaEntries } from './quotaIpc.js'
@@ -251,11 +251,11 @@ export async function applyLifeModeDirect(configDir, modeKey, { quiet = false } 
                     entryCount: entries?.length ?? 0
                 })
             } else if (mode.mergeCategories?.length) {
-                const cur = readWebFilterMirror(configDir)
+                const cur = readWebFilterConfig(configDir)
                 const next = mergeCategoriesIntoMirror(cur, mode.mergeCategories)
                 await persistWebFilterEntries(configDir, next.entries, next.feedState)
             } else if (mode.stripCategories?.length) {
-                const cur = readWebFilterMirror(configDir)
+                const cur = readWebFilterConfig(configDir)
                 const next = stripCategoriesFromMirror(cur, mode.stripCategories)
                 await persistWebFilterEntries(configDir, next.entries, next.feedState)
             } else {
@@ -301,11 +301,11 @@ export async function applyLifeModeDirect(configDir, modeKey, { quiet = false } 
     } else {
         try {
             if (mode.mergeCategories?.length) {
-                const cur = readWebFilterMirror(configDir)
+                const cur = readWebFilterConfig(configDir)
                 const next = mergeCategoriesIntoMirror(cur, mode.mergeCategories)
                 await persistWebFilterEntries(configDir, next.entries, next.feedState)
             } else if (mode.stripCategories?.length) {
-                const cur = readWebFilterMirror(configDir)
+                const cur = readWebFilterConfig(configDir)
                 const next = stripCategoriesFromMirror(cur, mode.stripCategories)
                 await persistWebFilterEntries(configDir, next.entries, next.feedState)
             }
