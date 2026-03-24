@@ -1,15 +1,22 @@
 <template>
-    <div class="pc-page-header d-flex align-items-start justify-content-between">
-        <div>
-            <h1>{{ $t('webFilter.title') }}</h1>
-            <p>{{ $t('webFilter.subtitle') }}</p>
+    <div class="pc-page-header d-flex align-items-center justify-content-between">
+        <div class="d-flex align-items-center gap-3">
+            <label class="pc-toggle">
+                <input type="checkbox" v-model="store.webFilterEnabled" />
+                <span class="slider" />
+            </label>
+            <div>
+                <h1>{{ $t('webFilter.title') }}</h1>
+                <p class="mb-0">{{ $t('webFilter.subtitle') }}</p>
+            </div>
         </div>
-        <div class="d-flex align-items-center gap-3 pt-1">
+        <div class="d-flex align-items-center gap-3">
+            <span v-if="isDirty" class="text-danger small">{{ $t('common.unsavedChanges') }}</span>
             <span class="status-badge" :class="!store.webFilterEnabled ? 'inactive' : activeRuleCount > 0 ? 'active' : 'inactive'">
                 <i class="bi bi-circle-fill" style="font-size:7px;" />
                 {{ !store.webFilterEnabled ? $t('common.disabled') : activeRuleCount > 0 ? $t('webFilter.hostRules', { count: activeRuleCount }) : $t('webFilter.noActiveRules') }}
             </span>
-            <button class="btn-pc-primary" @click="onSave" :disabled="saving">
+            <button class="btn-pc-primary" @click="onSave" :disabled="!isDirty || saving">
                 <i class="bi bi-floppy me-1" />{{ saving ? $t('common.saving') : $t('common.applyChanges') }}
             </button>
         </div>
@@ -18,20 +25,6 @@
     <div class="pc-content">
         <div v-if="hostsBackupWarning" class="alert alert-warning py-2 px-3 mb-3" style="font-size:13px;">
             <i class="bi bi-exclamation-triangle me-2" />{{ hostsBackupWarning }}
-        </div>
-
-        <!-- Master toggle -->
-        <div class="pc-card mb-3">
-            <div class="pc-card-body d-flex align-items-center justify-content-between">
-                <div>
-                    <div class="fw-semibold">{{ $t('webFilter.enableWebFilter') }}</div>
-                    <div class="text-muted" style="font-size:12px;">{{ $t('webFilter.enableWebFilterHint') }}</div>
-                </div>
-                <label class="pc-toggle">
-                    <input type="checkbox" v-model="store.webFilterEnabled" />
-                    <span class="slider" />
-                </label>
-            </div>
         </div>
 
         <div :class="{ 'opacity-50 pe-none': !store.webFilterEnabled }">
@@ -244,6 +237,27 @@ const filteredEntries = computed(() => {
 const saveMsg = ref('')
 const saveError = ref(false)
 const hostsBackupWarning = ref('')
+const savedSnapshot = ref(null)
+
+function takeSnapshot() {
+    savedSnapshot.value = JSON.stringify({
+        enabled: store.webFilterEnabled,
+        entries: store.webFilterEntries.map(e => ({ domain: e.domain, enabled: e.enabled })),
+        feedState: Object.fromEntries(Object.entries(store.webFilterFeedState).sort()),
+        allowlist: [...store.webFilterAllowlist]
+    })
+}
+
+const isDirty = computed(() => {
+    if (savedSnapshot.value === null) return false
+    const cur = JSON.stringify({
+        enabled: store.webFilterEnabled,
+        entries: store.webFilterEntries.map(e => ({ domain: e.domain, enabled: e.enabled })),
+        feedState: Object.fromEntries(Object.entries(store.webFilterFeedState).sort()),
+        allowlist: [...store.webFilterAllowlist]
+    })
+    return cur !== savedSnapshot.value
+})
 
 const activeRuleCount = computed(() => store.webFilterHostRuleCount)
 
@@ -279,6 +293,7 @@ onMounted(async () => {
     categories.value = result.categories ?? []
     staticCategoryDomains.value = result.staticCategories ?? {}
     hostsBackupWarning.value = result.error || ''
+    takeSnapshot()
 })
 
 function onAdd() {
@@ -329,6 +344,7 @@ async function onSave() {
         saveMsg.value = t('webFilter.rulesApplied')
         saveError.value = false
         hostsBackupWarning.value = ''
+        takeSnapshot()
     }
     setTimeout(() => { saveMsg.value = '' }, 4000)
 }

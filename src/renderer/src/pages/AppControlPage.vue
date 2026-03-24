@@ -1,10 +1,17 @@
 <template>
-    <div class="pc-page-header d-flex align-items-start justify-content-between">
-        <div>
-            <h1>{{ $t('appControl.title') }}</h1>
-            <p>{{ $t('appControl.subtitle') }}</p>
+    <div class="pc-page-header d-flex align-items-center justify-content-between">
+        <div class="d-flex align-items-center gap-3">
+            <label class="pc-toggle">
+                <input type="checkbox" v-model="appControlEnabled" />
+                <span class="slider" />
+            </label>
+            <div>
+                <h1>{{ $t('appControl.title') }}</h1>
+                <p class="mb-0">{{ $t('appControl.subtitle') }}</p>
+            </div>
         </div>
-        <div class="d-flex align-items-center gap-2 pt-1">
+        <div class="d-flex align-items-center gap-2">
+            <span v-if="isDirty" class="text-danger small">{{ $t('common.unsavedChanges') }}</span>
             <span class="status-badge" :class="appControlEnabled && blockedCount > 0 ? 'warning' : 'inactive'">
                 <i class="bi bi-circle-fill" style="font-size:7px;" />
                 {{ $t('appControl.blockedCount', { count: blockedCount }) }}
@@ -12,7 +19,7 @@
             <button
                 type="button"
                 class="btn-pc-primary"
-                :disabled="quotaBusy"
+                :disabled="!isDirty || quotaBusy"
                 :title="$t('appControl.applyTitle')"
                 @click="onApplyAllQuotas"
             >
@@ -22,19 +29,6 @@
     </div>
 
     <div class="pc-content">
-        <div class="pc-card mb-3">
-            <div class="pc-card-body d-flex align-items-center justify-content-between">
-                <div>
-                    <div class="fw-semibold">{{ $t('appControl.enableAppControl') }}</div>
-                    <div class="text-muted" style="font-size:12px;">{{ $t('appControl.enableAppControlHint') }}</div>
-                </div>
-                <label class="pc-toggle">
-                    <input type="checkbox" v-model="appControlEnabled" />
-                    <span class="slider" />
-                </label>
-            </div>
-        </div>
-
         <div :class="{ 'opacity-50 pe-none': !appControlEnabled }">
             <div class="pc-card">
                 <div class="pc-card-header">
@@ -209,6 +203,14 @@ const addMinutes = ref(60)
 const addProcessOverride = ref('')
 const addLinuxUser = ref('')
 const appControlEnabled = ref(true)
+const savedAppControlEnabled = ref(null)
+
+const isDirty = computed(() => {
+    if (savedAppControlEnabled.value === null) return false
+    if (pendingBlocked.value.size > 0) return true
+    if (appControlEnabled.value !== savedAppControlEnabled.value) return true
+    return quotas.value.some(q => q.editLimit !== q.minutesPerDay || q.editProcess.trim() !== (q.processName || '').trim())
+})
 
 const filtered = computed(() => {
     const q = search.value.toLowerCase()
@@ -291,6 +293,7 @@ onMounted(async () => {
     await window.api.app.deferredHeavyWork()
     const ctl = await window.api.apps.getControlConfig()
     appControlEnabled.value = ctl?.enabled !== false
+    savedAppControlEnabled.value = appControlEnabled.value
     await store.loadBlockedApps()
     await loadDesktopLoginUsers()
     apps.value = await window.api.apps.list()
@@ -395,6 +398,7 @@ async function onApplyAllQuotas() {
         quotas.value = []
         addAppId.value = appsForQuota.value[0]?.id ?? ''
         quotaBusy.value = false
+        savedAppControlEnabled.value = appControlEnabled.value
         applyMsg.value = t('appControl.changesSaved')
         applyError.value = false
         setTimeout(() => { applyMsg.value = '' }, 4000)
@@ -403,6 +407,7 @@ async function onApplyAllQuotas() {
 
     if (!quotas.value.length) {
         quotaBusy.value = false
+        savedAppControlEnabled.value = appControlEnabled.value
         applyMsg.value = t('appControl.changesSaved')
         applyError.value = false
         setTimeout(() => { applyMsg.value = '' }, 4000)
@@ -438,6 +443,7 @@ async function onApplyAllQuotas() {
     await loadQuotas()
     await Promise.all([store.loadAppControlConfig(), store.loadBlockedApps(), store.loadAppQuotas()])
     quotaBusy.value = false
+    savedAppControlEnabled.value = appControlEnabled.value
     applyMsg.value = t('appControl.quotaSaved')
     applyError.value = false
     setTimeout(() => { applyMsg.value = '' }, 4000)

@@ -46,6 +46,7 @@
     "unknown": "Unknown",
     "loadingApps": "Loading applications\u2026",
     "unsaved": "unsaved",
+    "unsavedChanges": "You have unsaved changes",
     "blocked": "Blocked",
     "allAccounts": "All accounts",
     "optional": "optional",

@@ -1,4 +1,4 @@
-appId: "org.tuxfamily.life-kiosk"
+appId: "org.tuxfamily.life-parental-control"
 productName: "LiFE Parental Control"
 copyright: "Copyright © 2024 Thomas Michael Weissel"
 
@@ -49,3 +49,5 @@ linux:
 deb:
   afterInstall: packaging/debian/postinst.sh
   afterRemove: packaging/debian/postrm.sh
+  depends:
+    - "nodejs (>= 22)"

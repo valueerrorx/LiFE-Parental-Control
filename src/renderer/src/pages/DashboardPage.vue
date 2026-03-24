@@ -6,7 +6,7 @@
 
     <div class="pc-content">
         <!-- Status cards row -->
-        <div class="row g-3 mb-4 row-cols-2 row-cols-xl-6">
+        <div class="row g-3 mb-4 row-cols-2 row-cols-xl-5">
             <div class="col d-flex">
                 <div class="stat-card h-100 w-100">
                     <div class="stat-icon" style="background:#E3F2FD; color:#1565C0;">
@@ -67,7 +67,7 @@
                     </div>
                 </div>
             </div>
-            <div class="col d-flex">
+            <div v-if="isKDE" class="col d-flex">
                 <div class="stat-card h-100 w-100">
                     <div class="stat-icon" style="background:#F3E5F5; color:#6A1B9A;">
                         <i class="bi bi-lock-fill" />
@@ -78,23 +78,6 @@
                         <span class="status-badge" :class="kioskBadgeClass">
                             <i class="bi bi-circle-fill" style="font-size:7px;" />
                             {{ kioskBadgeLabel }}
-                        </span>
-                    </div>
-                </div>
-            </div>
-            <div class="col d-flex">
-                <div class="stat-card h-100 w-100" :class="{ 'stat-card--warn': daemonBadgeClass === 'inactive' }">
-                    <div class="stat-icon" :style="daemonIconStyle">
-                        <i class="bi bi-cpu" />
-                    </div>
-                    <div class="stat-label">{{ $t('dashboard.daemon') }}</div>
-                    <div class="stat-value d-flex align-items-center">
-                        <span style="font-size:16px;font-weight:600;line-height:1;">{{ daemonServiceLabel }}</span>
-                    </div>
-                    <div class="stat-sub">
-                        <span class="status-badge" :class="daemonBadgeClass">
-                            <i class="bi bi-circle-fill" style="font-size:7px;" />
-                            {{ daemonBadgeLabel }}
                         </span>
                     </div>
                 </div>
@@ -245,7 +228,7 @@
                         <i class="bi bi-clock me-2" />{{ $t('dashboard.setScreenTime') }}
                     </button>
                 </RouterLink>
-                <RouterLink to="/kiosk">
+                <RouterLink v-if="isKDE" to="/kiosk">
                     <button class="btn-pc-outline">
                         <i class="bi bi-lock me-2" />{{ $t('dashboard.kdeKioskMode') }}
                     </button>
@@ -281,12 +264,16 @@ const WEEK_BAR_TRACK_PX = 120
 const WEEK_BAR_FULL_MINUTES = 12 * 60
 
 const store = useAppStore()
+// Same visibility rule as AppSidebar nav (KDE or unknown XDG_CURRENT_DESKTOP).
+const isKDE = computed(() => {
+    const d = (store.xdgCurrentDesktop || '').toUpperCase()
+    return !d || d.includes('KDE')
+})
 const weekUsage = ref([])
 /** null = today (live store); else YYYY-MM-DD for historical donut. */
 const selectedDonutDate = ref(null)
 const donutDayUsage = ref({})
 const daemonServiceActive = ref(null) // 'active' | 'inactive' | null
-const daemonSocketConnected = ref(false)
 
 function localIsoDate(d = new Date()) {
     const y = d.getFullYear()
@@ -317,34 +304,12 @@ async function onWeekBarClick(d) {
     }
 }
 
-const daemonServiceLabel = computed(() => {
-    if (daemonServiceActive.value !== 'active') return '—'
-    return daemonSocketConnected.value ? t('dashboard.socketConnected') : t('dashboard.noSocket')
-})
-const daemonBadgeClass = computed(() => {
-    if (daemonServiceActive.value === 'active') return 'active'
-    return 'inactive'
-})
-const daemonBadgeLabel = computed(() => {
-    if (daemonServiceActive.value === null) return t('common.unknown')
-    return daemonServiceActive.value === 'active' ? t('common.active') : t('common.inactive')
-})
-const daemonIconStyle = computed(() => {
-    if (daemonServiceActive.value === 'active') return 'background:#E8F5E9; color:#2E7D32;'
-    return 'background:#FFEBEE; color:#C62828;'
-})
-
 async function loadDaemonStatus() {
     try {
-        const [connected, svc] = await Promise.all([
-            window.api.daemon.isConnected(),
-            window.api.daemon.serviceControl({ action: 'status' })
-        ])
-        daemonSocketConnected.value = Boolean(connected)
+        const svc = await window.api.daemon.serviceControl({ action: 'status' })
         daemonServiceActive.value = svc?.status ?? null
     } catch {
         daemonServiceActive.value = null
-        daemonSocketConnected.value = false
     }
 }
 
@@ -571,9 +536,6 @@ onMounted(async () => {
 </script>
 
 <style scoped>
-.stat-card--warn {
-    border-color: #FFCDD2;
-}
 .donut-overlap-hint {
     color: #b0bec5;
 }

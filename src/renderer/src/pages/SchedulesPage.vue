@@ -1,35 +1,28 @@
 <template>
-    <div class="pc-page-header d-flex align-items-start justify-content-between">
-        <div>
-            <h1>{{ $t('schedules.title') }}</h1>
-            <p>{{ $t('schedules.subtitle') }}</p>
+    <div class="pc-page-header d-flex align-items-center justify-content-between">
+        <div class="d-flex align-items-center gap-3">
+            <label class="pc-toggle">
+                <input type="checkbox" v-model="schedule.enabled" />
+                <span class="slider" />
+            </label>
+            <div>
+                <h1>{{ $t('schedules.title') }}</h1>
+                <p class="mb-0">{{ $t('schedules.subtitle') }}</p>
+            </div>
         </div>
-        <div class="d-flex gap-2 pt-1">
+        <div class="d-flex align-items-center gap-2">
+            <span v-if="isDirty" class="text-danger small">{{ $t('common.unsavedChanges') }}</span>
             <span class="status-badge" :class="schedule.enabled ? 'active' : 'inactive'">
                 <i class="bi bi-circle-fill" style="font-size:7px;" />
                 {{ schedule.enabled ? $t('common.active') : $t('common.disabled') }}
             </span>
-            <button class="btn-pc-primary" @click="onSave" :disabled="saving">
+            <button class="btn-pc-primary" @click="onSave" :disabled="!isDirty || saving">
                 <i class="bi bi-floppy me-1" />{{ saving ? $t('common.saving') : $t('common.applyChanges') }}
             </button>
         </div>
     </div>
 
     <div class="pc-content" v-if="schedule">
-        <!-- Master toggle -->
-        <div class="pc-card mb-3">
-            <div class="pc-card-body d-flex align-items-center justify-content-between">
-                <div>
-                    <div class="fw-semibold">{{ $t('schedules.enableScreenTime') }}</div>
-                    <div class="text-muted" style="font-size:12px;">{{ $t('schedules.enableScreenTimeHint') }}</div>
-                </div>
-                <label class="pc-toggle">
-                    <input type="checkbox" v-model="schedule.enabled" />
-                    <span class="slider" />
-                </label>
-            </div>
-        </div>
-
         <div :class="{ 'opacity-50 pe-none': !schedule.enabled }">
             <!-- Daily time limit -->
             <div class="pc-card mb-3">
@@ -192,6 +185,16 @@ const schedule = reactive({
 const saving  = ref(false)
 const saveMsg = ref('')
 const saveError = ref(false)
+const savedSnapshot = ref(null)
+
+function takeSnapshot() {
+    savedSnapshot.value = JSON.stringify({ ...schedule, allowedDays: [...schedule.allowedDays] })
+}
+
+const isDirty = computed(() => {
+    if (savedSnapshot.value === null) return false
+    return JSON.stringify({ ...schedule, allowedDays: [...schedule.allowedDays] }) !== savedSnapshot.value
+})
 const todayMinutes = ref(0)
 const usageHistory = ref([])
 const historyDays = ref(7)
@@ -244,6 +247,7 @@ onMounted(async () => {
     await loadDesktopLoginUsers()
     const saved = await window.api.schedules.get()
     if (saved) Object.assign(schedule, saved)
+    takeSnapshot()
     await refreshUsageData()
 })
 
@@ -306,6 +310,7 @@ async function onSave() {
     else {
         saveMsg.value = t('schedules.screenTimeApplied')
         saveError.value = false
+        takeSnapshot()
         void appStore.refreshProtectionsState()
         await refreshUsageData()
     }

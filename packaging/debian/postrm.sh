@@ -3,7 +3,7 @@ set -e
 case "$1" in
     remove|purge)
         rm -f /usr/share/polkit-1/actions/org.tuxfamily.life-parental-control.policy
-        rm -f /usr/share/polkit-1/rules.d/50-org.tuxfamily.life-kiosk.rules
+        rm -f /usr/share/polkit-1/rules.d/50-org.tuxfamily.life-parental-control.rules
         if command -v systemctl >/dev/null 2>&1; then
             systemctl stop parental-control.service 2>/dev/null || true
             systemctl disable parental-control.service 2>/dev/null || true

@@ -1,35 +1,28 @@
 <template>
-    <div class="pc-page-header d-flex align-items-start justify-content-between">
-        <div>
-            <h1>{{ $t('processWhitelist.title') }}</h1>
-            <p v-html="$t('processWhitelist.subtitle')" />
+    <div class="pc-page-header d-flex align-items-center justify-content-between">
+        <div class="d-flex align-items-center gap-3">
+            <label class="pc-toggle">
+                <input type="checkbox" v-model="config.enabled" />
+                <span class="slider" />
+            </label>
+            <div>
+                <h1>{{ $t('processWhitelist.title') }}</h1>
+                <p class="mb-0" v-html="$t('processWhitelist.subtitle')" />
+            </div>
         </div>
-        <div class="d-flex align-items-center gap-2 pt-1">
+        <div class="d-flex align-items-center gap-2">
+            <span v-if="isDirty" class="text-danger small">{{ $t('common.unsavedChanges') }}</span>
             <span class="status-badge" :class="config.enabled ? 'active' : 'inactive'">
                 <i class="bi bi-circle-fill" style="font-size:7px;" />
                 {{ config.enabled ? $t('common.active') : $t('common.disabled') }}
             </span>
-            <button class="btn-pc-primary" :disabled="saving" @click="onSave">
+            <button class="btn-pc-primary" :disabled="!isDirty || saving" @click="onSave">
                 <i class="bi bi-floppy me-1" />{{ saving ? $t('common.saving') : $t('common.applyChanges') }}
             </button>
         </div>
     </div>
 
     <div class="pc-content">
-        <!-- Master toggle -->
-        <div class="pc-card mb-3">
-            <div class="pc-card-body d-flex align-items-center justify-content-between">
-                <div>
-                    <div class="fw-semibold">{{ $t('processWhitelist.enableExemptions') }}</div>
-                    <div class="text-muted" style="font-size:12px;" v-html="$t('processWhitelist.enableExemptionsDesc')" />
-                </div>
-                <label class="pc-toggle">
-                    <input type="checkbox" v-model="config.enabled" />
-                    <span class="slider" />
-                </label>
-            </div>
-        </div>
-
         <!-- App list -->
         <div class="pc-card mb-3" :class="{ 'section-disabled': !config.enabled }" :aria-disabled="!config.enabled">
             <div class="pc-card-header d-flex align-items-center justify-content-between flex-wrap gap-2">
@@ -130,6 +123,14 @@ const savedAllowedIds = ref(new Set())
 const allApps = ref([])
 
 const blockedIdSet = computed(() => new Set(store.blockedApps))
+
+const isDirty = computed(() => {
+    if (loading.value) return false
+    if (config.value.enabled !== savedEnabled.value) return true
+    if (allowedIds.value.size !== savedAllowedIds.value.size) return true
+    for (const id of allowedIds.value) if (!savedAllowedIds.value.has(id)) return true
+    return false
+})
 
 function isAppBlocked(app) {
     return Boolean(app?.blocked) || (app?.id ? blockedIdSet.value.has(app.id) : false)

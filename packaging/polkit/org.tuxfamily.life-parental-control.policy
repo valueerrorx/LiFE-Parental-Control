@@ -7,7 +7,7 @@
 
   <action id="org.tuxfamily.life-parental-control.admin">
     <description>Run LiFE Parental Control with administrator rights</description>
-    <message>LiFE Parental Control needs administrator access to manage /etc/life-parental, cron jobs, and KDE integration.</message>
+    <message>LiFE Parental Control needs administrator access to manage /etc/life-parental, systemd services, and KDE integration.</message>
     <icon_name>applications-system</icon_name>
     <defaults>
       <allow_any>auth_admin</allow_any>
