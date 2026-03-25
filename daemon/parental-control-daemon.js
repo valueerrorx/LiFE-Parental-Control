@@ -1033,16 +1033,6 @@ function preferredLinuxUserForWarnings() {
     return normalizeLinuxUser(readSchedule().screenTimeLinuxUser);
 }
 
-// loginctl list-sessions is ordered by ascending id; list[0] was always the oldest login (often wrong VT when two users are on seat0).
-function pickLatestSessionById(list) {
-    if (!list.length) return null;
-    if (list.length === 1) return list[0];
-    const sorted = [...list].sort((a, b) => (Number(b.sessionId) || 0) - (Number(a.sessionId) || 0));
-    const chosen = sorted[0];
-    log.info(`getFirstActiveUserInfo: chosen sessionId=${chosen.sessionId} user=${chosen.user} (${list.length} candidates; prefer highest session id)`);
-    return chosen;
-}
-
 function getFirstActiveUserInfo() {
     const list = listActiveUserInfos();
     if (!list.length) return null;
@@ -1053,11 +1043,11 @@ function getFirstActiveUserInfo() {
             log.info(`getFirstActiveUserInfo: using schedule.screenTimeLinuxUser session user=${pref} sid=${hit.sessionId}`);
             return hit;
         }
-        log.warn(`getFirstActiveUserInfo: no active session for screenTimeLinuxUser=${pref} (have: ${list.map((s) => s.user).join(', ')}); using ranked session`);
+        log.warn(`getFirstActiveUserInfo: no active session for screenTimeLinuxUser=${pref} (have: ${list.map((s) => s.user).join(', ')}); using first session`);
     } else if (list.length > 1) {
         log.info(`getFirstActiveUserInfo: ${list.length} active graphical sessions; set schedule.screenTimeLinuxUser to pin daemon warnings/notify-send to that login`);
     }
-    return pickLatestSessionById(list);
+    return list[0];
 }
 
 // Logind Environment keys merged into warning spawn (session identity for GNOME vs KDE; after base, before DISPLAY/WAYLAND).
