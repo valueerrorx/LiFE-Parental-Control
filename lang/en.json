@@ -255,7 +255,7 @@
     "installDesc": "<strong>Install & Start</strong> copies daemon modules under <code>/usr/lib/life-parental/</code> and <code>/etc/systemd/system/parental-control.service</code> from the app package, runs <code>systemctl enable &amp;&amp; start</code>. Requires <code>/usr/bin/node</code>.",
     "daemonInstalled": "Daemon installed and started.",
     "warningTestBtn": "Test warning window (daemon)",
-    "warningTestHint": "Sets >requestDaemonWarningTest< in >default.json<. The systemd service picks it up on the next tick (~10\u202fs), clears the flag, and opens the same warning window as real alerts.",
+    "warningTestHint": "Sets <code>requestDaemonWarningTest</code> in <code>default.json</code>. The systemd service picks it up on the next tick (~10\u202fs), clears the flag, and opens the same warning window as real alerts.",
     "warningTestQueued": "Request saved. If the service is running, the window should appear within a few seconds.",
     "serviceAction": "Service {action} executed.",
     "changePassword": "Change Password",
@@ -396,7 +396,7 @@
   },
   "activityLog": {
     "title": "Application log",
-    "desc": "Parental action log (newest first). File: <code>/etc/life-parental/activity-log.json</code> (last 400 events kept).",
+    "desc": "Parental action log (newest first). File: <code>/var/log/life-parental.json</code> (last 400 events kept).",
     "noEntries": "No entries yet.",
     "screenTimeBonus": "Screen time: +{granted} min extra allowance (total +{total} min today)",
     "screenTimeBonusLegacy": "Screen time bonus (legacy): \u2212{granted} min recorded (now {after} min today)",

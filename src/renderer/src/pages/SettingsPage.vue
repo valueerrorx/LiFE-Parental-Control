@@ -64,7 +64,7 @@
                         <p v-if="daemonCtrlMsg" class="small mb-2" :class="daemonCtrlError ? 'text-danger' : 'text-success'">{{ daemonCtrlMsg }}</p>
                         <p class="text-muted small mb-2" v-html="$t('settings.installDesc')" />
                         <div class="border-top pt-3 mt-2">
-                            <div class="small text-muted mb-2">{{ $t('settings.warningTestHint') }}</div>
+                            <div class="small text-muted mb-2" v-html="$t('settings.warningTestHint')" />
                             <button type="button" class="btn-pc-outline" :disabled="warningTestBusy" @click="onQueueDaemonWarningTest">
                                 <i class="bi bi-window-stack me-1" />{{ $t('settings.warningTestBtn') }}
                             </button>

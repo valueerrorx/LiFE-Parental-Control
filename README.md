@@ -27,7 +27,7 @@ Built-in **School** / **Leisure** buttons plus any **custom modes** from **`/etc
 
 The **Include KDE kiosk** checkbox (below the profile buttons) is optional: when enabled, applying a profile also **merges** the current **KDE Kiosk** tab profile into `/etc/xdg/kdeglobals` (including optional **Plasma layout hard lock** if enabled under **Look and feel**; see **KDE kiosk: `kdeglobals` and Plasma layout lock** above), or on **Leisure** **removes** LiFE kiosk sections there. Either action **restarts the graphical session** so the lockdown takes effect.
 
-**Config:** `/etc/life-parental/` (app expects elevated rights when packaged; see main process). Optional **`activity-log.json`** records parental actions (ring buffer); open it from the sidebar (**Application log**, bottom left), not part of backup export.
+**Config:** `/etc/life-parental/` (app expects elevated rights when packaged; see main process). Optional **`/var/log/life-parental.json`** records parental actions (ring buffer); open it from the sidebar (**Application log**, bottom left), not part of backup export.
 
 ### Screen time: logged minutes
 

@@ -16,7 +16,7 @@ const execFileAsync = promisify(execFile);
 const SOCKET_PATH = '/run/parental-control.sock';
 const CONFIG_DIR = '/etc/life-parental';
 const LOG_FILE = '/etc/life-parental/daemon.log';
-const ACTIVITY_LOG_FILE = '/etc/life-parental/activity-log.json';
+const ACTIVITY_LOG_FILE = '/var/log/life-parental.json';
 const ACTIVITY_LOG_MAX = 400;
 const LOG_MAX_BYTES = 2 * 1024 * 1024; // rotate at 2 MB
 const TICK_MS = 10_000;
@@ -1600,6 +1600,7 @@ async function tickAppQuotas(logMinute) {
 // --- App monitor (usage tracking without enforcement) ---
 
 async function tickAppMonitor(logMinute) {
+    const tickDate = localIsoDate();
     const entries = readMonitorCatalogEntries();
     if (!entries.length) return;
     const sessions = await getActiveGraphicalSessions();
@@ -1615,6 +1616,9 @@ async function tickAppMonitor(logMinute) {
         if (!appId || !proc) continue;
         if (await anyUserRunningProcess(activeUsers, proc) && logMinute) track[appId] = (track[appId] || 0) + 1;
     }
+    // Guard against midnight-crossing: if the date changed during the async loop,
+    // the track was read from yesterday's file. Discard to avoid polluting today's file.
+    if (localIsoDate() !== tickDate) return;
     writeAppMonitorUsage(track);
 }
 

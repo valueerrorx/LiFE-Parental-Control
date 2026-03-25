@@ -366,6 +366,7 @@ async function tickAppQuotas(configDir, { onAppQuotaWarn }, logMinute) {
 }
 
 async function tickAppMonitor(configDir, logMinute) {
+    const tickDate = localIsoDate()
     const entries = readMonitorCatalogEntries(configDir)
     if (!Array.isArray(entries) || entries.length === 0) return
 
@@ -385,6 +386,7 @@ async function tickAppMonitor(configDir, logMinute) {
         if (running && logMinute) track[appId] = (track[appId] || 0) + 1
     }
 
+    if (localIsoDate() !== tickDate) return
     writeAppMonitorUsage(configDir, track)
 }
 
