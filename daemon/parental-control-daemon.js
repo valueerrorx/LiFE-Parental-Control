@@ -16,6 +16,8 @@ const execFileAsync = promisify(execFile);
 const SOCKET_PATH = '/run/parental-control.sock';
 const CONFIG_DIR = '/etc/life-parental';
 const LOG_FILE = '/etc/life-parental/daemon.log';
+const ACTIVITY_LOG_FILE = '/etc/life-parental/activity-log.json';
+const ACTIVITY_LOG_MAX = 400;
 const LOG_MAX_BYTES = 2 * 1024 * 1024; // rotate at 2 MB
 const TICK_MS = 10_000;
 const TICKS_PER_LOGGED_MINUTE = 60_000 / TICK_MS; // 6 ticks = 1 minute
@@ -60,6 +62,17 @@ const log = {
     warn:  (...a) => logLine('WARN',  ...a),
     error: (...a) => logLine('ERROR', ...a),
 };
+
+// Best-effort append to the shared activity log (same file as the UI's activityLog.js).
+function appendActivityDaemon(entry) {
+    try {
+        let list = [];
+        try { list = JSON.parse(fs.readFileSync(ACTIVITY_LOG_FILE, 'utf8')); if (!Array.isArray(list)) list = []; } catch { /* new file */ }
+        list.push({ t: new Date().toISOString(), ...entry });
+        if (list.length > ACTIVITY_LOG_MAX) list = list.slice(-ACTIVITY_LOG_MAX);
+        fs.writeFileSync(ACTIVITY_LOG_FILE, JSON.stringify(list), 'utf8');
+    } catch { /* best-effort */ }
+}
 
 // Mutable tick state
 let tickInMinute = 0;
@@ -599,7 +612,11 @@ async function terminateSessionsForPolicy(sessions, targetUser) {
         try {
             await execFileAsync('loginctl', ['terminate-session', String(sid)], { timeout: 5000 });
             log.info(`terminate-session sid=${sid} user=${user} OK`);
-        } catch (e) { log.error(`terminate-session sid=${sid} user=${user} FAILED: ${e.message}`); }
+            appendActivityDaemon({ action: 'session_terminated', user, sessionId: String(sid) });
+        } catch (e) {
+            log.error(`terminate-session sid=${sid} user=${user} FAILED: ${e.message}`);
+            appendActivityDaemon({ action: 'session_terminate_failed', user, sessionId: String(sid), error: e.message });
+        }
     }
 
     // After killing the session, restart the display manager so the greeter reappears.
@@ -1104,6 +1121,53 @@ function envPairsFromLoginctlSessionEnvironment(sessionId, keys) {
     return pairs;
 }
 
+// Compositor processes checked first — they inherit the full session environment.
+const COMPOSITOR_PROCS_FOR_ENV = ['gnome-shell', 'plasmashell', 'sway', 'Hyprland', 'kwin_wayland', 'kwin_x11', 'mutter', 'cinnamon', 'xfce4-session'];
+
+/**
+ * Read environment variables from a running process owned by `user`.
+ * Checks compositor processes first (they carry the full session env including D-Bus address).
+ * The daemon runs as root so /proc/PID/environ is readable for any user.
+ * Used as fallback when logind does not store the session environment (TTY-started desktops).
+ */
+function readEnvVarsFromUserProcess(user, keys) {
+    const result = new Map();
+    if (!keys.length) return result;
+
+    // Prefer compositor PIDs — they have the complete session environment
+    const pids = [];
+    for (const comm of COMPOSITOR_PROCS_FOR_ENV) {
+        try {
+            const r = spawnSync('pgrep', ['-u', user, '-x', comm], { encoding: 'utf8', timeout: 1500 });
+            for (const p of String(r.stdout || '').trim().split('\n').filter(Boolean)) {
+                if (!pids.includes(p)) pids.push(p);
+            }
+        } catch { /* ignore */ }
+    }
+    // Add remaining user processes as fallback
+    try {
+        const r = spawnSync('pgrep', ['-u', user], { encoding: 'utf8', timeout: 2000 });
+        for (const p of String(r.stdout || '').trim().split('\n').filter(Boolean)) {
+            if (!pids.includes(p)) pids.push(p);
+        }
+    } catch { /* ignore */ }
+
+    for (const pid of pids.slice(0, 30)) {
+        try {
+            const buf = fs.readFileSync(`/proc/${pid}/environ`);
+            for (const entry of buf.toString('latin1').split('\0')) {
+                const eq = entry.indexOf('=');
+                if (eq === -1) continue;
+                const k = entry.slice(0, eq);
+                const v = entry.slice(eq + 1);
+                if (keys.includes(k) && !result.has(k)) result.set(k, v);
+            }
+            if (result.size === keys.length) break;
+        } catch { /* EACCES or process gone */ }
+    }
+    return result;
+}
+
 // Env for systemd-spawned --warning-mode only (deb or AppImage × X11 or Wayland); main UI uses a different code path.
 function buildWarningWindowEnvPairs(info, homeDir, xauthorityPath, isAppImage, execPath) {
     const { uid, sessionKind, waylandDisplay, x11Display, sessionId, user } = info;
@@ -1150,6 +1214,13 @@ function buildNotifySendEnvPairs(info) {
         const eq = kv.indexOf('=');
         if (eq === -1) continue;
         m.set(kv.slice(0, eq), kv.slice(eq + 1));
+    }
+    // For TTY-started desktops (e.g. GNOME launched from a VT), logind stores no session environment.
+    // Read the actual DBUS_SESSION_BUS_ADDRESS and WAYLAND_DISPLAY directly from the compositor
+    // process so notify-send connects to the right D-Bus instance.
+    const procEnv = readEnvVarsFromUserProcess(user, ['DBUS_SESSION_BUS_ADDRESS', 'WAYLAND_DISPLAY', 'DISPLAY']);
+    for (const [k, v] of procEnv) {
+        if (v) m.set(k, v);
     }
     if (sessionKind === 'x11') {
         if (!m.has('DISPLAY')) m.set('DISPLAY', x11Display);
@@ -1238,6 +1309,7 @@ function spawnWarningWindow(payload, sessionInfo) {
 // Root Electron cannot reliably open windows on the user's Wayland session,
 // so the --warning-mode process (running as desktop user) handles the actual UI.
 function notifyOrSpawn(payload, notifySummary, notifyBody, urgency = 'normal', skipWindow = false) {
+    appendActivityDaemon({ action: 'notification_sent', type: payload.type || 'unknown', summary: notifySummary, appId: payload.appId || undefined, appName: payload.appName || undefined });
     broadcastWarn(payload); // broadcast to connected clients (for status/dashboard updates)
     const info = getFirstActiveUserInfo();
     if (!skipWindow) spawnWarningWindow(payload, info);
@@ -1484,6 +1556,7 @@ async function tickAppQuotas(logMinute) {
                     notifyOrSpawn(warnPayload, `${name}: Zeit aufgebraucht`, `Tageslimit von ${limit} Min. erreicht.`, 'critical');
                 }
                 await pkillAllUsers(usersForQuota, proc);
+                appendActivityDaemon({ action: 'app_killed_quota_exhausted', appId, appName: name, processName: proc, usedMinutes: usedBefore, limit, linuxUser: lu || undefined });
             } else if (!exempt.has(appId) && usedBefore === limit - 1) {
                 if (logMinute) {
                     appUsage[uk] = limit;

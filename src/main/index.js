@@ -210,7 +210,7 @@ app.whenReady().then(async () => {
         // best-effort cleanup
     }
     registerConfigIpc(ipcMain, kioskDir)
-    registerProfileIpc(ipcMain, profilesDir)
+    registerProfileIpc(ipcMain, profilesDir, APP_CONFIG_DIR)
     registerSystemIpc(ipcMain, () => mainWindow, APP_CONFIG_DIR)
     registerSettingsIpc(ipcMain, APP_CONFIG_DIR)
 

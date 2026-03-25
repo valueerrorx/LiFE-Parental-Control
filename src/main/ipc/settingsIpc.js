@@ -125,21 +125,24 @@ export function registerSettingsIpc(ipcMain, configDir) {
 
     ipcMain.handle('settings:saveConfig', (_, data) => {
         if (!data || typeof data !== 'object' || Array.isArray(data)) return
+        const logFields = {}
         patchDefaultJson(configDir, (d) => {
             const nextPrefs = { ...(d.preferences || {}) }
             if (Object.hasOwn(data, 'lockIdleMinutes')) {
                 const m = normalizedLockIdleMinutesOrUndefined(data.lockIdleMinutes)
-                if (m !== undefined) nextPrefs.lockIdleMinutes = m
+                if (m !== undefined) { nextPrefs.lockIdleMinutes = m; logFields.lockIdleMinutes = m }
                 else delete nextPrefs.lockIdleMinutes
             }
             if (Object.hasOwn(data, 'quotaViewLinuxUser')) {
                 const raw = data.quotaViewLinuxUser
                 const v = raw === '' || raw == null ? '' : normalizeQuotaLinuxUser(String(raw))
                 nextPrefs.quotaViewLinuxUser = v || ''
+                logFields.quotaViewLinuxUser = nextPrefs.quotaViewLinuxUser
             }
             d.preferences = nextPrefs
             return d
         })
+        appendActivity(configDir, { action: 'settings_config_saved', ...logFields })
     })
 
 

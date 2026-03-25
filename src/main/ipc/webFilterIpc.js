@@ -179,8 +179,10 @@ export function registerWebFilterIpc(ipcMain, configDir, opts = {}) {
                 }))
                 : []
             await persistWebfilterAndHosts(configDir, wf)
+            appendActivity(configDir, { action: 'webfilter_list_set', count: wf.entries.filter(e => e.enabled !== false).length })
             return { ok: true }
         } catch (e) {
+            appendActivity(configDir, { action: 'webfilter_list_set_error', error: e.message })
             return { error: e.message }
         }
     })
@@ -190,8 +192,10 @@ export function registerWebFilterIpc(ipcMain, configDir, opts = {}) {
             const wf = readWebfilterFromConfig(configDir)
             wf.listAllowlist = normalizeAllowlist(Array.isArray(domains) ? domains : [])
             await persistWebfilterAndHosts(configDir, wf)
+            appendActivity(configDir, { action: 'webfilter_allowlist_set', count: wf.listAllowlist.length })
             return { ok: true }
         } catch (e) {
+            appendActivity(configDir, { action: 'webfilter_allowlist_set_error', error: e.message })
             return { error: e.message }
         }
     })
@@ -202,8 +206,10 @@ export function registerWebFilterIpc(ipcMain, configDir, opts = {}) {
             const wf = readWebfilterFromConfig(configDir)
             wf.feedState = { ...wf.feedState, [feedId]: Boolean(enabled) }
             await persistWebfilterAndHosts(configDir, wf)
+            appendActivity(configDir, { action: 'webfilter_feed_set', feedId, enabled: Boolean(enabled) })
             return { ok: true }
         } catch (e) {
+            appendActivity(configDir, { action: 'webfilter_feed_set_error', feedId, error: e.message })
             return { error: e.message }
         }
     })
@@ -216,14 +222,17 @@ export function registerWebFilterIpc(ipcMain, configDir, opts = {}) {
             if (feedId) {
                 wf.feedState = { ...wf.feedState, [feedId]: true }
                 await persistWebfilterAndHosts(configDir, wf)
+                appendActivity(configDir, { action: 'webfilter_category_added', category: categoryName, feed: feedId })
                 return { added: -1, feed: feedId }
             }
             const existing = new Set(wf.entries.map(e => e.domain))
             const toAdd = (WEB_FILTER_STATIC_CATEGORIES[categoryName] || []).filter(d => !existing.has(d))
             wf.entries = [...wf.entries, ...toAdd.map(d => ({ domain: d, enabled: true }))]
             await persistWebfilterAndHosts(configDir, wf)
+            appendActivity(configDir, { action: 'webfilter_category_added', category: categoryName, added: toAdd.length })
             return { added: toAdd.length }
         } catch (e) {
+            appendActivity(configDir, { action: 'webfilter_category_added_error', category: categoryName, error: e.message })
             return { error: e.message }
         }
     })
@@ -232,8 +241,10 @@ export function registerWebFilterIpc(ipcMain, configDir, opts = {}) {
         try {
             const wf = readWebfilterFromConfig(configDir)
             await persistWebfilterAndHosts(configDir, { enabled: wf.enabled, entries: [], feedState: {}, listAllowlist: [] })
+            appendActivity(configDir, { action: 'webfilter_cleared' })
             return { ok: true }
         } catch (e) {
+            appendActivity(configDir, { action: 'webfilter_cleared_error', error: e.message })
             return { error: e.message }
         }
     })
@@ -255,8 +266,10 @@ export function registerWebFilterIpc(ipcMain, configDir, opts = {}) {
                 wf.listAllowlist = normalizeAllowlist(data.listAllowlist)
             }
             await persistWebfilterAndHosts(configDir, wf)
+            appendActivity(configDir, { action: 'webfilter_saved', enabled: wf.enabled, manualCount: wf.entries.filter(e => e.enabled !== false).length, feedCount: Object.values(wf.feedState).filter(Boolean).length, allowlistCount: wf.listAllowlist.length })
             return { ok: true }
         } catch (e) {
+            appendActivity(configDir, { action: 'webfilter_saved_error', error: e.message })
             return { error: e.message }
         }
     })
@@ -271,8 +284,10 @@ export function registerWebFilterIpc(ipcMain, configDir, opts = {}) {
             } catch {
                 /* hosts may be unreadable */
             }
+            appendActivity(configDir, { action: 'webfilter_feeds_synced', updated: r.updated?.length ?? 0, errors: r.errors?.length ?? 0 })
             return r
         } catch (e) {
+            appendActivity(configDir, { action: 'webfilter_feeds_sync_error', error: e.message })
             return { error: e.message, updated: [], notModified: [], errors: [e.message] }
         }
     })

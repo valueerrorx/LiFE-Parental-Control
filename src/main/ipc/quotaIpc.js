@@ -250,6 +250,7 @@ export function registerQuotaIpc(ipcMain, configDir) {
             try {
                 pruneUsageArchives(configDir)
             } catch { /* ignore */ }
+            appendActivity(configDir, { action: idx >= 0 ? 'quota_entry_updated' : 'quota_entry_added', appId: entry.appId, appName: entry.appName, minutesPerDay: entry.minutesPerDay, linuxUser: entry.linuxUser || undefined })
             return { ok: true }
         } catch (e) { return { error: e.message } }
     })
@@ -267,6 +268,7 @@ export function registerQuotaIpc(ipcMain, configDir) {
             try {
                 pruneUsageArchives(configDir)
             } catch { /* ignore */ }
+            appendActivity(configDir, { action: 'quota_entry_removed', appId, linuxUser: lu || undefined })
             return { ok: true }
         } catch (e) { return { error: e.message } }
     })

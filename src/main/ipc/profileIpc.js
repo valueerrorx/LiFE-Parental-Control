@@ -1,7 +1,8 @@
 import fs from 'fs'
 import path from 'path'
+import { appendActivity } from './activityLog.js'
 
-export function registerProfileIpc(ipcMain, profilesDir) {
+export function registerProfileIpc(ipcMain, profilesDir, configDir) {
     ipcMain.handle('profile:list', () =>
         fs.readdirSync(profilesDir)
             .filter(f => f.endsWith('.profile') && f !== 'last.profile')
@@ -27,10 +28,12 @@ export function registerProfileIpc(ipcMain, profilesDir) {
 
     ipcMain.handle('profile:save', (_, name, content) => {
         fs.writeFileSync(path.join(profilesDir, name), content, 'utf8')
+        appendActivity(configDir, { action: 'profile_saved', name: String(name || '') })
     })
 
     ipcMain.handle('profile:delete', (_, name) => {
         const filePath = path.join(profilesDir, name)
         if (fs.existsSync(filePath)) fs.unlinkSync(filePath)
+        appendActivity(configDir, { action: 'profile_deleted', name: String(name || '') })
     })
 }
