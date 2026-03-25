@@ -60,7 +60,8 @@ export async function getActiveGraphicalSessions() {
                 )
                 const p = parseLoginctlSession(out2)
                 if (p.Class === 'greeter' || p.Class === 'background') continue
-                const live = p.State === 'active' || p.State === 'online'
+                // VT-started desktops may show State=idle; still count as live for tray target and enforcement.
+                const live = p.State === 'active' || p.State === 'online' || p.State === 'idle'
                 if (!live) continue
                 const t = p.Type || ''
                 if (t === 'x11' || t === 'wayland' || t === 'mir') {

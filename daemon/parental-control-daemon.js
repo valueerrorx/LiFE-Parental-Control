@@ -21,6 +21,16 @@ const TICK_MS = 10_000;
 const TICKS_PER_LOGGED_MINUTE = 60_000 / TICK_MS; // 6 ticks = 1 minute
 const ALLOWED_HOURS_WARN_INTERVAL_MS = 5 * 60 * 1000;
 
+const NOTIFY_SEND_BIN = (() => {
+    try {
+        if (fs.existsSync('/usr/bin/notify-send')) return '/usr/bin/notify-send';
+        if (fs.existsSync('/bin/notify-send')) return '/bin/notify-send';
+    } catch { /* ignore */ }
+    return 'notify-send';
+})();
+
+const NOTIFY_APP_NAME = 'LiFE Parental Control';
+
 // --- Exempt-app watchdog constants ---
 const WD_INPUT_WINDOW_MS   = 8_000;  // user counts as "active" if input in last 8s
 const WD_CPU_MIN_JIFFIES   = 5;      // minimum CPU jiffies delta to consider app "responsive"
@@ -55,6 +65,9 @@ const log = {
 let tickInMinute = 0;
 let quotaWarnDate = '';
 const appQuotaWarnOnce = new Set();
+const quotaLinuxUserNoSessionWarnOnce = new Set(); // one warn per appId+linuxUser until next calendar day
+let quotaTickSkippedAppControlWarned = false;
+let quotaTickSkippedNoGraphicalSessionsWarned = false;
 let lastAllowedHoursWarnAt = 0;
 
 // Exempt-app watchdog state
@@ -512,6 +525,12 @@ async function userHasDesktopEnvironment(user) {
     return false;
 }
 
+// VT/manual GNOME starts often report State=idle in loginctl; still a usable graphical session for quotas and warnings.
+function logindSessionStateLive(state) {
+    const s = String(state || '').trim();
+    return s === 'active' || s === 'online' || s === 'idle';
+}
+
 async function getActiveGraphicalSessions() {
     try {
         const { stdout } = await execFileAsync('loginctl', ['list-sessions', '--no-legend'], { timeout: 5000 });
@@ -528,7 +547,7 @@ async function getActiveGraphicalSessions() {
                 );
                 const p = parseLoginctlSession(out2);
                 if (p.Class === 'greeter' || p.Class === 'background') continue;
-                if (p.State !== 'active' && p.State !== 'online') continue;
+                if (!logindSessionStateLive(p.State)) continue;
                 const t = p.Type || '';
                 if (t === 'x11' || t === 'wayland' || t === 'mir') {
                     sessions.push({ user, sid });
@@ -684,16 +703,25 @@ function isExemptAppActivelyUsed(processNames) {
     return anyActive;
 }
 
-// Send a desktop notification to the active user via runuser+notify-send
-function sendExemptWatchdogNotification(message, user, uid) {
+// Send a desktop notification to the active user via sudo+notify-send (same lift as spawnWarningWindow and notifyOrSpawn).
+function sendExemptWatchdogNotification(message, info) {
     try {
-        const dbusAddr = `unix:path=/run/user/${uid}/bus`;
-        spawnSync('runuser', ['-u', user, '--',
-            'env', `DBUS_SESSION_BUS_ADDRESS=${dbusAddr}`,
-            'notify-send', '-u', 'critical', '-t', '8000',
-            'LiFE Parental Control', message
-        ], { timeout: 3000 });
-    } catch { /* notification is best-effort */ }
+        const notifyEnv = buildNotifySendEnvPairs(info);
+        const { user } = info;
+        const r = spawnSync(
+            'sudo',
+            [
+                '-u', user, 'env', ...notifyEnv, NOTIFY_SEND_BIN,
+                '-a', NOTIFY_APP_NAME, '-u', 'critical', '-t', '8000',
+                NOTIFY_APP_NAME, message
+            ],
+            { timeout: 5000, encoding: 'utf8' }
+        );
+        if (r.error) log.warn(`notify-send (watchdog) spawn error: ${r.error.message}`);
+        if (r.status !== 0) log.warn(`notify-send (watchdog) failed status=${r.status} stderr=${String(r.stderr || '').trim()}`);
+    } catch (e) {
+        log.warn(`notify-send (watchdog): ${e && e.message ? e.message : String(e)}`);
+    }
 }
 
 // Called every tick when screen time is expired and exempt apps are configured.
@@ -748,7 +776,7 @@ async function runExemptWatchdog(processNames) {
         const msg = `Warnung ${wdWarnCount}/${WD_WARN_MAX} (Screen-Time erschöpft): Kehre zur erlaubten App zurück! Logout in ${remainingText}.`;
         log.warn(`exempt watchdog: warning ${wdWarnCount}/${WD_WARN_MAX} sent`);
         const info = getFirstActiveUserInfo();
-        if (info) sendExemptWatchdogNotification(msg, info.user, info.uid);
+        if (info) sendExemptWatchdogNotification(msg, info);
     }
 
     return true; // still within grace period
@@ -888,7 +916,103 @@ function resolveXauthorityForX11Session(sessionId, uid, homeDir) {
 const SKIP_LOGIN_USERS = new Set(['gdm', 'lightdm', 'sddm', 'lxdm', 'display', 'Debian-gdm']);
 
 // Same rules as getActiveGraphicalSessions (active/online, not greeter) so Wayland is not mistaken for blind X11 :0.
-function getFirstActiveUserInfo() {
+function trySessionToActiveUserInfo(sessionId, uid, user) {
+    if (!user || user === 'root') return null;
+    if (uid === '0') return null;
+    if (SKIP_LOGIN_USERS.has(user)) return null;
+    const p = queryLoginctlSessionFields(sessionId);
+    if (p.class === 'greeter' || p.class === 'background') return null;
+    if (!logindSessionStateLive(p.state)) return null;
+    let hasWl = false;
+    try {
+        const files = fs.readdirSync(`/run/user/${uid}`);
+        hasWl = files.some(f => /^wayland-\d+$/.test(f));
+    } catch { /* ignore */ }
+    if (p.type === 'wayland') {
+        return {
+            user,
+            uid,
+            sessionId,
+            sessionKind: 'wayland',
+            waylandDisplay: waylandSocketName(uid),
+            x11Display: ''
+        };
+    }
+    if (p.type === 'x11') {
+        const x11 = p.display && /^:[0-9]+(\.[0-9]+)?$/.test(p.display) ? p.display : ':0';
+        return {
+            user,
+            uid,
+            sessionId,
+            sessionKind: 'x11',
+            waylandDisplay: '',
+            x11Display: x11
+        };
+    }
+    if (p.type === 'mir' && hasWl) {
+        return {
+            user,
+            uid,
+            sessionId,
+            sessionKind: 'wayland',
+            waylandDisplay: waylandSocketName(uid),
+            x11Display: ''
+        };
+    }
+    if (p.type === 'tty' && p.class === 'user' && p.remote !== 'yes') {
+        if (hasWl) {
+            return {
+                user,
+                uid,
+                sessionId,
+                sessionKind: 'wayland',
+                waylandDisplay: waylandSocketName(uid),
+                x11Display: ''
+            };
+        }
+        if (userHasDesktopEnvironmentSync(user)) {
+            const x11 = p.display && /^:[0-9]+(\.[0-9]+)?$/.test(p.display) ? p.display : ':0';
+            return {
+                user,
+                uid,
+                sessionId,
+                sessionKind: 'x11',
+                waylandDisplay: '',
+                x11Display: x11
+            };
+        }
+        let runUserDirExists = false;
+        try {
+            runUserDirExists = fs.existsSync(`/run/user/${uid}`);
+        } catch { /* ignore */ }
+        // Manually started desktops often keep logind Type=tty; still attempt warn spawn when user runtime exists.
+        if (runUserDirExists) {
+            const x11Hint = p.display && /^:[0-9]+(\.[0-9]+)?$/.test(p.display) ? p.display : '';
+            if (x11Hint) {
+                return {
+                    user,
+                    uid,
+                    sessionId,
+                    sessionKind: 'x11',
+                    waylandDisplay: '',
+                    x11Display: x11Hint
+                };
+            }
+            return {
+                user,
+                uid,
+                sessionId,
+                sessionKind: 'wayland',
+                waylandDisplay: waylandSocketName(uid),
+                x11Display: ''
+            };
+        }
+    }
+    return null;
+}
+
+function listActiveUserInfos() {
+    const out = [];
     try {
         const { stdout } = spawnSync('loginctl', ['list-sessions', '--no-legend'], { encoding: 'utf8', timeout: 3000 });
         for (const line of (stdout || '').trim().split('\n').filter(Boolean)) {
@@ -897,78 +1021,58 @@ function getFirstActiveUserInfo() {
             const sessionId = parts[0];
             const uid = parts[1];
             const user = parts[2];
-            if (!user || user === 'root') continue;
-            if (uid === '0') continue;
-            if (SKIP_LOGIN_USERS.has(user)) continue;
-            const p = queryLoginctlSessionFields(sessionId);
-            if (p.class === 'greeter' || p.class === 'background') continue;
-            if (p.state !== 'active' && p.state !== 'online') continue;
-            let hasWl = false;
-            try {
-                const files = fs.readdirSync(`/run/user/${uid}`);
-                hasWl = files.some(f => /^wayland-\d+$/.test(f));
-            } catch { /* ignore */ }
-            if (p.type === 'wayland') {
-                return {
-                    user,
-                    uid,
-                    sessionId,
-                    sessionKind: 'wayland',
-                    waylandDisplay: waylandSocketName(uid),
-                    x11Display: ''
-                };
-            }
-            if (p.type === 'x11') {
-                const x11 = p.display && /^:[0-9]+(\.[0-9]+)?$/.test(p.display) ? p.display : ':0';
-                return {
-                    user,
-                    uid,
-                    sessionId,
-                    sessionKind: 'x11',
-                    waylandDisplay: '',
-                    x11Display: x11
-                };
-            }
-            if (p.type === 'mir' && hasWl) {
-                return {
-                    user,
-                    uid,
-                    sessionId,
-                    sessionKind: 'wayland',
-                    waylandDisplay: waylandSocketName(uid),
-                    x11Display: ''
-                };
-            }
-            if (p.type === 'tty' && p.class === 'user' && p.remote !== 'yes') {
-                if (hasWl) {
-                    return {
-                        user,
-                        uid,
-                        sessionId,
-                        sessionKind: 'wayland',
-                        waylandDisplay: waylandSocketName(uid),
-                        x11Display: ''
-                    };
-                }
-                if (userHasDesktopEnvironmentSync(user)) {
-                    const x11 = p.display && /^:[0-9]+(\.[0-9]+)?$/.test(p.display) ? p.display : ':0';
-                    return {
-                        user,
-                        uid,
-                        sessionId,
-                        sessionKind: 'x11',
-                        waylandDisplay: '',
-                        x11Display: x11
-                    };
-                }
-            }
+            const info = trySessionToActiveUserInfo(sessionId, uid, user);
+            if (info) out.push(info);
         }
     } catch { /* ignore */ }
-    return null;
+    return out;
+}
+
+/** Prefer schedule.screenTimeLinuxUser so daemon warnings go to the child session when multiple desktops are logged in (e.g. GNOME + KDE on another TTY). */
+function preferredLinuxUserForWarnings() {
+    return normalizeLinuxUser(readSchedule().screenTimeLinuxUser);
+}
+
+// loginctl list-sessions is ordered by ascending id; list[0] was always the oldest login (often wrong VT when two users are on seat0).
+function pickLatestSessionById(list) {
+    if (!list.length) return null;
+    if (list.length === 1) return list[0];
+    const sorted = [...list].sort((a, b) => (Number(b.sessionId) || 0) - (Number(a.sessionId) || 0));
+    const chosen = sorted[0];
+    log.info(`getFirstActiveUserInfo: chosen sessionId=${chosen.sessionId} user=${chosen.user} (${list.length} candidates; prefer highest session id)`);
+    return chosen;
+}
+
+function getFirstActiveUserInfo() {
+    const list = listActiveUserInfos();
+    if (!list.length) return null;
+    const pref = preferredLinuxUserForWarnings();
+    if (pref) {
+        const hit = list.find((s) => s.user === pref);
+        if (hit) {
+            log.info(`getFirstActiveUserInfo: using schedule.screenTimeLinuxUser session user=${pref} sid=${hit.sessionId}`);
+            return hit;
+        }
+        log.warn(`getFirstActiveUserInfo: no active session for screenTimeLinuxUser=${pref} (have: ${list.map((s) => s.user).join(', ')}); using ranked session`);
+    } else if (list.length > 1) {
+        log.info(`getFirstActiveUserInfo: ${list.length} active graphical sessions; set schedule.screenTimeLinuxUser to pin daemon warnings/notify-send to that login`);
+    }
+    return pickLatestSessionById(list);
 }
 
 // Logind Environment keys merged into warning spawn (session identity for GNOME vs KDE; after base, before DISPLAY/WAYLAND).
 const WARNING_LOGIND_ENV_KEYS = ['XDG_CURRENT_DESKTOP'];
+
+// Prefer loginctl session Environment for notify-send so WAYLAND_DISPLAY matches the real compositor (our socket guess can be wrong).
+const NOTIFY_SEND_LOGIND_ENV_KEYS = [
+    'XDG_CURRENT_DESKTOP',
+    'WAYLAND_DISPLAY',
+    'DISPLAY',
+    'GDK_BACKEND',
+    'GNOME_SETUP_DISPLAY',
+    'DESKTOP_SESSION',
+    'XDG_SESSION_DESKTOP'
+];
 
 function envPairsFromLoginctlSessionEnvironment(sessionId, keys) {
     const pairs = [];
@@ -1015,11 +1119,38 @@ function buildWarningWindowEnvPairs(info, homeDir, xauthorityPath, isAppImage, e
     return [...basePairs, ...forkPairs, ...sessionPairs, ...appImagePairs];
 }
 
+// notify-send needs the same Wayland/X11 session identity as the compositor; merge logind Environment so DISPLAY/WAYLAND match gnome-shell.
+function buildNotifySendEnvPairs(info) {
+    const { uid, user, sessionKind, waylandDisplay, x11Display, sessionId } = info;
+    const homeDir = getUnixHomeDir(user);
+    const m = new Map([
+        ['PATH', '/usr/bin:/bin:/usr/local/bin'],
+        ['XDG_RUNTIME_DIR', `/run/user/${uid}`],
+        ['DBUS_SESSION_BUS_ADDRESS', `unix:path=/run/user/${uid}/bus`],
+        ['HOME', homeDir],
+        ['USER', user],
+        ['LOGNAME', user]
+    ]);
+    for (const kv of envPairsFromLoginctlSessionEnvironment(sessionId, NOTIFY_SEND_LOGIND_ENV_KEYS)) {
+        const eq = kv.indexOf('=');
+        if (eq === -1) continue;
+        m.set(kv.slice(0, eq), kv.slice(eq + 1));
+    }
+    if (sessionKind === 'x11') {
+        if (!m.has('DISPLAY')) m.set('DISPLAY', x11Display);
+        m.set('XDG_SESSION_TYPE', 'x11');
+    } else {
+        if (!m.has('WAYLAND_DISPLAY')) m.set('WAYLAND_DISPLAY', waylandDisplay);
+        m.set('XDG_SESSION_TYPE', 'wayland');
+    }
+    return [...m.entries()].map(([k, v]) => `${k}=${v}`);
+}
+
 // PID of currently running warning window (spawned by daemon)
 let warningWindowPid = null;
 
 // Spawn the Electron app as the desktop user in --warning-mode for interactive time extension
-function spawnWarningWindow(payload) {
+function spawnWarningWindow(payload, sessionInfo) {
     log.info(`spawnWarningWindow called type=${payload.type || '?'} clients=${clients.size}`);
 
     // End previous warning-mode process so a new notification always gets a window (notify-send has no such skip).
@@ -1037,7 +1168,7 @@ function spawnWarningWindow(payload) {
     }
     log.info(`spawnWarningWindow execPath=${execPath}`);
 
-    const info = getFirstActiveUserInfo();
+    const info = sessionInfo === undefined ? getFirstActiveUserInfo() : sessionInfo;
     if (!info) {
         log.error('spawnWarningWindow FAILED: no active graphical session found via loginctl');
         return;
@@ -1093,18 +1224,33 @@ function spawnWarningWindow(payload) {
 // so the --warning-mode process (running as desktop user) handles the actual UI.
 function notifyOrSpawn(payload, notifySummary, notifyBody, urgency = 'normal', skipWindow = false) {
     broadcastWarn(payload); // broadcast to connected clients (for status/dashboard updates)
-    if (!skipWindow) spawnWarningWindow(payload); // user-context Electron dialog (password / bonus time); skip only if caller handles UI
-    // notify-send as additional fallback so the user sees something even if Electron fails
+    const info = getFirstActiveUserInfo();
+    if (!skipWindow) spawnWarningWindow(payload, info);
+    // notify-send must use the same session as the window (same sudo -u + env as Electron); runuser often targets a different bus.
+    if (!info) return;
     try {
-        const info = getFirstActiveUserInfo();
-        if (!info) return;
-        const { user, uid } = info;
-        const dbusAddr = `unix:path=/run/user/${uid}/bus`;
-        spawnSync('runuser', ['-u', user, '--',
-            'env', `DBUS_SESSION_BUS_ADDRESS=${dbusAddr}`,
-            'notify-send', '-u', urgency, 'LiFE Parental Control', `${notifySummary}\n${notifyBody}`
-        ], { timeout: 3000 });
-    } catch { /* notify-send optional */ }
+        const { user } = info;
+        const notifyEnv = buildNotifySendEnvPairs(info);
+        const r = spawnSync(
+            'sudo',
+            [
+                '-u', user, 'env', ...notifyEnv, NOTIFY_SEND_BIN,
+                '-a', NOTIFY_APP_NAME, '-u', urgency, '-t', '30000',
+                notifySummary, notifyBody
+            ],
+            { timeout: 5000, encoding: 'utf8' }
+        );
+        if (r.error) log.warn(`notify-send spawn error: ${r.error.message}`);
+        if (r.status !== 0) {
+            log.warn(`notify-send failed status=${r.status} stderr=${String(r.stderr || '').trim()}`);
+        } else {
+            const err = String(r.stderr || '').trim();
+            if (err) log.info(`notify-send stderr (non-fatal): ${err}`);
+            log.info(`notify-send ok sid=${info.sessionId} user=${user} wl=${info.waylandDisplay || '-'}`);
+        }
+    } catch (e) {
+        log.warn(`notify-send: ${e && e.message ? e.message : String(e)}`);
+    }
 }
 
 // --- Enforcement tick helpers ---
@@ -1251,18 +1397,32 @@ function resetAppQuotaWarnIfNewDay() {
     if (t !== quotaWarnDate) {
         quotaWarnDate = t;
         appQuotaWarnOnce.clear();
+        quotaLinuxUserNoSessionWarnOnce.clear();
     }
 }
 
 async function tickAppQuotas(logMinute) {
     const def = getDefaultConfig();
-    if (def.appControlEnabled !== true) return;
     resetAppQuotaWarnIfNewDay();
     const quotas = readQuotaEntries();
+    if (def.appControlEnabled !== true) {
+        if (quotas.length > 0 && !quotaTickSkippedAppControlWarned) {
+            quotaTickSkippedAppControlWarned = true;
+            log.warn('daemon: quotas not applied — appControl.enabled is false in default.json (enable App-Kontrolle / App Control for counting and enforcement)');
+        }
+        return;
+    }
+    if (quotas.length === 0) return;
     const exempt = loadQuotaExemptAppIds();
     const sessions = await getActiveGraphicalSessions();
     const activeUsers = uniqueUsers(sessions);
-    if (activeUsers.length === 0) return;
+    if (activeUsers.length === 0) {
+        if (!quotaTickSkippedNoGraphicalSessionsWarned) {
+            quotaTickSkippedNoGraphicalSessionsWarned = true;
+            log.warn('daemon: quotas stay at 0 — no active graphical loginctl sessions (activeUsers empty). "All users" still needs at least one desktop session listed by loginctl list-sessions.');
+        }
+        return;
+    }
 
     const state = readQuotaUsageState();
     const today = localIsoDate();
@@ -1279,6 +1439,14 @@ async function tickAppQuotas(logMinute) {
         if (!proc || !appId) continue;
 
         const usersForQuota = lu ? activeUsers.filter(u => u === lu) : activeUsers;
+        if (lu && usersForQuota.length === 0) {
+            const wk = `${appId}:${lu}`;
+            if (!quotaLinuxUserNoSessionWarnOnce.has(wk)) {
+                quotaLinuxUserNoSessionWarnOnce.add(wk);
+                log.warn(`quota ${name}: linuxUser=${lu} has no active graphical session in loginctl (active: ${activeUsers.join(', ') || 'none'}). Minutes stay 0; set Quota linuxUser to the desktop user who runs this app (same as their GNOME login).`);
+            }
+            continue;
+        }
         const isRunning = usersForQuota.length > 0 && await anyUserRunningProcess(usersForQuota, proc);
         const uk = quotaUsageKey(appId, lu);
         const bonus = quotaBonusMinutes(appExtra, appId, lu);
