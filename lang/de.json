@@ -255,7 +255,7 @@
     "installDesc": "<strong>Installieren & starten</strong> kopiert Daemon-Module nach <code>/usr/lib/life-parental/</code> und <code>/etc/systemd/system/parental-control.service</code> aus dem App-Paket, f\u00fchrt <code>systemctl enable &amp;&amp; start</code> aus. Erfordert <code>/usr/bin/node</code>.",
     "daemonInstalled": "Daemon installiert und gestartet.",
     "warningTestBtn": "Warnfenster testen (Daemon)",
-    "warningTestHint": "Setzt <code>requestDaemonWarningTest</code> in <code>default.json</code>. Der Systemd-Dienst liest das beim n\u00e4chsten Tick (ca. 10\u202fs), entfernt das Flag und \u00f6ffnet dasselbe Warnfenster wie bei echten Meldungen.",
+    "warningTestHint": "Setzt >requestDaemonWarningTest< in >default.json<. Der Systemd-Dienst liest das beim n\u00e4chsten Tick (ca. 10\u202fs), entfernt das Flag und \u00f6ffnet dasselbe Warnfenster wie bei echten Meldungen.",
     "warningTestQueued": "Anfrage gespeichert. Wenn der Dienst l\u00e4uft, erscheint das Fenster in wenigen Sekunden.",
     "serviceAction": "Service {action} ausgef\u00fchrt.",
     "changePassword": "Passwort \u00e4ndern",

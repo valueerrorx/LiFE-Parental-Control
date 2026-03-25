@@ -148,6 +148,7 @@ if (!isWarningMode) {
         app.on('second-instance', () => {
             if (mainWindow) {
                 if (mainWindow.isMinimized()) mainWindow.restore()
+                if (!mainWindow.isMaximized()) mainWindow.maximize()
                 mainWindow.show()
                 mainWindow.focus()
             }
@@ -250,6 +251,7 @@ app.whenReady().then(async () => {
         height: 860,
         minWidth: 1100,
         minHeight: 700,
+        show: false,
         title: 'LiFE Parental Control',
         ...(windowIconPath ? { icon: windowIconPath } : {}),
         webPreferences: {
@@ -259,6 +261,11 @@ app.whenReady().then(async () => {
             sandbox: false,
             devTools: mainDevtools
         }
+    })
+    // Main UI: maximized to work area (not fullscreen); show only after layout to avoid size flicker.
+    mainWindow.once('ready-to-show', () => {
+        mainWindow.maximize()
+        mainWindow.show()
     })
 
     mainWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription, validatedURL, isMainFrame) => {

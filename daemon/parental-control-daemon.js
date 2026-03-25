@@ -1028,14 +1028,39 @@ function listActiveUserInfos() {
     return out;
 }
 
-/** Prefer schedule.screenTimeLinuxUser so daemon warnings go to the child session when multiple desktops are logged in (e.g. GNOME + KDE on another TTY). */
 function preferredLinuxUserForWarnings() {
     return normalizeLinuxUser(readSchedule().screenTimeLinuxUser);
+}
+
+/** Returns the loginctl session ID that is currently on the active VT of seat0, or null if unavailable. */
+function getActiveSeatSessionId() {
+    try {
+        const r = spawnSync('loginctl', ['show-seat', 'seat0', '-p', 'ActiveSession'], { encoding: 'utf8', timeout: 3000 });
+        const m = String(r.stdout || '').match(/^ActiveSession=(\S+)/m);
+        if (m && m[1] && m[1] !== '') return m[1];
+    } catch { /* ignore */ }
+    return null;
 }
 
 function getFirstActiveUserInfo() {
     const list = listActiveUserInfos();
     if (!list.length) return null;
+
+    // Primary: the session physically on the screen right now (seat0 active VT).
+    // This works correctly when multiple desktops run simultaneously (e.g. KDE at boot + GNOME on another TTY).
+    const activeSid = getActiveSeatSessionId();
+    if (activeSid) {
+        const hit = list.find((s) => s.sessionId === activeSid);
+        if (hit) {
+            log.info(`getFirstActiveUserInfo: seat0 active sid=${activeSid} user=${hit.user} kind=${hit.sessionKind}`);
+            return hit;
+        }
+        // seat0 reports an active session but it didn't make it into listActiveUserInfos
+        // (e.g. locked screen, display manager session) — fall through to config-based selection
+        log.info(`getFirstActiveUserInfo: seat0 active sid=${activeSid} not in graphical session list; falling back`);
+    }
+
+    // Secondary: explicit user pin in schedule config (kept for headless / no-seat setups)
     const pref = preferredLinuxUserForWarnings();
     if (pref) {
         const hit = list.find((s) => s.user === pref);
@@ -1045,7 +1070,7 @@ function getFirstActiveUserInfo() {
         }
         log.warn(`getFirstActiveUserInfo: no active session for screenTimeLinuxUser=${pref} (have: ${list.map((s) => s.user).join(', ')}); using first session`);
     } else if (list.length > 1) {
-        log.info(`getFirstActiveUserInfo: ${list.length} active graphical sessions; set schedule.screenTimeLinuxUser to pin daemon warnings/notify-send to that login`);
+        log.info(`getFirstActiveUserInfo: ${list.length} active graphical sessions; seat0 query yielded no match — using first listed session`);
     }
     return list[0];
 }
