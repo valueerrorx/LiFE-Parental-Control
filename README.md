@@ -137,3 +137,7 @@ In `Settings → Systemd Daemon` you can see the daemon status.
 
 In the `Web Filter` module you can see domain rules and exceptions.
 ![Web Filter](images/webfilter.png)
+
+## Links
+
+[![Hypercommit](https://img.shields.io/badge/Hypercommit-DB2475)](https://hypercommit.com/life-parental-control)
