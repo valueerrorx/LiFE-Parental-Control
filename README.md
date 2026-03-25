@@ -2,14 +2,14 @@
 
 ![LiFE Parental Control — Dashboard](images/dashboard.png)
 
-Desktop app for **KDE Plasma (Linux)**: parental controls via **Electron**, **Vue 3**, **Pinia**, and **Bootstrap 5**. Kiosk restrictions use `.kiosk` profile snippets merged into **`/etc/xdg/kdeglobals`**; an optional layout lock can prepend **`[$i]`** to **`/etc/xdg/plasma-appletsrc`** (see **KDE kiosk** below).
+Desktop app for **Linux** (KDE Plasma, GNOME, and other graphical desktop environments): parental controls via **Electron**, **Vue 3**, **Pinia**, and **Bootstrap 5**. KDE kiosk restrictions use `.kiosk` profile snippets merged into **`/etc/xdg/kdeglobals`**; an optional layout lock can prepend **`[$i]`** to **`/etc/xdg/plasma-appletsrc`** (see **KDE kiosk** below). Enforcement (screen time, app quotas, notifications, warning windows) targets whatever desktop session is currently active on **seat0**, supporting multi-session setups.
 
 ## Modules
 
 | Area | What it does |
 |------|----------------|
 | **KDE kiosk** | Lockdown sections in `kdeglobals` (actions, URLs, control modules); session restart after apply |
-| **Web filter** | `webfilter.json` (custom domains + HaGeZi **feed** toggles) + `/etc/hosts` marker block; bundled [HaGeZi](https://github.com/hagezi/dns-blocklists) DNSMasq lists + optional CDN refresh (see below) |
+| **Web filter** | `default.json` (`webfilter` section: custom domains + HaGeZi **feed** toggles) + `/etc/hosts` marker block; bundled [HaGeZi](https://github.com/hagezi/dns-blocklists) DNSMasq lists + optional CDN refresh (see below) |
 | **Screen time** | stored in `default.json` (`schedule`); enforced by daemon tick (limits, allowed hours, overnight windows); daily tally in `usage-YYYY-MM-DD.json` (`extraAllowanceMinutes` raises today’s cap without altering logged minutes); reset **today** on the Screen Time page; **add time** via parent-password dialog when the limit is reached |
 | **App blocking** | `.desktop` overrides under `/usr/local/share/applications/` (see below) |
 | **App quotas** | stored in `default.json` (`quota` + `quotaExemptions` + `blockedDesktopIds`); daemon enforcement (`pgrep` / `pkill` per process name); per-app tally in `quota-usage-YYYY-MM-DD.json` (reset **today** from **App Control**). The same tick increments **`app-usage-YYYY-MM-DD.json`** for every app in **`app-monitor-catalog.json`** (built from the same `.desktop` list as **App Control**; refreshed at app start and when you open **App Control**) so the Dashboard donut can show the **top 10** most-used catalog apps. |
@@ -31,7 +31,7 @@ The **Include KDE kiosk** checkbox (below the profile buttons) is optional: when
 
 ### Screen time: logged minutes
 
-Logged minutes come from **`usage-*.json`** (one file per calendar day in `/etc/life-parental/`). While **daily limit** is enabled, the **root cron** adds **one minute per run** when **`loginctl`** shows a **graphical** session that is **active** or **online**, excluding **greeter** / **background** classes.
+Logged minutes come from **`usage-*.json`** (one file per calendar day in `/etc/life-parental/`). While **daily limit** is enabled, the **systemd daemon** adds **one minute per tick** (ticks every 10 s, six ticks = one minute) when **`loginctl`** shows a **graphical** session that is **active** or **online**, excluding **greeter** / **background** classes.
 
 ### App blocking (launcher)
 
@@ -39,7 +39,7 @@ Toggling **block** for an app creates a **desktop entry override** under `/usr/l
 
 ### Daily time limits for individual apps (App Control)
 
-Per-app daily cap: a **root cron** job runs **every minute**, counting minutes **while the process is running** (`pgrep -x -i`). With **daily limit ≥ 3**, at roughly **2 minutes** left you get a notification plus a light **`kdialog`**; at the **last minute** a stronger warning; on the **next run after that** the app is **stopped** if it is still running.
+Per-app daily cap: the **systemd daemon** ticks every 10 s and counts one minute every six ticks **while the process is running** (`pgrep -x -i`). With **daily limit ≥ 3**, at roughly **2 minutes** left you get a desktop notification and a warning window; at the **last minute** a stronger warning; on the **next tick after that** the app is **stopped** (`pkill`) if it is still running.
 
 Default **process names** are derived from the desktop file’s **`Exec`** line (flatpak `--command=` / `run`, `snap run`, `sh|bash|dash|zsh -c …`, `electron` + flags, `*.AppImage` stem). If the live process name still differs (e.g. Steam titles, some AppImages), edit the **Process** field in the app so it matches the process **`comm`** (e.g. `ps -o comm`).
 
@@ -47,7 +47,7 @@ Counting only applies when the same **`loginctl`** rules as **Screen Time** appl
 
 ### Quota exemptions
 
-Settings are stored in **`/etc/life-parental/default.json`** (`quotaExemptions`). For apps with a daily limit, if the limit is reached and the app is **not** exempt, it is stopped like before; exempt apps keep running. **Apply Changes** on the Quota exemptions page updates current settings and refreshes enforcement state (plus legacy **`life-parental-kill`** cleanup from older installs).
+Settings are stored in **`/etc/life-parental/default.json`** (`quotaExemptions`). For apps with a daily limit, if the limit is reached and the app is **not** exempt, it is stopped; exempt apps keep running. **Apply Changes** on the Quota exemptions page updates current settings and refreshes enforcement state.
 
 ### Web filter: custom domains, HaGeZi lists, and `/etc/hosts`
 
@@ -66,11 +66,11 @@ Settings are stored in **`/etc/life-parental/default.json`** (`quotaExemptions`)
 | Anti-piracy | [`…/dnsmasq/anti.piracy.txt`](https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@latest/dnsmasq/anti.piracy.txt) |
 | Pop-up ads | [`…/dnsmasq/popupads.txt`](https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@latest/dnsmasq/popupads.txt) |
 
-**Config:** `/etc/life-parental/webfilter.json` stores **`entries`** (custom domains shown in the UI), **`feedState`** (which HaGeZi lists are enabled), and **`listAllowlist`** (hosts that must never be blocked). The **live** block in **`/etc/hosts`** is `(enabled custom domains ∪ feed domains) \ allowlist` (deduplicated). Category lists are too large to edit line-by-line in the UI; use **Allow exceptions** on the Web Filter page to permit individual hosts. **Apply Changes** saves custom-domain edits; allowlist and feed toggles apply immediately when changed.
+**Config:** all web filter settings are stored in `/etc/life-parental/default.json` under the **`webfilter`** key: **`entries`** (custom domains shown in the UI), **`feedState`** (which HaGeZi lists are enabled), **`listAllowlist`** (hosts that must never be blocked), and **`cachedHostRuleCount`** (total active rules, cached to avoid rebuilding on every read). The **live** block in **`/etc/hosts`** is `(enabled custom domains ∪ feed domains) \ allowlist` (deduplicated). Category lists are too large to edit line-by-line in the UI; use **Allow exceptions** on the Web Filter page to permit individual hosts. **Apply Changes** saves custom-domain edits; allowlist and feed toggles apply immediately when changed.
 
 **Quick Add Categories:** **Domain packs** (e.g. Video Streaming, Gaming) add curated hostnames to **custom domains** in the UI. **HaGeZi lists** merge the full blocklist for each enabled topic into the LiFE block in **`/etc/hosts`** (bundled snapshots). **Update lists** (next to *HaGeZi lists* in the sidebar card) hits the same CDN refresh as app startup, then reapplies the mirror to `hosts`.
 
-If **`/etc/hosts`** is unreadable, the Web Filter page still loads from **`webfilter.json`** and shows a warning. To rebuild the hosts block from disk without changing the saved JSON (e.g. manual hosts edits), use **Settings → Maintenance → Web filter restore**.
+If **`/etc/hosts`** is unreadable, the Web Filter page still loads from **`default.json`** and shows a warning. To rebuild the hosts block from disk without changing the saved config (e.g. after manual hosts edits), use **Settings → Maintenance → Web filter restore**.
 
 **Limits:** Large lists inflate `/etc/hosts`; DNS / DoH bypass or another resolver can still evade host-based blocking—see e.g. [school DNS discussion (linuxmuster.net)](https://ask.linuxmuster.net/t/wie-dns-server-einstellungen-fuer-kinderschutz-aendern/12089/2) for network-level ideas.
 
@@ -78,7 +78,7 @@ If **`/etc/hosts`** is unreadable, the Web Filter page still loads from **`webfi
 
 After writing kiosk restrictions to `/etc/xdg/kdeglobals`, the app triggers a Plasma session restart: `kquitapp6|5 ksmserver` first, then `qdbus` logout on **each** relevant `loginctl` session (**x11** / **wayland**, **active** or **online**, excluding **greeter** / **background** classes) on that user’s session bus (`/run/user/<uid>/bus`), then the same DBus calls as root as a last resort. Typical single-seat setups work out of the box; edge cases may still need a manual re-login.
 
-Screen-time and app-quota cron jobs use the same session filter when detecting logged-in graphical users (redeploy scripts after upgrading the app).
+The daemon uses the same `loginctl` session filter for quota tracking, session termination, and notification routing.
 
 ## Development
 
@@ -90,7 +90,7 @@ npm run check   # lint + compile (out/; no AppImage/deb, no dev server)
 npm run dev
 ```
 
-Enforcement features touch system paths. **`npm run dev`** (alias **`npm run dev:root`**) runs the Vite/Electron dev stack under **`sudo`** with a **small env whitelist** (display, session DBus, locale)—not **`sudo -E`**, so paths from e.g. an **IDE AppImage** terminal (`/tmp/.mount_…`) are not leaked into root’s Electron (avoids **dconf** / **DBus** spam and permission errors). **`XDG_RUNTIME_DIR`** is set to **`/run/user/$(id -u)`**. Starting **`electron-vite dev`** without root exits immediately with a dialog (the app persists config under **`/etc/life-parental/`**). **Packaged** builds show an elevation window, then **`pkexec`** when not root. **Settings → About → Running as** reflects the real user id (warning if you are not root). On first root start after an upgrade, `/etc/life-parental/.embedded-enforcement-version` triggers a one-time redeploy of screen-time and app-quota cron scripts so embedded Python matches the installed version.
+Enforcement features touch system paths. **`npm run dev`** (alias **`npm run dev:root`**) runs the Vite/Electron dev stack under **`sudo`** with a **small env whitelist** (display, session DBus, locale)—not **`sudo -E`**, so paths from e.g. an **IDE AppImage** terminal (`/tmp/.mount_…`) are not leaked into root’s Electron (avoids **dconf** / **DBus** spam and permission errors). **`XDG_RUNTIME_DIR`** is set to **`/run/user/$(id -u)`**. Starting **`electron-vite dev`** without root exits immediately with a dialog (the app persists config under **`/etc/life-parental/`**). **Packaged** builds show an elevation window, then **`pkexec`** when not root. **Settings → About → Running as** reflects the real user id (warning if you are not root).
 
 ### Polkit (Administrator prompt)
 
