@@ -1,6 +1,5 @@
 import fs from 'fs'
-import { readFile as readFileAsync, writeFile as writeFileAsync } from 'fs/promises'
-import { execFile } from 'child_process'
+import { daemonWriteHosts } from '../daemonPrivilegedOps.js'
 import {
     WEB_FILTER_STATIC_CATEGORIES,
     CATEGORY_TO_HAGEZI_FEED,
@@ -88,25 +87,10 @@ function readHostsSection() {
 }
 
 async function writeHostsSectionAsync(entries) {
-    const content = await readFileAsync(HOSTS_FILE, 'utf8')
-    const lines = entries.map(e => `${e.enabled ? '' : '#'}127.0.0.2 ${e.domain}`)
-    const section = `\n${lines.join('\n')}\n`
-    const begin = content.indexOf(MARKER_BEGIN)
-    const end = content.indexOf(MARKER_END)
-
-    let newContent
-    if (begin !== -1 && end !== -1) {
-        newContent = content.slice(0, begin) + MARKER_BEGIN + section + MARKER_END + content.slice(end + MARKER_END.length)
-    } else {
-        newContent = content.trimEnd() + `\n\n${MARKER_BEGIN}${section}${MARKER_END}\n`
-    }
-    await writeFileAsync(HOSTS_FILE, newContent, 'utf8')
-}
-
-function flushDns() {
-    execFile('systemd-resolve', ['--flush-caches'], { timeout: 3000 }, () => {})
-    execFile('resolvectl', ['flush-caches'], { timeout: 3000 }, () => {})
-    execFile('dnsmasq', ['--clear-on-reload'], { timeout: 3000 }, () => {})
+    // Delegate to daemon (root) — frontend no longer has write access to /etc/hosts.
+    // Daemon also handles DNS cache flush after writing.
+    const result = await daemonWriteHosts(entries)
+    if (!result.ok) throw new Error(result.error || 'write-hosts failed')
 }
 
 async function persistWebfilterAndHosts(configDir, wf) {
@@ -129,7 +113,6 @@ async function persistWebfilterAndHosts(configDir, wf) {
         return d
     })
     await writeHostsSectionAsync(combined)
-    flushDns()
 }
 
 export function registerWebFilterIpc(ipcMain, configDir, opts = {}) {

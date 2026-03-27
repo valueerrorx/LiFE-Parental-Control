@@ -1,7 +1,7 @@
 <template>
     <div class="pc-page-header d-flex align-items-center justify-content-between">
         <div class="d-flex align-items-center gap-3">
-            <label class="pc-toggle">
+            <label class="pc-toggle" >
                 <input type="checkbox" v-model="appControlEnabled" />
                 <span class="slider" />
             </label>
@@ -203,7 +203,7 @@ const addAppId = ref('')
 const addMinutes = ref(60)
 const addProcessOverride = ref('')
 const addLinuxUser = ref('')
-const appControlEnabled = ref(true)
+const appControlEnabled = ref(false)
 const savedAppControlEnabled = ref(null)
 
 const isDirty = computed(() => {

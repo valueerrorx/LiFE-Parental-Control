@@ -66,7 +66,12 @@
     "passwordEmpty": "Password cannot be empty",
     "passwordMismatch": "Passwords do not match",
     "enterYourPassword": "Enter your password",
-    "incorrectPassword": "Incorrect password"
+    "incorrectPassword": "Incorrect password",
+    "daemonChecking": "Checking system service …",
+    "daemonInstalling": "Installing and starting system service (administrator privileges required) …",
+    "daemonUpdating": "Updating system service (administrator privileges required) …",
+    "daemonWaiting": "Waiting for system service to start …",
+    "daemonRetry": "Try again"
   },
   "dashboard": {
     "title": "Dashboard",

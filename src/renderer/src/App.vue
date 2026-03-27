@@ -1,7 +1,29 @@
 <template>
     <AppModal />
+    <!-- Daemon setup phase: installing or waiting for daemon to become ready -->
+    <div v-if="daemonSetupPhase" class="pc-lockscreen">
+        <Transition name="pc-lock-fade" appear>
+            <div class="lock-card">
+                <div class="lock-icon">
+                    <i class="bi bi-shield-lock-fill" />
+                </div>
+                <h2>LiFE Parental Control</h2>
+                <div class="lock-card-phase">
+                    <p>{{ daemonSetupMsg }}</p>
+                    <p v-if="daemonSetupError" class="text-danger small">{{ daemonSetupError }}</p>
+                    <div v-if="!daemonSetupError" class="d-flex justify-content-center mt-3">
+                        <div class="spinner-border spinner-border-sm text-secondary" role="status" />
+                    </div>
+                    <button v-if="daemonSetupError" class="btn-pc-primary w-100 mt-3" @click="runDaemonSetup">
+                        {{ $t('app.daemonRetry') }}
+                    </button>
+                </div>
+            </div>
+        </Transition>
+    </div>
+
     <!-- First-run: no password yet — full gate, no dashboard -->
-    <div v-if="!passwordSet" class="pc-lockscreen">
+    <div v-else-if="!passwordSet" class="pc-lockscreen">
         <Transition name="pc-lock-fade" appear>
             <div class="lock-card">
                 <div class="lock-icon">
@@ -26,7 +48,7 @@
     </div>
 
     <!-- Password set: dashboard always mounted; session lock is a pale overlay -->
-    <div v-else class="pc-app-shell">
+    <div v-else-if="passwordSet" class="pc-app-shell">
         <div
             class="pc-app-shell-main"
             :class="{ 'pc-app-shell-main--locked': !unlocked }"
@@ -78,6 +100,11 @@ const busy = ref(false)
 const lockIdleMs = ref(0)
 let idleTimer = null
 
+// Daemon setup phase
+const daemonSetupPhase = ref(false)
+const daemonSetupMsg = ref('')
+const daemonSetupError = ref('')
+
 function quitRequestListener() {
     void handleQuitRequest()
 }
@@ -118,18 +145,90 @@ function onUserActivity() {
     scheduleIdleLock()
 }
 
-onMounted(async () => {
+async function runDaemonSetup() {
+    daemonSetupError.value = ''
+
+    // Check installed version vs. app version
+    daemonSetupMsg.value = t('app.daemonChecking')
+    let versionInfo = null
+    try {
+        versionInfo = await window.api.daemon.checkInstalledVersion()
+    } catch {
+        versionInfo = { ok: false, upToDate: false, installedVersion: null }
+    }
+
+    const connected = await window.api.daemon.isConnected()
+
+    // If daemon is connected and up-to-date, we're done
+    if (connected && versionInfo?.upToDate) {
+        daemonSetupPhase.value = false
+        passwordSet.value = await window.api.settings.isPasswordSet()
+        if (isDevRelaxSessionLock && passwordSet.value) {
+            unlocked.value = true
+            lockIdleMs.value = 0
+        }
+        return
+    }
+
+    // Step 3: install/update daemon via pkexec
+    daemonSetupMsg.value = versionInfo?.installedVersion
+        ? t('app.daemonUpdating')
+        : t('app.daemonInstalling')
+
+    const result = await window.api.daemon.serviceControl({ action: 'install' })
+    if (result?.error) {
+        daemonSetupError.value = result.error
+        return
+    }
+
+    // Step 4: wait briefly and re-check connection
+    daemonSetupMsg.value = t('app.daemonWaiting')
+    for (let i = 0; i < 10; i++) {
+        await new Promise(r => setTimeout(r, 1500))
+        const ok = await window.api.daemon.isConnected()
+        if (ok) break
+    }
+
+    daemonSetupPhase.value = false
     passwordSet.value = await window.api.settings.isPasswordSet()
     if (isDevRelaxSessionLock && passwordSet.value) {
         unlocked.value = true
         lockIdleMs.value = 0
     }
-    void window.api.app.deferredHeavyWork()
+}
+
+onMounted(async () => {
     window.addEventListener('wheel', onUserActivity, { passive: true })
     window.addEventListener('keydown', onUserActivity)
     window.addEventListener('life-parental-lock-prefs', onLockPrefsChanged)
     window.api.system.onQuitRequest(quitRequestListener)
     window.api.system.onSessionLockRequest(sessionLockListener)
+
+    // Trigger heavy IPC registration and wait for it so daemon:* handlers are available
+    await window.api.app.deferredHeavyWork()
+
+    // Check whether daemon is reachable and version matches before showing UI
+    let needsSetup = false
+    try {
+        const [connected, versionInfo] = await Promise.all([
+            window.api.daemon.isConnected(),
+            window.api.daemon.checkInstalledVersion()
+        ])
+        needsSetup = !connected || !versionInfo?.upToDate
+    } catch {
+        needsSetup = true
+    }
+
+    if (needsSetup) {
+        daemonSetupPhase.value = true
+        await runDaemonSetup()
+    } else {
+        passwordSet.value = await window.api.settings.isPasswordSet()
+        if (isDevRelaxSessionLock && passwordSet.value) {
+            unlocked.value = true
+            lockIdleMs.value = 0
+        }
+    }
 })
 
 onUnmounted(() => {

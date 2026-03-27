@@ -1,7 +1,8 @@
 import fs from 'fs'
 import path from 'path'
-import { execFile, spawnSync } from 'child_process'
+import { spawnSync } from 'child_process'
 import { desktopIconToDataUrl } from './desktopIconResolve.js'
+import { daemonSyncAppArmorAsync, daemonDesktopOverride, daemonWriteAppCatalogAsync } from '../daemonPrivilegedOps.js'
 import { redeployQuotaFromDisk } from './quotaIpc.js'
 import { appendActivity } from './activityLog.js'
 import { patchDefaultJson, readDefaultJson } from '../defaultProfileStore.js'
@@ -318,6 +319,7 @@ export function readAllDesktopApps() {
 }
 
 export function writeAppMonitorCatalog(configDir, apps) {
+    void configDir
     const payload = {
         updatedAt: new Date().toISOString(),
         apps: apps
@@ -328,7 +330,7 @@ export function writeAppMonitorCatalog(configDir, apps) {
                 processName: (a.processName || '').trim()
             }))
     }
-    fs.writeFileSync(path.join(configDir, APP_MONITOR_CATALOG), JSON.stringify(payload, null, 2), 'utf8')
+    daemonWriteAppCatalogAsync(JSON.stringify(payload, null, 2))
 }
 
 /** Refresh catalog from disk and ensure cron script runs app-usage tally when quotas or catalog exist. */
@@ -388,9 +390,8 @@ function buildApparmorProfile(entries) {
 }
 
 // Sync the AppArmor profile file with the current blocked list and reload.
-// Silently skips if apparmor_parser is not installed.
+// Delegates write + reload to daemon (root); frontend sends profile content.
 export function syncAppArmor(configDir) {
-    // Build exec-path list from current blocked app list
     const control = readAppControlConfig(configDir)
     const blocked = control.enabled ? readBlocked(configDir) : []
     const apps = readAllDesktopApps()
@@ -407,63 +408,50 @@ export function syncAppArmor(configDir) {
         entries.push({ execPath, appId: id })
     }
 
-    // Remove all previously loaded profiles from this file before rewriting
-    if (fs.existsSync(APPARMOR_PROFILE)) {
-        spawnSync('apparmor_parser', ['-R', APPARMOR_PROFILE], { timeout: 5000, stdio: 'ignore' })
-    }
-
-    // Write new profile file
-    try { fs.mkdirSync(path.dirname(APPARMOR_PROFILE), { recursive: true }) } catch { /* exists */ }
-    fs.writeFileSync(APPARMOR_PROFILE, buildApparmorProfile(entries), 'utf8')
-
-    // Load new profiles (skip if file is now empty / no blocked apps)
-    if (entries.length > 0) {
-        spawnSync('apparmor_parser', ['-a', APPARMOR_PROFILE], { timeout: 5000, stdio: 'ignore' })
-    }
+    daemonSyncAppArmorAsync(buildApparmorProfile(entries))
 }
 
-function applyDesktopOverride(configDir, appId, block) {
-    fs.mkdirSync(OVERRIDE_DIR, { recursive: true })
-    const overridePath = path.join(OVERRIDE_DIR, appId)
+async function applyDesktopOverride(configDir, appId, block) {
+    void configDir
     if (block) {
-        let originalPath = null
+        // Build modified .desktop content locally (reading original is unprivileged — files are 0644)
+        let content = null
         for (const dir of DESKTOP_DIRS) {
             const p = path.join(dir, appId)
-            if (fs.existsSync(p)) {
-                originalPath = p
+            if (fs.existsSync(p) && p !== path.join(OVERRIDE_DIR, appId)) {
+                try {
+                    const original = fs.readFileSync(p, 'utf8')
+                    let modified = original.replace(/^(NoDisplay=.*)$/m, 'NoDisplay=true')
+                    if (!modified.includes('NoDisplay=true')) {
+                        modified = modified.replace(/(\[Desktop Entry\])/, '$1\nNoDisplay=true')
+                    }
+                    modified = modified.replace(/^Exec=.*$/m,
+                        'Exec=notify-send -u critical "LiFE Parental Control" "This application is blocked by parental controls."')
+                    content = modified
+                } catch { /* skip unreadable */ }
                 break
             }
         }
-        if (originalPath && originalPath !== overridePath) {
-            const original = fs.readFileSync(originalPath, 'utf8')
-            let modified = original.replace(/^(NoDisplay=.*)$/m, 'NoDisplay=true')
-            if (!modified.includes('NoDisplay=true')) {
-                modified = modified.replace(/(\[Desktop Entry\])/, '$1\nNoDisplay=true')
-            }
-            modified = modified.replace(/^Exec=.*$/m,
-                'Exec=notify-send -u critical "LiFE Parental Control" "This application is blocked by parental controls."')
-            fs.writeFileSync(overridePath, modified, 'utf8')
+        if (content) {
+            await daemonDesktopOverride([{ appId, content }], [])
         }
-    } else if (fs.existsSync(overridePath)) {
-        fs.unlinkSync(overridePath)
+    } else {
+        await daemonDesktopOverride([], [appId])
     }
-    // Refresh the app launcher database so GNOME and other desktops pick up the NoDisplay change
-    execFile('update-desktop-database', [OVERRIDE_DIR], { timeout: 5000 }, () => {})
 }
 
-export function replaceBlockedDesktopIds(configDir, nextIds) {
+export async function replaceBlockedDesktopIds(configDir, nextIds) {
     const knownApps = readAllDesktopApps()
     const nextResolved = resolveBlockedIdsAgainstApps(Array.isArray(nextIds) ? nextIds : [], knownApps)
     const prevResolved = resolveBlockedIdsAgainstApps(readBlocked(configDir), knownApps)
     const next = new Set(nextResolved)
     const prev = prevResolved
-    // Normalize persisted IDs so UI + daemon read the same canonical desktop ids.
     saveBlocked(configDir, [...next])
     for (const id of prev) {
-        if (!next.has(id)) applyDesktopOverride(configDir, id, false)
+        if (!next.has(id)) await applyDesktopOverride(configDir, id, false)
     }
     for (const id of next) {
-        if (!prev.includes(id)) applyDesktopOverride(configDir, id, true)
+        if (!prev.includes(id)) await applyDesktopOverride(configDir, id, true)
     }
 }
 
@@ -474,7 +462,7 @@ export function registerAppBlockerIpc(ipcMain, configDir) {
         return cfg
     })
 
-    ipcMain.handle('apps:setControlConfig', (_, payload) => {
+    ipcMain.handle('apps:setControlConfig', async (_, payload) => {
         try {
             const enabled = payload?.enabled !== false
             const cfg = { enabled }
@@ -482,14 +470,12 @@ export function registerAppBlockerIpc(ipcMain, configDir) {
                 d.appControl = { enabled: cfg.enabled }
                 return d
             })
-            // Apply or remove runtime app-control enforcement immediately.
             if (cfg.enabled) {
                 syncAppArmor(configDir)
             } else {
                 const blocked = readBlocked(configDir)
-                for (const appId of blocked) applyDesktopOverride(configDir, appId, false)
+                for (const appId of blocked) await applyDesktopOverride(configDir, appId, false)
                 patchDefaultJson(configDir, (d) => {
-                    // Disabling app control clears persisted blocked apps and per-app quotas for consistent state.
                     d.blockedDesktopIds = []
                     d.quota = []
                     return d
@@ -535,7 +521,7 @@ export function registerAppBlockerIpc(ipcMain, configDir) {
         return apps
     })
 
-    ipcMain.handle('apps:setBlocked', (_, appId, block) => {
+    ipcMain.handle('apps:setBlocked', async (_, appId, block) => {
         try {
             const list = readBlocked(configDir)
             const control = readAppControlConfig(configDir)
@@ -546,7 +532,7 @@ export function registerAppBlockerIpc(ipcMain, configDir) {
             }
             saveBlocked(configDir, list)
             if (control.enabled) {
-                applyDesktopOverride(configDir, appId, block)
+                await applyDesktopOverride(configDir, appId, block)
                 syncAppArmor(configDir)
             }
             appendActivity(configDir, { action: block ? 'app_blocked' : 'app_unblocked', appId })

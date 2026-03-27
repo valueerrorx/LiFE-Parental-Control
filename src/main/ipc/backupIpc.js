@@ -9,6 +9,7 @@ import { readProcessWhitelistConfig, replaceProcessWhitelistFromBackup } from '.
 import { readPreferencesForBackup, mergePreferencesFromBackup, clearSessionLockPreference } from './settingsIpc.js'
 import { appendActivity } from './activityLog.js'
 import { readDefaultJson } from '../defaultProfileStore.js'
+import { daemonWriteLifeModes } from '../daemonPrivilegedOps.js'
 
 // Single-file bundle: no password hash, no usage history, no /etc/hosts aside from apply step below.
 const BUNDLE_VERSION = 1
@@ -108,18 +109,11 @@ export function registerBackupIpc(ipcMain, configDir, getWindow) {
                 replaceBlockedDesktopIds(configDir, ids)
             }
             if (Object.hasOwn(raw, 'lifeModes')) {
-                fs.mkdirSync(configDir, { recursive: true })
-                const lmPath = path.join(configDir, LIFE_MODES_FILE)
                 const lm = raw.lifeModes
-                if (lm != null && typeof lm === 'object' && !Array.isArray(lm)) {
-                    fs.writeFileSync(lmPath, JSON.stringify(lm, null, 2), 'utf8')
-                } else {
-                    try {
-                        fs.unlinkSync(lmPath)
-                    } catch {
-                        // missing file or unreadable
-                    }
-                }
+                const content = (lm != null && typeof lm === 'object' && !Array.isArray(lm))
+                    ? JSON.stringify(lm, null, 2)
+                    : null // null = delete
+                await daemonWriteLifeModes(content)
             }
             if (Object.hasOwn(raw, 'quotas')) {
                 const list = Array.isArray(raw.quotas) ? raw.quotas : []

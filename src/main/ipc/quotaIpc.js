@@ -4,8 +4,9 @@ import { normalizeQuotaLinuxUser, quotaUsageKey, quotaBonusMinutes } from '@shar
 import { pruneUsageArchives } from './usageArchivePrune.js'
 import { localIsoDate } from './localCalendarDay.js'
 import { appendActivity } from './activityLog.js'
-import { checkParentPassword } from './settingsIpc.js'
 import { patchDefaultJson, readDefaultJson } from '../defaultProfileStore.js'
+import { daemonRequest, isDaemonConnected } from '../daemonClient.js'
+import { daemonResetTodayQuotaUsage } from '../daemonPrivilegedOps.js'
 const BONUS_MIN = 5
 const BONUS_MAX = 180
 const BONUS_DEFAULT = 30
@@ -192,10 +193,10 @@ export function registerQuotaIpc(ipcMain, configDir) {
         }
     })
 
-    ipcMain.handle('quota:resetTodayUsage', () => {
+    ipcMain.handle('quota:resetTodayUsage', async () => {
         try {
-            const file = path.join(configDir, `quota-usage-${localIsoDate()}.json`)
-            if (fs.existsSync(file)) fs.unlinkSync(file)
+            const result = await daemonResetTodayQuotaUsage()
+            if (!result.ok) return { error: result.error }
             appendActivity(configDir, { action: 'quota_reset_today' })
             return { ok: true }
         } catch (e) {
@@ -205,13 +206,9 @@ export function registerQuotaIpc(ipcMain, configDir) {
 
     ipcMain.handle('quota:redeploy', () => ({ ok: true }))
 
-    ipcMain.handle('quota:grantAppBonus', (_, payload) => {
+    ipcMain.handle('quota:grantAppBonus', async (_, payload) => {
+        if (!isDaemonConnected()) return { error: 'Daemon nicht verbunden.' }
         try {
-            const gate = checkParentPassword(configDir, payload?.password)
-            if (!gate.ok) {
-                if (gate.reason === 'no_password') return { error: 'Set a parent password in Settings first.' }
-                return { error: 'Invalid password.' }
-            }
             const appId = typeof payload?.appId === 'string' ? payload.appId : ''
             if (!appId) return { error: 'Missing app id.' }
             const raw = Number(payload?.minutes)
@@ -219,11 +216,14 @@ export function registerQuotaIpc(ipcMain, configDir) {
                 ? Math.min(BONUS_MAX, Math.max(BONUS_MIN, Math.floor(raw)))
                 : BONUS_DEFAULT
             const lu = normalizeQuotaLinuxUser(payload?.linuxUser)
+            const result = await daemonRequest(
+                { type: 'extend-app', appId, minutes: bonus, password: payload?.password, linuxUser: lu || undefined },
+                'extend-app-result', 15_000
+            )
+            if (!result.ok) return { error: result.error }
+            // Re-read updated quota state (daemon wrote it as root, file is 0644)
             const st = readQuotaUsageState(configDir)
             const key = quotaUsageKey(appId, lu)
-            const prev = quotaBonusMinutes(st.appExtra, appId, lu)
-            st.appExtra[key] = prev + bonus
-            writeQuotaUsageState(configDir, st)
             appendActivity(configDir, { action: 'quota_app_bonus', appId, granted: bonus, linuxUser: lu || undefined })
             return { ok: true, appExtra: st.appExtra[key] }
         } catch (e) {

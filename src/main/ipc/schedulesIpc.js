@@ -2,11 +2,12 @@ import fs from 'fs'
 import path from 'path'
 import { pruneUsageArchives } from './usageArchivePrune.js'
 import { localIsoDate } from './localCalendarDay.js'
-import { checkParentPassword } from './settingsIpc.js'
 import { appendActivity } from './activityLog.js'
 import { effectiveScreenMinutes, effectiveScreenMinutesFromFileData } from '@shared/screenTimeUsage.js'
 import { normalizeQuotaLinuxUser } from '@shared/quotaUsageKey.js'
 import { patchDefaultJson, readDefaultJson } from '../defaultProfileStore.js'
+import { daemonRequest, isDaemonConnected } from '../daemonClient.js'
+import { daemonResetTodayUsage } from '../daemonPrivilegedOps.js'
 const BONUS_MIN = 5
 const BONUS_MAX = 180
 const BONUS_DEFAULT = 30
@@ -157,40 +158,29 @@ export function registerSchedulesIpc(ipcMain, configDir) {
         }
     })
 
-    ipcMain.handle('schedules:resetTodayUsage', () => {
+    ipcMain.handle('schedules:resetTodayUsage', async () => {
         try {
-            const file = path.join(configDir, `usage-${localIsoDate()}.json`)
-            if (fs.existsSync(file)) fs.unlinkSync(file)
+            const result = await daemonResetTodayUsage()
+            if (!result.ok) return { error: result.error }
             appendActivity(configDir, { action: 'screen_time_reset_today' })
             return { ok: true }
         } catch (e) { return { error: e.message } }
     })
 
-    ipcMain.handle('schedules:grantBonusMinutes', (_, payload) => {
+    ipcMain.handle('schedules:grantBonusMinutes', async (_, payload) => {
+        if (!isDaemonConnected()) return { error: 'Daemon nicht verbunden.' }
         try {
-            const gate = checkParentPassword(configDir, payload?.password)
-            if (!gate.ok) {
-                if (gate.reason === 'no_password') return { error: 'Set a parent password in Settings first.' }
-                return { error: 'Invalid password.' }
-            }
             const raw = Number(payload?.minutes)
             const bonus = Number.isFinite(raw) && raw > 0
                 ? Math.min(BONUS_MAX, Math.max(BONUS_MIN, Math.floor(raw)))
                 : BONUS_DEFAULT
-            const today = localIsoDate()
-            const data = readUsage(configDir)
-            const prevExtra = Math.max(0, Number(data.extraAllowanceMinutes) || 0)
-            const nextExtra = prevExtra + bonus
-            const out = {
-                date: today,
-                users: data.users && typeof data.users === 'object' ? data.users : {},
-                extraAllowanceMinutes: nextExtra,
-                warnedLowScreenTime: false,
-                warnedScreenTimeExhausted: false
-            }
-            writeUsage(configDir, out)
+            const result = await daemonRequest({ type: 'extend', minutes: bonus, password: payload?.password }, 'extend-result', 15_000)
+            if (!result.ok) return { error: result.error }
+            // Re-read usage after daemon wrote the updated file (file is 0644, readable by frontend)
+            const updatedUsage = readUsage(configDir)
             const schedule = readSchedule(configDir)
-            const minutesLogged = effectiveScreenMinutes(out, schedule.screenTimeLinuxUser)
+            const minutesLogged = effectiveScreenMinutes(updatedUsage, schedule.screenTimeLinuxUser)
+            const nextExtra = Math.max(0, Number(updatedUsage.extraAllowanceMinutes) || 0)
             appendActivity(configDir, {
                 action: 'screen_time_bonus',
                 granted: bonus,

@@ -1,5 +1,6 @@
 import fs from 'fs'
 import path from 'path'
+import { daemonWriteHageziCache } from '../daemonPrivilegedOps.js'
 
 // HaGeZi DNS blocklists — DNSMasq format: https://github.com/hagezi/dns-blocklists (GPL-3.0)
 
@@ -64,12 +65,6 @@ function readFeedMeta(configDir) {
     return j && typeof j === 'object' && !Array.isArray(j) ? j : { feeds: {} }
 }
 
-function writeFeedMeta(configDir, meta) {
-    const dir = path.join(configDir, 'blocklists')
-    fs.mkdirSync(dir, { recursive: true })
-    fs.writeFileSync(path.join(dir, 'meta.json'), JSON.stringify(meta, null, 2), 'utf8')
-}
-
 /**
  * @param {string} bundledDir
  * @param {string} configDir
@@ -81,6 +76,7 @@ export async function syncHageziFeeds(bundledDir, configDir) {
     const errors = []
     const meta = readFeedMeta(configDir)
     if (!meta.feeds || typeof meta.feeds !== 'object') meta.feeds = {}
+    const filesToWrite = []
 
     for (const feed of HAGEZI_FEEDS) {
         const url = feedUrl(feed)
@@ -116,9 +112,7 @@ export async function syncHageziFeeds(bundledDir, configDir) {
                 errors.push(`${feed.id}: unexpected body`)
                 continue
             }
-            const dir = path.join(configDir, 'blocklists')
-            fs.mkdirSync(dir, { recursive: true })
-            fs.writeFileSync(path.join(dir, feed.file), text, 'utf8')
+            filesToWrite.push({ name: feed.file, content: text })
             meta.feeds[feed.id] = {
                 etag: etag || null,
                 version: ver,
@@ -131,7 +125,10 @@ export async function syncHageziFeeds(bundledDir, configDir) {
             errors.push(`${feed.id}: ${msg}`)
         }
     }
-    writeFeedMeta(configDir, meta)
+    // Delegate all writes (feed files + meta) to daemon (root); best-effort
+    if (filesToWrite.length > 0 || updated.length > 0 || notModified.length > 0) {
+        await daemonWriteHageziCache(filesToWrite, meta).catch(() => { /* offline / not connected */ })
+    }
     return { updated, notModified, errors }
 }
 

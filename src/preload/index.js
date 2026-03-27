@@ -107,6 +107,7 @@ contextBridge.exposeInMainWorld('api', {
         extendApp: (payload) => ipcRenderer.invoke('daemon:extendApp', payload),
         serviceControl: (payload) => ipcRenderer.invoke('daemon:serviceControl', payload),
         nodeCheck: () => ipcRenderer.invoke('daemon:nodeCheck'),
-        apparmorCheck: () => ipcRenderer.invoke('daemon:apparmorCheck')
+        apparmorCheck: () => ipcRenderer.invoke('daemon:apparmorCheck'),
+        checkInstalledVersion: () => ipcRenderer.invoke('daemon:checkInstalledVersion')
     }
 })

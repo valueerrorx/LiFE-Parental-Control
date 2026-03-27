@@ -1,16 +1,13 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later; Copyright (c) 2026 Thomas Michael Weissel; Licensed under GPLv3+ (see http://www.gnu.org/licenses/). */
 import { app, BrowserWindow, ipcMain, Menu, shell } from 'electron'
 import path from 'path'
-import fs, { mkdirSync } from 'fs'
-import { spawn } from 'child_process'
+import { mkdirSync } from 'fs'
 import { registerConfigIpc } from './ipc/configIpc.js'
 import { registerProfileIpc } from './ipc/profileIpc.js'
 import { registerSystemIpc } from './ipc/systemIpc.js'
 import { registerSettingsIpc, repairInvalidLockIdleInConfig } from './ipc/settingsIpc.js'
-import { pruneUsageArchives } from './ipc/usageArchivePrune.js'
 import { resolveWindowIconPath } from './windowIcon.js'
 import { initWarningWindow } from './warningWindow.js'
-import { resolveElevatedExecutablePath } from './appImageResolve.js'
 import { ensureDefaultJsonExistsForUi } from './defaultProfileStore.js'
 
 const APP_CONFIG_DIR = '/etc/life-parental'
@@ -35,79 +32,11 @@ let mainWindow = null
 let allowAppTermination = false
 let deferredHeavyWorkPromise = null
 
-function buildPkexecForwardEnvPairs() {
-    const envPairs = []
-    const passKeys = [
-        'DISPLAY', 'XAUTHORITY', 'WAYLAND_DISPLAY', 'XDG_RUNTIME_DIR', 'DBUS_SESSION_BUS_ADDRESS',
-        'XDG_SESSION_TYPE', 'XDG_CURRENT_DESKTOP', 'QT_QPA_PLATFORM', 'APPIMAGE', 'LIFE_DEVTOOLS',
-        'LIFE_DISABLE_GPU', 'LIFE_OZONE_PLATFORM', 'ELECTRON_OZONE_PLATFORM_HINT', 'LIFE_SESSION_LOCK'
-    ]
-    for (const k of passKeys) {
-        const v = process.env[k]
-        if (v) envPairs.push(`${k}=${v}`)
-    }
-    return envPairs
-}
-
-function appendElevateDebug(line) {
-    try {
-        fs.appendFileSync('/tmp/life-parental-elevate.log', `${new Date().toISOString()} ${line}\n`, 'utf8')
-    } catch {
-        /* ignore */
-    }
-}
-
-function spawnPkexecRelaunch() {
-    const self = resolveElevatedExecutablePath()
-    const isAppImage = Boolean(process.env.APPIMAGE) || /\.AppImage$/i.test(self)
-    const envPairs = buildPkexecForwardEnvPairs()
-    if (isAppImage) {
-        envPairs.push('APPIMAGE_EXTRACT_AND_RUN=1')
-        if (!process.env.APPIMAGE) envPairs.push(`APPIMAGE=${self}`)
-    }
-    const childArgs = [...process.argv.slice(1)]
-    const hasNoSandbox = childArgs.some(a => a === '--no-sandbox' || a.startsWith('--no-sandbox='))
-    if (!hasNoSandbox) childArgs.push('--no-sandbox')
-    const hasExtract = childArgs.some(a => a === '--appimage-extract-and-run')
-    const extractArg = isAppImage && !hasExtract ? ['--appimage-extract-and-run'] : []
-    const pkexecArgv = ['/usr/bin/env', ...envPairs, self, ...extractArg, ...childArgs]
-    appendElevateDebug(`elevate self=${self} argvLen=${pkexecArgv.length} appimage=${isAppImage}`)
-    const child = spawn(
-        'pkexec',
-        pkexecArgv,
-        { detached: true, stdio: 'ignore', env: process.env }
-    )
-    child.on('error', err => {
-        console.error('[LiFE Parental Control] pkexec relaunch failed:', err.message)
-        appendElevateDebug(`spawn error ${err.message}`)
-        app.quit()
-    })
-    child.on('exit', (code, signal) => {
-        if (code !== 0 && code !== null) {
-            appendElevateDebug(`pkexec exit code=${code} signal=${signal ?? ''}`)
-        }
-        app.quit()
-    })
-}
-
 // Detect warning mode (spawned by daemon as the desktop user, no root)
 const warningModeArg = process.argv.find(a => a.startsWith('--warning-mode='))
 const isWarningMode = Boolean(warningModeArg)
 
-// Suppress Chromium D-Bus connection attempts when running as root (harmless but noisy stderr errors).
-if (!isWarningMode && typeof process.getuid === 'function' && process.getuid() === 0) {
-    if (process.platform === 'linux') {
-        app.commandLine.appendSwitch('no-sandbox')
-        // Root on Linux: seccomp/shm often breaks Chromium surfaces (white window + white DevTools); see platform_shared_memory_region_posix / disable-dev-shm-usage.
-        app.commandLine.appendSwitch('no-zygote')
-        app.commandLine.appendSwitch('disable-dev-shm-usage')
-        app.commandLine.appendSwitch('disable-seccomp-filter-sandbox')
-    }
-    app.commandLine.appendSwitch('disable-features', 'HardwareMediaKeyHandling,MediaSessionService')
-    app.commandLine.appendSwitch('disable-dbus')
-}
-
-// Main UI only (unchanged): optional Ozone/GPU from env — never mix with warning-mode spawn logic.
+// Main UI only: optional Ozone/GPU from env — never mix with warning-mode spawn logic.
 if (process.platform === 'linux' && !isWarningMode) {
     const oz = process.env.LIFE_OZONE_PLATFORM || process.env.ELECTRON_OZONE_PLATFORM_HINT
     if (oz === 'x11' || oz === 'wayland') {
@@ -166,12 +95,6 @@ app.whenReady().then(async () => {
         return
     }
 
-    // Linux: require root; non-root processes only relaunch via pkexec (Polkit) and exit.
-    if (process.platform === 'linux' && typeof process.getuid === 'function' && process.getuid() !== 0) {
-        spawnPkexecRelaunch()
-        return
-    }
-
     const kioskDir = app.isPackaged
         ? path.join(process.resourcesPath, 'kiosk')
         : path.join(__dirname, '../../kiosk')
@@ -188,26 +111,11 @@ app.whenReady().then(async () => {
 
     initWarningWindow(imagesDir)
     mkdirSync(profilesDir, { recursive: true })
-    mkdirSync(APP_CONFIG_DIR, { recursive: true })
     ensureDefaultJsonExistsForUi(APP_CONFIG_DIR)
-    // Store own executable path so the daemon can spawn the warning window
-    // Only write when packaged — in dev, process.execPath is the bare Electron binary
-    // which would open the wrong app when spawned by the daemon standalone.
-    if (app.isPackaged) {
-        try {
-            const execPath = resolveElevatedExecutablePath()
-            fs.writeFileSync(path.join(APP_CONFIG_DIR, '.electron-exec'), `${execPath}\n`, 'utf8')
-        } catch { /* best-effort */ }
-    }
     try {
         repairInvalidLockIdleInConfig(APP_CONFIG_DIR)
     } catch {
         // best-effort
-    }
-    try {
-        pruneUsageArchives(APP_CONFIG_DIR)
-    } catch {
-        // best-effort cleanup
     }
     registerConfigIpc(ipcMain, kioskDir)
     registerProfileIpc(ipcMain, profilesDir, APP_CONFIG_DIR)
