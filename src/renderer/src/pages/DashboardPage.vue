@@ -8,7 +8,14 @@
         <!-- Status cards row -->
         <div class="row g-3 mb-4 row-cols-2 row-cols-xl-5">
             <div class="col d-flex">
-                <div class="stat-card h-100 w-100">
+                <div
+                    class="stat-card stat-card--clickable h-100 w-100"
+                    role="button"
+                    tabindex="0"
+                    @click="go('/webfilter')"
+                    @keydown.enter.prevent="go('/webfilter')"
+                    @keydown.space.prevent="go('/webfilter')"
+                >
                     <div class="stat-icon" style="background:#E3F2FD; color:#1565C0;">
                         <i class="bi bi-shield-x" />
                     </div>
@@ -23,7 +30,14 @@
                 </div>
             </div>
             <div class="col d-flex">
-                <div class="stat-card h-100 w-100">
+                <div
+                    class="stat-card stat-card--clickable h-100 w-100"
+                    role="button"
+                    tabindex="0"
+                    @click="go('/apps')"
+                    @keydown.enter.prevent="go('/apps')"
+                    @keydown.space.prevent="go('/apps')"
+                >
                     <div class="stat-icon" style="background:#FFF3E0; color:#E65100;">
                         <i class="bi bi-app-indicator" />
                     </div>
@@ -38,7 +52,14 @@
                 </div>
             </div>
             <div class="col d-flex">
-                <div class="stat-card h-100 w-100">
+                <div
+                    class="stat-card stat-card--clickable h-100 w-100"
+                    role="button"
+                    tabindex="0"
+                    @click="go('/process-whitelist')"
+                    @keydown.enter.prevent="go('/process-whitelist')"
+                    @keydown.space.prevent="go('/process-whitelist')"
+                >
                     <div class="stat-icon" style="background:#E8F5E9; color:#2E7D32;">
                         <i class="bi bi-shield-check" />
                     </div>
@@ -53,7 +74,14 @@
                 </div>
             </div>
             <div class="col d-flex">
-                <div class="stat-card h-100 w-100">
+                <div
+                    class="stat-card stat-card--clickable h-100 w-100"
+                    role="button"
+                    tabindex="0"
+                    @click="go('/schedules')"
+                    @keydown.enter.prevent="go('/schedules')"
+                    @keydown.space.prevent="go('/schedules')"
+                >
                     <div class="stat-icon" style="background:#E8F5E9; color:#2E7D32;">
                         <i class="bi bi-clock-history" />
                     </div>
@@ -68,7 +96,14 @@
                 </div>
             </div>
             <div v-if="isKDE" class="col d-flex">
-                <div class="stat-card h-100 w-100">
+                <div
+                    class="stat-card stat-card--clickable h-100 w-100"
+                    role="button"
+                    tabindex="0"
+                    @click="go('/kiosk')"
+                    @keydown.enter.prevent="go('/kiosk')"
+                    @keydown.space.prevent="go('/kiosk')"
+                >
                     <div class="stat-icon" style="background:#F3E5F5; color:#6A1B9A;">
                         <i class="bi bi-lock-fill" />
                     </div>
@@ -249,6 +284,7 @@ import { useI18n } from 'vue-i18n'
 import { normalizeQuotaLinuxUser, quotaUsedMinutes, quotaBonusMinutes } from '@shared/quotaUsageKey.js'
 import { useAppStore } from '../stores/appStore.js'
 import { RouterLink } from 'vue-router'
+import { useRouter } from 'vue-router'
 
 const { t } = useI18n()
 
@@ -264,6 +300,7 @@ const WEEK_BAR_TRACK_PX = 120
 const WEEK_BAR_FULL_MINUTES = 12 * 60
 
 const store = useAppStore()
+const router = useRouter()
 // Same visibility rule as AppSidebar nav (KDE or unknown XDG_CURRENT_DESKTOP).
 const isKDE = computed(() => {
     const d = (store.xdgCurrentDesktop || '').toUpperCase()
@@ -274,6 +311,10 @@ const weekUsage = ref([])
 const selectedDonutDate = ref(null)
 const donutDayUsage = ref({})
 const daemonServiceActive = ref(null) // 'active' | 'inactive' | null
+
+function go(path) {
+    router.push(path)
+}
 
 function localIsoDate(d = new Date()) {
     const y = d.getFullYear()
@@ -536,6 +577,9 @@ onMounted(async () => {
 </script>
 
 <style scoped>
+.stat-card--clickable {
+    cursor: pointer;
+}
 .donut-overlap-hint {
     color: #b0bec5;
 }

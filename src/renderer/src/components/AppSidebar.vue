@@ -32,16 +32,16 @@
                     </span>
                 </button>
             </RouterLink>
-            <RouterLink to="/schedules" custom v-slot="{ navigate, isExactActive }">
-                <button class="nav-item-link" :class="{ active: isExactActive }" @click="navigate">
-                    <i class="bi bi-clock-history" /> {{ $t('nav.screenTime') }}
-                    <span v-if="screenTimeOn" class="ms-auto badge-count badge-schedule" :title="$t('sidebar.screenTimeEnabled')">{{ $t('common.on') }}</span>
-                </button>
-            </RouterLink>
             <RouterLink to="/process-whitelist" custom v-slot="{ navigate, isExactActive }">
                 <button class="nav-item-link" :class="{ active: isExactActive }" @click="navigate">
                     <i class="bi bi-list-check" /> {{ $t('nav.quotaExemptions') }}
                     <span v-if="whitelistActive" class="ms-auto badge-count badge-schedule" :title="$t('sidebar.dailyQuotaExemptions')">{{ $t('common.on') }}</span>
+                </button>
+            </RouterLink>
+            <RouterLink to="/schedules" custom v-slot="{ navigate, isExactActive }">
+                <button class="nav-item-link" :class="{ active: isExactActive }" @click="navigate">
+                    <i class="bi bi-clock-history" /> {{ $t('nav.screenTime') }}
+                    <span v-if="screenTimeOn" class="ms-auto badge-count badge-schedule" :title="$t('sidebar.screenTimeEnabled')">{{ $t('common.on') }}</span>
                 </button>
             </RouterLink>
 
