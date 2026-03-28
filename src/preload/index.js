@@ -100,6 +100,12 @@ contextBridge.exposeInMainWorld('api', {
         deleteAllUsageHistory: () => ipcRenderer.invoke('settings:deleteAllUsageHistory'),
         queueDaemonWarningTest: () => ipcRenderer.invoke('settings:queueDaemonWarningTest')
     },
+    lockdown: {
+        isFinished: () => ipcRenderer.invoke('lockdown:isFinished'),
+        analyze: (targetUser) => ipcRenderer.invoke('lockdown:analyze', targetUser),
+        execute: (payload) => ipcRenderer.invoke('lockdown:execute', payload),
+        markFinished: (skipped) => ipcRenderer.invoke('lockdown:markFinished', skipped)
+    },
     daemon: {
         isConnected: () => ipcRenderer.invoke('daemon:isConnected'),
         getStatus: () => ipcRenderer.invoke('daemon:getStatus'),

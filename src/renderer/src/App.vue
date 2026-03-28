@@ -47,6 +47,9 @@
         </Transition>
     </div>
 
+    <!-- Lockdown wizard: shown after unlock until parent completes or dismisses it -->
+    <LockdownWizard v-else-if="passwordSet && showLockdownWizard" @close="onLockdownWizardClose" />
+
     <!-- Password set: dashboard always mounted; session lock is a pale overlay -->
     <div v-else-if="passwordSet" class="pc-app-shell">
         <div
@@ -82,6 +85,7 @@ import { ref, onMounted, onUnmounted, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { normalizedLockIdleMinutesOrUndefined } from '@shared/lockIdleMinutes.js'
 import AppModal from './components/AppModal.vue'
+import LockdownWizard from './components/LockdownWizard.vue'
 import { useModal } from './composables/useModal.js'
 import { quitWithParentPassword } from './parentQuit.js'
 
@@ -92,6 +96,7 @@ const { prompt } = useModal()
 
 const unlocked = ref(false)
 const passwordSet = ref(false)
+const showLockdownWizard = ref(false)
 const password = ref('')
 const pw1 = ref('')
 const pw2 = ref('')
@@ -227,6 +232,7 @@ onMounted(async () => {
         if (isDevRelaxSessionLock && passwordSet.value) {
             unlocked.value = true
             lockIdleMs.value = 0
+            await checkLockdownWizard()
         }
     }
 })
@@ -268,6 +274,7 @@ async function onSetPassword() {
     unlocked.value = true
     pw1.value = pw2.value = ''
     await applyUnlockIdlePolicy()
+    await checkLockdownWizard()
 }
 
 async function onUnlock() {
@@ -280,6 +287,7 @@ async function onUnlock() {
         error.value = ''
         password.value = ''
         await applyUnlockIdlePolicy()
+        await checkLockdownWizard()
     } else {
         error.value = t('app.incorrectPassword')
         password.value = ''
@@ -288,6 +296,20 @@ async function onUnlock() {
 
 async function handleQuitRequest() {
     await quitWithParentPassword(prompt)
+}
+
+/** Check if lockdown wizard should be shown (only after the user is unlocked). */
+async function checkLockdownWizard() {
+    try {
+        const finished = await window.api.lockdown.isFinished()
+        showLockdownWizard.value = !finished
+    } catch {
+        showLockdownWizard.value = false
+    }
+}
+
+function onLockdownWizardClose() {
+    showLockdownWizard.value = false
 }
 </script>
 

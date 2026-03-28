@@ -13,6 +13,7 @@ import { registerProcessWhitelistIpc } from './ipc/processWhitelistIpc.js'
 import { registerActivityIpc } from './ipc/activityIpc.js'
 import { registerBackupIpc } from './ipc/backupIpc.js'
 import { registerSettingsDangerIpc } from './ipc/settingsDangerIpc.js'
+import { registerLockdownIpc } from './ipc/lockdownIpc.js'
 import { daemonConnect, daemonOn, daemonSend, daemonRequest, isDaemonConnected } from './daemonClient.js'
 import { daemonServiceControl, daemonRegisterClient } from './daemonPrivilegedOps.js'
 
@@ -43,6 +44,7 @@ export function registerHeavyIpc(ipcMain, { appConfigDir, hageziBundledDir, getM
     registerActivityIpc(ipcMain, appConfigDir)
     registerBackupIpc(ipcMain, appConfigDir, getMainWindow)
     registerSettingsDangerIpc(ipcMain, appConfigDir)
+    registerLockdownIpc(ipcMain, appConfigDir)
 
     // Daemon connection status
     ipcMain.handle('daemon:isConnected', () => isDaemonConnected())
@@ -134,9 +136,8 @@ export function registerHeavyIpc(ipcMain, { appConfigDir, hageziBundledDir, getM
 
             // AppImage FUSE mounts (/tmp/.mount_*) are not accessible by root (squashfuse mounts without allow_root).
             // Copy the script AND all required resources to /tmp before calling pkexec.
-            const stamp = Date.now()
-            const tmpScript = `/tmp/life-parental-install-${stamp}.sh`
-            const tmpResBase = `/tmp/life-parental-res-${stamp}`
+            const tmpScript = '/tmp/life-parental-install.sh'
+            const tmpResBase = '/tmp/life-parental-res'
             try {
                 // Copy install script
                 fs.copyFileSync(installScriptSrc, tmpScript)
@@ -151,11 +152,18 @@ export function registerHeavyIpc(ipcMain, { appConfigDir, hageziBundledDir, getM
                 }
 
                 // Copy systemd service file (required)
+                // packaged: resBase/systemd/  dev: resBase/packaging/systemd/
+                const systemdSrc = fs.existsSync(path.join(resBase, 'systemd', 'parental-control.service'))
+                    ? path.join(resBase, 'systemd', 'parental-control.service')
+                    : path.join(resBase, 'packaging', 'systemd', 'parental-control.service')
                 fs.mkdirSync(path.join(tmpResBase, 'systemd'), { recursive: true })
-                fs.copyFileSync(path.join(resBase, 'systemd', 'parental-control.service'), path.join(tmpResBase, 'systemd', 'parental-control.service'))
+                fs.copyFileSync(systemdSrc, path.join(tmpResBase, 'systemd', 'parental-control.service'))
 
                 // Copy polkit rules (best-effort)
-                const polkitSrc = path.join(resBase, 'polkit', '50-org.tuxfamily.life-parental-control.rules')
+                // packaged: resBase/polkit/  dev: resBase/packaging/polkit/
+                const polkitSrc = fs.existsSync(path.join(resBase, 'polkit', '50-org.tuxfamily.life-parental-control.rules'))
+                    ? path.join(resBase, 'polkit', '50-org.tuxfamily.life-parental-control.rules')
+                    : path.join(resBase, 'packaging', 'polkit', '50-org.tuxfamily.life-parental-control.rules')
                 if (fs.existsSync(polkitSrc)) {
                     fs.mkdirSync(path.join(tmpResBase, 'polkit'), { recursive: true })
                     fs.copyFileSync(polkitSrc, path.join(tmpResBase, 'polkit', '50-org.tuxfamily.life-parental-control.rules'))

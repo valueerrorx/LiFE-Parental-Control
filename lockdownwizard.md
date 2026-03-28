@@ -13,11 +13,12 @@ Ensure the system is secure by de-privileging users while maintaining a "Fail-Sa
    - `getent group sudo || getent group wheel` (Verify if at least one other Admin exists)
    - `sudo grep -r "password" /boot/grub/` (Check for GRUB password)
 
-3. **UI Generation (Vue):** Present a list of "To-Dos" with checkboxes:
-   - [ ] "Remove SUID bit from: [path]" (if found)
-   - [ ] "Set/Change Root Password" (if none or desired)
-   - [ ] "Demote User [name] from Admin" (Only if another verified Admin exists!)
-   - [ ] "Set GRUB password"
+3. **UI Generation (Vue):** Present a list of "To-Dos": based on your previous findings wich you will work through after the parend accepted all terms and risks
+   -  "Remove SUID bit from: [path]" (if found)
+   -  "Set/Change Root Password" (if none)
+   -  "Create a new parent admin with home account and sudo permissions"
+   -  "Demote User [name] from Admin" (Only if another verified Admin exists!)
+   -  "Set GRUB password" 
 
 4. **Fail-Safe Protocol:** - NEVER allow removing a user from `sudo`/`wheel` if it's the last admin.
    - Before demoting the current user, force a "Verify Admin Access" step (e.g., let the user set a root password and confirm they know it).

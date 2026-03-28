@@ -58,12 +58,19 @@ if [ -d "$HAGEZI_SRC" ]; then
     cp -r "$HAGEZI_SRC/." "$HAGEZI_DST/"
 fi
 
-# --- Polkit rules + policy (allow pkexec without password prompt on next run) ---
+# --- Polkit rules (distro-independent: try both locations) ---
 POLKIT_RULES_SRC="$RES_BASE/polkit/50-org.tuxfamily.life-parental-control.rules"
+POLKIT_RULE_NAME="50-org.tuxfamily.life-parental-control.rules"
 if [ -f "$POLKIT_RULES_SRC" ]; then
+    # /etc/polkit-1/rules.d/ — Debian/Ubuntu/Fedora
     mkdir -p /etc/polkit-1/rules.d
-    cp "$POLKIT_RULES_SRC" /etc/polkit-1/rules.d/
-    chmod 0644 /etc/polkit-1/rules.d/50-org.tuxfamily.life-parental-control.rules
+    cp "$POLKIT_RULES_SRC" /etc/polkit-1/rules.d/"$POLKIT_RULE_NAME"
+    chmod 0644 /etc/polkit-1/rules.d/"$POLKIT_RULE_NAME"
+    # /usr/share/polkit-1/rules.d/ — Arch/Garuda/Manjaro
+    if [ -d /usr/share/polkit-1/rules.d ]; then
+        cp "$POLKIT_RULES_SRC" /usr/share/polkit-1/rules.d/"$POLKIT_RULE_NAME"
+        chmod 0644 /usr/share/polkit-1/rules.d/"$POLKIT_RULE_NAME"
+    fi
     echo "life-parental-install: polkit rules installed"
 fi
 

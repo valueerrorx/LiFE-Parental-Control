@@ -8,7 +8,8 @@ export const i18n = createI18n({
     legacy: false,
     locale: savedLocale,
     fallbackLocale: 'en',
-    messages: { en, de }
+    messages: { en, de },
+    warnHtmlMessage: false // strings with <code>/<strong> are internal, not user input — XSS not a risk
 })
 
 export function setLocale(locale) {

@@ -50,7 +50,8 @@
     "blocked": "Blocked",
     "allAccounts": "All accounts",
     "optional": "optional",
-    "on": "on"
+    "on": "on",
+    "back": "Back"
   },
   "app": {
     "createPassword": "Create a password to protect parental control settings.",
@@ -425,6 +426,47 @@
     "protectionsStopAll": "Danger zone: all protections stopped (screen time, quotas, blocks, web filter, exemptions; kiosk removed if active)",
     "usageHistoryWiped": "Danger zone: all usage/quota daily logs deleted ({count} files)",
     "yes": "yes",
-    "no": "no"
+    "no": "no",
+    "lockdown_wizard_completed": "Lockdown wizard completed (target: {targetUser}, admin: {adminUser})",
+    "lockdown_wizard_skipped": "Lockdown wizard skipped",
+    "lockdown_wizard_finished": "Lockdown wizard marked as finished"
+  },
+  "lockdown": {
+    "title": "Secure the system",
+    "intro": "This wizard helps you lock down the system. You can run it now or skip it — it will appear again on the next start.",
+    "targetUserLabel": "User to restrict (child account)",
+    "selectUser": "Select user …",
+    "targetUserHint": "This user will be de-privileged (removed from sudo/wheel).",
+    "analyzeBtn": "Analyze",
+    "analyzeError": "Analysis failed.",
+    "todoTitle": "What will be done?",
+    "todoIntro": "Based on the analysis, the following steps will be performed:",
+    "todoSuid": "Remove SUID bits ({count} files)",
+    "todoRootPw": "Set root password",
+    "todoCreateAdmin": "Create parent admin '{user}' with sudo rights",
+    "todoUseAdmin": "Use existing admin '{user}' as parent admin",
+    "adminModeNew": "Create new account",
+    "adminModeExisting": "Use existing account",
+    "adminUserExistingLabel": "Existing admin account",
+    "adminUserConflict": "Username '{user}' already exists — choose a different name or switch to 'Use existing account'.",
+    "todoDemote": "Remove user '{user}' from sudo/wheel",
+    "todoGrub": "Protect GRUB bootloader with password",
+    "adminUserLabel": "New parent admin username",
+    "adminUserPlaceholder": "e.g. parentadmin",
+    "adminPwLabel": "Password (for admin account, root + GRUB bootloader)",
+    "adminPwLabelRootOnly": "Password for root account + GRUB bootloader",
+    "adminPwRootHint": "The existing admin account remains unchanged. This password is set for the root account and GRUB bootloader — a safety net in case admin access is ever lost.",
+    "adminPwPlaceholder": "Enter a strong password",
+    "adminPwConfirmLabel": "Confirm password",
+    "adminPwConfirmPlaceholder": "Repeat password",
+    "ackLabel": "I understand that these changes affect system accounts and cannot easily be undone.",
+    "pwMismatch": "Passwords do not match.",
+    "pwTooShort": "Password must be at least 8 characters.",
+    "executeBtn": "Apply lockdown",
+    "executeError": "Lockdown failed.",
+    "skipForNow": "Skip for now",
+    "doneTitle": "System secured!",
+    "doneText": "The parent admin account was created and the restricted user has been de-privileged.",
+    "doneBtn": "Done"
   }
 }

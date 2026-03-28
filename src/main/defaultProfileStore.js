@@ -101,6 +101,7 @@ function buildFromRaw(raw) {
     }
     if (Array.isArray(raw.quota)) next.quota = raw.quota
     next.requestDaemonWarningTest = raw.requestDaemonWarningTest === true
+    if (raw.finishedLockdownWizard === true) next.finishedLockdownWizard = true
     return next
 }
 
