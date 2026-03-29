@@ -99,6 +99,25 @@ find "/home/$TARGET_USER" /tmp /var/tmp -xdev -perm /6000 -type f -user root \
 # Remove SSH authorized_keys (prevents remote persistence via key)
 rm -f "/home/$TARGET_USER/.ssh/authorized_keys" 2>/dev/null || true
 
+# Set up FUSE group — always done to restrict AppImage usage for the target user.
+# The target user is NOT added here; that only happens in Phase 4 if ALLOW_FUSE=true.
+groupadd -f fuse 2>/dev/null || true
+for BIN in /usr/bin/fusermount /usr/bin/fusermount3 /bin/fusermount /bin/fusermount3; do
+    [ -x "$BIN" ] || continue
+    chgrp fuse "$BIN" 2>/dev/null || true
+    chmod u+s "$BIN"  2>/dev/null || true  # SUID required for unprivileged mounts
+done
+cat > /etc/udev/rules.d/99-life-parental-fuse.rules << 'EOF'
+KERNEL=="fuse", GROUP="fuse", MODE="0660"
+EOF
+udevadm control --reload-rules 2>/dev/null || true
+udevadm trigger --name-match=fuse 2>/dev/null || true
+usermod -aG fuse root          2>/dev/null || true
+usermod -aG fuse "$ADMIN_USER" 2>/dev/null || true
+# Explicitly remove target user from fuse group (may have been member before)
+gpasswd -d "$TARGET_USER" fuse 2>/dev/null || true
+echo "status: fuse-restricted"
+
 # --- PHASE 3: GRUB bootloader password ---
 # Hash was pre-computed by the frontend (grub-mkpasswd-pbkdf2 needs a TTY, pkexec blocks stdin)
 if [ -d /etc/grub.d ] && [ -n "$GRUB_HASH" ]; then
@@ -145,6 +164,16 @@ polkit.addRule(function(action, subject) {
     }
 });
 EOF
+    # Sudoers fallback — works on all distros including those without PackageKit (e.g. Arch)
+    # Only install subcommands — remove/uninstall deliberately omitted
+    {
+        [ -x /usr/bin/apt ]     && echo "$TARGET_USER ALL=(ALL) NOPASSWD: /usr/bin/apt install *,/usr/bin/apt reinstall *"
+        [ -x /usr/bin/apt-get ] && echo "$TARGET_USER ALL=(ALL) NOPASSWD: /usr/bin/apt-get install *,/usr/bin/apt-get reinstall *"
+        [ -x /usr/bin/dnf ]     && echo "$TARGET_USER ALL=(ALL) NOPASSWD: /usr/bin/dnf install *"
+        [ -x /usr/bin/zypper ]  && echo "$TARGET_USER ALL=(ALL) NOPASSWD: /usr/bin/zypper install *,/usr/bin/zypper in *"
+        [ -x /usr/bin/pacman ]  && echo "$TARGET_USER ALL=(ALL) NOPASSWD: /usr/bin/pacman -S *"
+    } > /etc/sudoers.d/55-life-parental-install-"$TARGET_USER"
+    chmod 440 /etc/sudoers.d/55-life-parental-install-"$TARGET_USER"
     echo "status: allow-install-set"
 fi
 
@@ -170,12 +199,20 @@ polkit.addRule(function(action, subject) {
     }
 });
 EOF
+    # Sudoers fallback for update — distro-aware, only update/upgrade subcommands
+    {
+        [ -x /usr/bin/apt ]     && echo "$TARGET_USER ALL=(ALL) NOPASSWD: /usr/bin/apt update,/usr/bin/apt upgrade,/usr/bin/apt full-upgrade"
+        [ -x /usr/bin/apt-get ] && echo "$TARGET_USER ALL=(ALL) NOPASSWD: /usr/bin/apt-get update,/usr/bin/apt-get upgrade,/usr/bin/apt-get dist-upgrade"
+        [ -x /usr/bin/dnf ]     && echo "$TARGET_USER ALL=(ALL) NOPASSWD: /usr/bin/dnf update,/usr/bin/dnf upgrade"
+        [ -x /usr/bin/zypper ]  && echo "$TARGET_USER ALL=(ALL) NOPASSWD: /usr/bin/zypper update,/usr/bin/zypper up,/usr/bin/zypper patch"
+        [ -x /usr/bin/pacman ]  && echo "$TARGET_USER ALL=(ALL) NOPASSWD: /usr/bin/pacman -Syu,/usr/bin/pacman -Sy"
+    } > /etc/sudoers.d/55-life-parental-update-"$TARGET_USER"
+    chmod 440 /etc/sudoers.d/55-life-parental-update-"$TARGET_USER"
     echo "status: allow-update-set"
 fi
 
-# Add target user to fuse group (required for mounting AppImages)
+# Add target user to fuse group — only if parent explicitly allows it (checkbox)
 if [ "$ALLOW_FUSE" = "true" ]; then
-    groupadd -f fuse 2>/dev/null || true
     usermod -aG fuse "$TARGET_USER" && echo "status: allow-fuse-set" || true
 fi
 

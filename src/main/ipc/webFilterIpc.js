@@ -19,6 +19,9 @@ const HOSTS_FILE = '/etc/hosts'
 const MARKER_BEGIN = '# LiFE Parental Control - BEGIN'
 const MARKER_END = '# LiFE Parental Control - END'
 
+/** Past sinkhole IPs still parsed when reading the LiFE hosts block (re-apply migrates to current IP). */
+const HOSTS_SINKHOLE_IPV4_RE = /^(?:192\.0\.2\.1|0\.0\.0\.0|127\.0\.0\.2)\s+(\S+)\s*$/
+
 /** @type {string|null} */
 let hageziBundledDir = null
 
@@ -78,12 +81,14 @@ function readHostsSection() {
     const section = content.slice(begin + MARKER_BEGIN.length, end)
     return section.split('\n')
         .map(l => l.trim())
-        .filter(l => l.startsWith('0.0.0.0 ') || l.startsWith('#0.0.0.0 '))
-        .map(l => {
+        .map((l) => {
             const disabled = l.startsWith('#')
-            const domain = (disabled ? l.slice(1) : l).replace('0.0.0.0 ', '').trim()
-            return { domain, enabled: !disabled }
+            const rest = (disabled ? l.slice(1) : l).trim()
+            const m = rest.match(HOSTS_SINKHOLE_IPV4_RE)
+            if (!m) return null
+            return { domain: m[1], enabled: !disabled }
         })
+        .filter(Boolean)
 }
 
 async function writeHostsSectionAsync(entries) {

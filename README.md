@@ -2,141 +2,104 @@
 
 ![LiFE Parental Control — Dashboard](images/dashboard.png)
 
-Desktop app for **Linux** (KDE Plasma, GNOME, and other graphical desktop environments): parental controls via **Electron**, **Vue 3**, **Pinia**, and **Bootstrap 5**. KDE kiosk restrictions use `.kiosk` profile snippets merged into **`/etc/xdg/kdeglobals`**; an optional layout lock can prepend **`[$i]`** to **`/etc/xdg/plasma-appletsrc`** (see **KDE kiosk** below). Enforcement (screen time, app quotas, notifications, warning windows) targets whatever desktop session is currently active on **seat0**, supporting multi-session setups.
+Desktop parental control app for **Linux** (KDE Plasma, GNOME, others). Stack: **Electron**, **Vue 3**, **Pinia**, **Bootstrap 5**. Runs as root via systemd daemon; frontend runs as normal user.
 
-## Modules
+## Features
 
-| Area | What it does |
-|------|----------------|
-| **KDE kiosk** | Lockdown sections in `kdeglobals` (actions, URLs, control modules); session restart after apply |
-| **Web filter** | `default.json` (`webfilter` section: custom domains + HaGeZi **feed** toggles) + `/etc/hosts` marker block; bundled [HaGeZi](https://github.com/hagezi/dns-blocklists) DNSMasq lists + optional CDN refresh (see below) |
-| **Screen time** | stored in `default.json` (`schedule`); enforced by daemon tick (limits, allowed hours, overnight windows); daily tally in `usage-YYYY-MM-DD.json` (`extraAllowanceMinutes` raises today’s cap without altering logged minutes); reset **today** on the Screen Time page; **add time** via parent-password dialog when the limit is reached |
-| **App blocking** | `.desktop` overrides under `/usr/local/share/applications/` (see below) |
-| **App quotas** | stored in `default.json` (`quota` + `quotaExemptions` + `blockedDesktopIds`); daemon enforcement (`pgrep` / `pkill` per process name); per-app tally in `quota-usage-YYYY-MM-DD.json` (reset **today** from **App Control**). The same tick increments **`app-usage-YYYY-MM-DD.json`** for every app in **`app-monitor-catalog.json`** (built from the same `.desktop` list as **App Control**; refreshed at app start and when you open **App Control**) so the Dashboard donut can show the **top 10** most-used catalog apps. |
-| **Profiles** | School / Leisure + optional `life-modes.json`; backup/export JSON bundle |
+| Module | Description |
+|--------|-------------|
+| **Lockdown Wizard** | First-run wizard: creates parent admin, sets root + GRUB password, de-privileges child account, sets up FUSE restrictions |
+| **Web filter** | Custom domains + HaGeZi blocklists → `/etc/hosts`; allowlist; category packs |
+| **Screen time** | Daily limit + allowed hours (overnight windows supported); bonus minutes via parent password |
+| **App blocking** | `.desktop` overrides under `/usr/local/share/applications/` |
+| **App quotas** | Per-app daily cap; process tracking via `pgrep`; quota exemptions |
+| **KDE kiosk** | Restrictions via `/etc/xdg/kdeglobals`; optional Plasma layout hard lock |
+| **Family profiles** | School / Leisure presets + custom modes via `life-modes.json` |
+| **Backup** | Export/import JSON bundle (v1); excludes password and usage history |
 
-### KDE kiosk: `kdeglobals` and Plasma layout lock
+## Configuration files
 
-LiFE merges **`.kiosk` catalog blocks** into **`/etc/xdg/kdeglobals`** (action restrictions, control modules, resource restrictions, URL rules, etc.); the graphical session restarts after apply so settings take effect.
+| File | Purpose |
+|------|---------|
+| `/etc/life-parental/default.json` | All settings (schedule, webfilter, quotas, etc.). **Can be pre-filled and distributed** — the systemd daemon reads it on every tick and applies changes automatically. |
+| `/etc/life-parental/auth.json` | Parent password (bcrypt hash). Root-only (`chmod 600`). |
+| `/var/log/life-parental.json` | Activity log (ring buffer). Not included in backup export. |
 
-**Optional Plasma layout hard lock** (checkbox under **KDE Kiosk Mode → Look and feel**): when enabled, LiFE prepends **`[$i]`** as the **first line** of **`/etc/xdg/plasma-appletsrc`**. In KDE’s kiosk / config cascade, that line marks the **system** file as authoritative for the Plasma layout; the user’s copy **`~/.config/plasma-appletsrc`** is then **ignored** for layout. Deactivating kiosk (or clearing LiFE kiosk blocks) removes a leading **`[$i]`** line when LiFE had written it.
+### Distributing settings via `default.json`
 
-### Family profiles (Dashboard)
+Drop a pre-configured `default.json` into `/etc/life-parental/` before first start (e.g. via Ansible, deb postinst, or manual copy). The daemon picks it up automatically — no UI interaction needed to apply schedules, web filter rules, or quotas.
 
-Built-in **School** / **Leisure** buttons plus any **custom modes** from **`/etc/life-parental/life-modes.json`** (see **Settings**). Applying a mode updates schedules, web filter, and blocked apps as defined in that file.
+## Lockdown Wizard
 
-The **Include KDE kiosk** checkbox (below the profile buttons) is optional: when enabled, applying a profile also **merges** the current **KDE Kiosk** tab profile into `/etc/xdg/kdeglobals` (including optional **Plasma layout hard lock** if enabled under **Look and feel**; see **KDE kiosk: `kdeglobals` and Plasma layout lock** above), or on **Leisure** **removes** LiFE kiosk sections there. Either action **restarts the graphical session** so the lockdown takes effect.
+Appears on first unlock after installation. Guides the parent through:
 
-**Config:** `/etc/life-parental/` (app expects elevated rights when packaged; see main process). Optional **`/var/log/life-parental.json`** records parental actions (ring buffer); open it from the sidebar (**Application log**, bottom left), not part of backup export.
+1. Select child user to restrict
+2. Create (or select existing) parent admin account
+3. Set root + GRUB bootloader password
+4. De-privilege child: remove from sudo/wheel, strip supplementary groups, remove SSH keys, restrict FUSE/AppImages
+5. Optional: allow child to install apps, run system updates, or use AppImages
 
-### Screen time: logged minutes
+The wizard can be skipped and will reappear on the next unlock.
 
-Logged minutes come from **`usage-*.json`** (one file per calendar day in `/etc/life-parental/`). While **daily limit** is enabled, the **systemd daemon** adds **one minute per tick** (ticks every 10 s, six ticks = one minute) when **`loginctl`** shows a **graphical** session that is **active** or **online**, excluding **greeter** / **background** classes.
+### Lockdown script (`/usr/bin/life-parental-lockdown`)
 
-### App blocking (launcher)
+Installed automatically when you click **Install daemon** in Settings, or via the `.deb` postinst. Can also be run manually as root:
 
-Toggling **block** for an app creates a **desktop entry override** under `/usr/local/share/applications/` (`NoDisplay=true` so it disappears from the KDE launcher). The override replaces the launch command with a short notification so the user sees that the app is blocked instead of it starting.
+```bash
+sudo /usr/bin/life-parental-lockdown <targetUser> <adminUser> <password|pwFile> <grubHash> [allowInstall] [allowUpdate] [allowFuse]
+```
 
-### Daily time limits for individual apps (App Control)
+| Argument | Description |
+|----------|-------------|
+| `targetUser` | Child account to de-privilege |
+| `adminUser` | Parent admin account (created if not existing) |
+| `password\|pwFile` | Plain password string **or** path to a temp file containing it |
+| `grubHash` | Pre-computed `grub.pbkdf2.sha512…` hash (generate: `grub-mkpasswd-pbkdf2`) — leave empty to skip GRUB |
+| `allowInstall` | `true` to allow package installation (PolKit + sudoers) |
+| `allowUpdate` | `true` to allow system updates (PolKit + sudoers) |
+| `allowFuse` | `true` to add child to fuse group (AppImages) |
 
-Per-app daily cap: the **systemd daemon** ticks every 10 s and counts one minute every six ticks **while the process is running** (`pgrep -x -i`). With **daily limit ≥ 3**, at roughly **2 minutes** left you get a desktop notification and a warning window; at the **last minute** a stronger warning; on the **next tick after that** the app is **stopped** (`pkill`) if it is still running.
-
-Default **process names** are derived from the desktop file’s **`Exec`** line (flatpak `--command=` / `run`, `snap run`, `sh|bash|dash|zsh -c …`, `electron` + flags, `*.AppImage` stem). If the live process name still differs (e.g. Steam titles, some AppImages), edit the **Process** field in the app so it matches the process **`comm`** (e.g. `ps -o comm`).
-
-Counting only applies when the same **`loginctl`** rules as **Screen Time** apply: graphical sessions that are **active** or **online**, excluding **greeter** / **background** classes.
-
-### Quota exemptions
-
-Settings are stored in **`/etc/life-parental/default.json`** (`quotaExemptions`). For apps with a daily limit, if the limit is reached and the app is **not** exempt, it is stopped; exempt apps keep running. **Apply Changes** on the Quota exemptions page updates current settings and refreshes enforcement state.
-
-### Web filter: custom domains, HaGeZi lists, and `/etc/hosts`
-
-**Source project:** [hagezi/dns-blocklists](https://github.com/hagezi/dns-blocklists) (GPL-3.0). LiFE ships **DNSMasq-formatted** snapshots under `hagezi/*.txt` (also packaged into `resources/hagezi/`). They use lines like `local=/example.com/`; the app converts domains to `0.0.0.0` lines in **`/etc/hosts`**.
-
-**On startup** the app tries to refresh those files from jsDelivr (HTTP conditional request). Newer `# Version:` headers replace the copy under **`/etc/life-parental/blocklists/`**. If the machine is **offline** or the CDN returns **304**, the **last downloaded** or **bundled** snapshot is used.
-
-**CDN list URLs** (same files as the bundle; `@latest` tracks the repo default branch):
-
-| Topic | URL |
-|-------|-----|
-| Social networks | [`…/dnsmasq/social.txt`](https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@latest/dnsmasq/social.txt) |
-| NSFW | [`…/dnsmasq/nsfw.txt`](https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@latest/dnsmasq/nsfw.txt) |
-| Fake / scams | [`…/dnsmasq/fake.txt`](https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@latest/dnsmasq/fake.txt) |
-| Gambling | [`…/dnsmasq/gambling.txt`](https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@latest/dnsmasq/gambling.txt) |
-| Anti-piracy | [`…/dnsmasq/anti.piracy.txt`](https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@latest/dnsmasq/anti.piracy.txt) |
-| Pop-up ads | [`…/dnsmasq/popupads.txt`](https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@latest/dnsmasq/popupads.txt) |
-
-**Config:** all web filter settings are stored in `/etc/life-parental/default.json` under the **`webfilter`** key: **`entries`** (custom domains shown in the UI), **`feedState`** (which HaGeZi lists are enabled), **`listAllowlist`** (hosts that must never be blocked), and **`cachedHostRuleCount`** (total active rules, cached to avoid rebuilding on every read). The **live** block in **`/etc/hosts`** is `(enabled custom domains ∪ feed domains) \ allowlist` (deduplicated). Category lists are too large to edit line-by-line in the UI; use **Allow exceptions** on the Web Filter page to permit individual hosts. **Apply Changes** saves custom-domain edits; allowlist and feed toggles apply immediately when changed.
-
-**Quick Add Categories:** **Domain packs** (e.g. Video Streaming, Gaming) add curated hostnames to **custom domains** in the UI. **HaGeZi lists** merge the full blocklist for each enabled topic into the LiFE block in **`/etc/hosts`** (bundled snapshots). **Update lists** (next to *HaGeZi lists* in the sidebar card) hits the same CDN refresh as app startup, then reapplies the mirror to `hosts`.
-
-If **`/etc/hosts`** is unreadable, the Web Filter page still loads from **`default.json`** and shows a warning. To rebuild the hosts block from disk without changing the saved config (e.g. after manual hosts edits), use **Settings → Maintenance → Web filter restore**.
-
-**Limits:** Large lists inflate `/etc/hosts`; DNS / DoH bypass or another resolver can still evade host-based blocking—see e.g. [school DNS discussion (linuxmuster.net)](https://ask.linuxmuster.net/t/wie-dns-server-einstellungen-fuer-kinderschutz-aendern/12089/2) for network-level ideas.
-
-### Session restart (KDE)
-
-After writing kiosk restrictions to `/etc/xdg/kdeglobals`, the app triggers a Plasma session restart: `kquitapp6|5 ksmserver` first, then `qdbus` logout on **each** relevant `loginctl` session (**x11** / **wayland**, **active** or **online**, excluding **greeter** / **background** classes) on that user’s session bus (`/run/user/<uid>/bus`), then the same DBus calls as root as a last resort. Typical single-seat setups work out of the box; edge cases may still need a manual re-login.
-
-The daemon uses the same `loginctl` session filter for quota tracking, session termination, and notification routing.
+Example (manual, no GRUB, allow AppImages):
+```bash
+sudo /usr/bin/life-parental-lockdown student parentadmin "MyPassword" "" false false true
+```
 
 ## Development
 
-Requires **Node ≥ 22** and **npm ≥ 10**.
+Requires **Node ≥ 22**, **npm ≥ 10**.
 
 ```bash
 npm install
-npm run check   # lint + compile (out/; no AppImage/deb, no dev server)
-npm run dev
+npm run check   # lint + compile
+npm run dev     # runs under sudo (display/session env forwarded)
 ```
 
-Enforcement features touch system paths. **`npm run dev`** (alias **`npm run dev:root`**) runs the Vite/Electron dev stack under **`sudo`** with a **small env whitelist** (display, session DBus, locale)—not **`sudo -E`**, so paths from e.g. an **IDE AppImage** terminal (`/tmp/.mount_…`) are not leaked into root’s Electron (avoids **dconf** / **DBus** spam and permission errors). **`XDG_RUNTIME_DIR`** is set to **`/run/user/$(id -u)`**. Starting **`electron-vite dev`** without root exits immediately with a dialog (the app persists config under **`/etc/life-parental/`**). **Packaged** builds show an elevation window, then **`pkexec`** when not root. **Settings → About → Running as** reflects the real user id (warning if you are not root).
+The frontend runs as a normal user — no root required. `pkexec` is only used for two operations: **installing/managing the systemd daemon** and **running the Lockdown Wizard script**.
 
-### Polkit (Administrator prompt)
+**First run in dev:** click **Install daemon** in Settings → this copies the systemd service, polkit rules, and lockdown script to their system paths.
 
-- **`.deb` install:** [`packaging/debian/postinst.sh`](packaging/debian/postinst.sh) copies [`packaging/polkit/org.tuxfamily.life-parental-control.policy`](packaging/polkit/org.tuxfamily.life-parental-control.policy) and [`packaging/polkit/50-org.tuxfamily.life-parental-control.rules`](packaging/polkit/50-org.tuxfamily.life-parental-control.rules) into `/usr/share/polkit-1/actions/` and `/usr/share/polkit-1/rules.d/`, then reloads **polkit** if possible. The rule maps **`pkexec`** invocations whose command line contains **`life-parental-control`** (deb binary) or **`life parental control`** (default AppImage/product title), **case-insensitive**, to **admin** authentication.
-- **AppImage:** copy the same two files from `packaging/polkit/` to those system paths manually if you do not use the `.deb`. If you rename the binary or AppImage to something that no longer matches those substrings, adjust the rule locally or rely on the distribution’s default **PolicyKit** behaviour.
+### Polkit
 
-**Production build:**
+The rule in `packaging/polkit/50-org.tuxfamily.life-parental-control.rules` authorizes `pkexec` calls whose command line contains `life-parental-control` or `life parental control` (case-insensitive). Installed to both `/etc/polkit-1/rules.d/` and `/usr/share/polkit-1/rules.d/` (Arch/Garuda).
+
+`.deb` install handles this via `packaging/debian/postinst.sh`. For AppImage: click **Install daemon** in Settings.
+
+### Build
 
 ```bash
-npm run build   # runs electron-builder with --publish never (no GH_TOKEN needed locally/CI)
+npm run build   # electron-builder --publish never
 ```
 
-### Backup (import / export)
-
-Settings in the app export **version 1** JSON (no password, no usage history). Includes **`processWhitelist`** (quota exemptions) when present. A minimal valid shape is in **`examples/life-parental-backup-v1.example.json`**. On import, only **top-level keys present** in the file are applied; omitted keys leave the existing system config untouched.
-
-**CI:** `.github/workflows/ci.yml` runs **`npm run check`** on every **pull request** and on **push to `main` or `master`**. **Packaging:** `.github/workflows/package.yml` runs **`npm run build`** on **`workflow_dispatch`** or when a **`v*`** tag is pushed (uploads `dist/` as an artifact). **Dependabot** (`.github/dependabot.yml`) proposes monthly npm and GitHub Actions updates.
-
-Authoring conventions and stack notes: root **`claude.md`** and **`memory.md`**.
-
+CI: `.github/workflows/ci.yml` (lint + compile on PR / push to main). Packaging: `.github/workflows/package.yml` (on `v*` tag or `workflow_dispatch`).
 
 ## Screenshots
 
-In the `App Control` module you can see the page for app quotas.
-![App-Control](images/app-control.png)
-
-In the Dashboard there is an alternative overview.
-![Dashboard (variant)](images/dashboard.png)
-
-In the `KDE Kiosk` module you can configure kiosk profiles.
-![KDE Kiosk Profiles](images/kiosk-profiles.png)
-
-In the `KDE Kiosk` module you can also find system and look & feel options.
-![KDE Kiosk System Settings](images/kiosk-systemsettings.png)
-
-In the `Quota Exemptions` module you can configure exceptions (process whitelist).
-![Quota Exemptions](images/quota-exemptions.png)
-
-In the `Screen Time` module you can configure screen time.
+![App Control](images/app-control.png)
+![KDE Kiosk](images/kiosk-profiles.png)
 ![Screen Time](images/screentime.png)
-
-In `Settings → Systemd Daemon` you can see the daemon status.
-![Settings](images/settings.png)
-
-In the `Web Filter` module you can see domain rules and exceptions.
 ![Web Filter](images/webfilter.png)
+![Settings](images/settings.png)
+![LockDownWizard](images/lockdownwizard.png)
 
 ## Links
 

@@ -2,8 +2,6 @@
 import { execFile } from 'child_process'
 import { promisify } from 'util'
 import fs from 'fs'
-import path from 'path'
-import { app } from 'electron'
 import { log, error as logError } from './logger.js'
 
 const execFileAsync = promisify(execFile)
@@ -90,14 +88,7 @@ export async function analyzeLockdownState(targetUser) {
     return findings
 }
 
-/** Resolve the path to the lockdown shell script (packaged or dev). */
-function resolveLockdownScript() {
-    if (app.isPackaged) {
-        return path.join(process.resourcesPath, 'packaging', 'life-parental-lockdown.sh')
-    }
-    // dev: compiled chunk lands in out/main/chunks/, project root is three levels up
-    return path.join(__dirname, '../../../packaging/life-parental-lockdown.sh')
-}
+const LOCKDOWN_SCRIPT = '/usr/bin/life-parental-lockdown'
 
 /**
  * Execute the lockdown shell script via pkexec.
@@ -111,20 +102,15 @@ export async function executeLockdown(targetUser, adminUser, adminPw, options = 
     const grubHash = await grubHashPassword(adminPw)
     log(`[LockdownService] grub hash computed: ${grubHash ? 'ok' : 'unavailable'}`)
 
-    const scriptSrc = resolveLockdownScript()
-    if (!fs.existsSync(scriptSrc)) {
-        const msg = `Lockdown script not found: ${scriptSrc}`
+    if (!fs.existsSync(LOCKDOWN_SCRIPT)) {
+        const msg = `Lockdown script not found: ${LOCKDOWN_SCRIPT} — run "Install daemon" first`
         logError('[LockdownService]', msg)
         return { ok: false, error: msg }
     }
 
-    // Fixed name — cleaner in pkexec dialog
-    const tmpScript = '/tmp/life-parental-lockdown.sh'
     // Password written to a temp file (600) so it never appears in the pkexec dialog or process list
     const tmpPwFile = '/tmp/life-parental-lockdown.pw'
     try {
-        fs.copyFileSync(scriptSrc, tmpScript)
-        fs.chmodSync(tmpScript, 0o700)
         fs.writeFileSync(tmpPwFile, adminPw, { mode: 0o600 })
     } catch (e) {
         return { ok: false, error: `Failed to stage lockdown script: ${e.message}` }
@@ -139,7 +125,7 @@ export async function executeLockdown(targetUser, adminUser, adminPw, options = 
         try {
             // Password passed via temp file path — never visible in dialog or ps aux
             const result = await execFileAsync(
-                'pkexec', [tmpScript, targetUser, adminUser, tmpPwFile, grubHash, allowInstall, allowUpdate, allowFuse],
+                'pkexec', [LOCKDOWN_SCRIPT, targetUser, adminUser, tmpPwFile, grubHash, allowInstall, allowUpdate, allowFuse],
                 { timeout: 60_000 }
             )
             stdout = result.stdout ?? ''
@@ -160,7 +146,6 @@ export async function executeLockdown(targetUser, adminUser, adminPw, options = 
             || 'Unknown error'
         return { ok: false, error: errLine }
     } finally {
-        try { fs.unlinkSync(tmpScript) } catch { /* ignore */ }
         try { fs.unlinkSync(tmpPwFile) } catch { /* ignore */ }
     }
 }

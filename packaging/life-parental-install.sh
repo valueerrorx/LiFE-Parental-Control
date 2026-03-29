@@ -58,6 +58,19 @@ if [ -d "$HAGEZI_SRC" ]; then
     cp -r "$HAGEZI_SRC/." "$HAGEZI_DST/"
 fi
 
+# --- Lockdown script ---
+LOCKDOWN_SRC=""
+if [ -f "$RES_BASE/packaging/life-parental-lockdown.sh" ]; then
+    LOCKDOWN_SRC="$RES_BASE/packaging/life-parental-lockdown.sh"
+elif [ -f "$RES_BASE/life-parental-lockdown.sh" ]; then
+    LOCKDOWN_SRC="$RES_BASE/life-parental-lockdown.sh"
+fi
+if [ -n "$LOCKDOWN_SRC" ]; then
+    cp "$LOCKDOWN_SRC" /usr/bin/life-parental-lockdown
+    chmod 755 /usr/bin/life-parental-lockdown
+    echo "life-parental-install: lockdown script installed"
+fi
+
 # --- Polkit rules (distro-independent: try both locations) ---
 POLKIT_RULES_SRC="$RES_BASE/polkit/50-org.tuxfamily.life-parental-control.rules"
 POLKIT_RULE_NAME="50-org.tuxfamily.life-parental-control.rules"

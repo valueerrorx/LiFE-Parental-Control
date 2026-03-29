@@ -1857,7 +1857,8 @@ function handleClientCommand(client, cmd) {
         try {
             const entries = Array.isArray(cmd.entries) ? cmd.entries : [];
             const content = fs.readFileSync('/etc/hosts', 'utf8');
-            const lines = entries.map(e => `${e.enabled ? '' : '#'}127.0.0.2 ${e.domain}`);
+            // RFC 5737 TEST-NET-1 — non-routable; 0.0.0.0 can still hit daemons bound to 0.0.0.0 on the same host
+            const lines = entries.map(e => `${e.enabled ? '' : '#'}192.0.2.1 ${e.domain}`);
             const section = `\n${lines.join('\n')}\n`;
             const begin = content.indexOf(MARKER_BEGIN);
             const end = content.indexOf(MARKER_END);

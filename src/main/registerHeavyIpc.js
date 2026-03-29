@@ -169,6 +169,16 @@ export function registerHeavyIpc(ipcMain, { appConfigDir, hageziBundledDir, getM
                     fs.copyFileSync(polkitSrc, path.join(tmpResBase, 'polkit', '50-org.tuxfamily.life-parental-control.rules'))
                 }
 
+                // Copy lockdown script (best-effort)
+                // packaged: resBase/life-parental-lockdown.sh  dev: resBase/packaging/life-parental-lockdown.sh
+                const lockdownSrc = fs.existsSync(path.join(resBase, 'life-parental-lockdown.sh'))
+                    ? path.join(resBase, 'life-parental-lockdown.sh')
+                    : path.join(resBase, 'packaging', 'life-parental-lockdown.sh')
+                if (fs.existsSync(lockdownSrc)) {
+                    fs.mkdirSync(path.join(tmpResBase, 'packaging'), { recursive: true })
+                    fs.copyFileSync(lockdownSrc, path.join(tmpResBase, 'packaging', 'life-parental-lockdown.sh'))
+                }
+
                 console.log(`[LiFE serviceControl/install] resources staged to ${tmpResBase}, spawning pkexec...`)
                 console.log(`[LiFE serviceControl/pkexec-env] DBUS=${process.env.DBUS_SESSION_BUS_ADDRESS} DISPLAY=${process.env.DISPLAY} WAYLAND=${process.env.WAYLAND_DISPLAY} XDG_RUNTIME=${process.env.XDG_RUNTIME_DIR}`)
                 const { stdout, stderr } = await execFileAsync('pkexec', [tmpScript, tmpResBase, app.getVersion()], { timeout: 120_000 })

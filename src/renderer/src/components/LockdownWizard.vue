@@ -15,7 +15,6 @@
                             <option value="" disabled>{{ $t('lockdown.selectUser') }}</option>
                             <option v-for="u in loginUsers" :key="u" :value="u">{{ u }}</option>
                         </select>
-                        <p class="small text-muted mt-1">{{ $t('lockdown.targetUserHint') }}</p>
                     </div>
 
                     <p v-if="stepError" class="text-danger small mb-2">{{ stepError }}</p>
@@ -56,6 +55,10 @@
                         <div v-if="!findings.grubPasswordSet" class="lockdown-todo-item">
                             <i class="bi bi-hdd-fill text-secondary me-2" />
                             {{ $t('lockdown.todoGrub') }}
+                        </div>
+                        <div class="lockdown-todo-item">
+                            <i class="bi bi-box-seam text-warning me-2" />
+                            {{ $t('lockdown.todoFuseRestrict', { user: findings.targetUser || targetUser }) }}
                         </div>
                     </div>
 
@@ -114,28 +117,26 @@
                     <!-- Optional permissions for the restricted user -->
                     <div class="text-start mb-3">
                         <div class="form-label small text-muted mb-1">{{ $t('lockdown.optionsLabel') }}</div>
-                        <div class="form-check" :class="{ 'opacity-50': !findings.packageKitAvailable }">
-                            <input id="opt-install" v-model="allowInstall" class="form-check-input" type="checkbox"
-                                   :disabled="!findings.packageKitAvailable" />
+                        <div class="form-check">
+                            <input id="opt-install" v-model="allowInstall" class="form-check-input" type="checkbox" />
                             <label class="form-check-label small" for="opt-install">
                                 {{ $t('lockdown.optionInstall') }}
-                                <span v-if="!findings.packageKitAvailable" class="text-muted ms-1">({{ $t('lockdown.optionUnavailable') }})</span>
+                                <span v-if="findings.packageKitAvailable" class="text-muted ms-1">({{ $t('lockdown.optionHintGui') }})</span>
+                                <span v-else class="text-warning ms-1">({{ $t('lockdown.optionHintTerminalOnly') }})</span>
                             </label>
                         </div>
-                        <div class="form-check" :class="{ 'opacity-50': !findings.packageKitAvailable }">
-                            <input id="opt-update" v-model="allowUpdate" class="form-check-input" type="checkbox"
-                                   :disabled="!findings.packageKitAvailable" />
+                        <div class="form-check">
+                            <input id="opt-update" v-model="allowUpdate" class="form-check-input" type="checkbox" />
                             <label class="form-check-label small" for="opt-update">
                                 {{ $t('lockdown.optionUpdate') }}
-                                <span v-if="!findings.packageKitAvailable" class="text-muted ms-1">({{ $t('lockdown.optionUnavailable') }})</span>
+                                <span v-if="findings.packageKitAvailable" class="text-muted ms-1">({{ $t('lockdown.optionHintGui') }})</span>
+                                <span v-else class="text-warning ms-1">({{ $t('lockdown.optionHintTerminalOnly') }})</span>
                             </label>
                         </div>
-                        <div class="form-check" :class="{ 'opacity-50': !findings.fuseGroupExists }">
-                            <input id="opt-fuse" v-model="allowFuse" class="form-check-input" type="checkbox"
-                                   :disabled="!findings.fuseGroupExists" />
+                        <div class="form-check">
+                            <input id="opt-fuse" v-model="allowFuse" class="form-check-input" type="checkbox" />
                             <label class="form-check-label small" for="opt-fuse">
                                 {{ $t('lockdown.optionFuse') }}
-                                <span v-if="!findings.fuseGroupExists" class="text-muted ms-1">({{ $t('lockdown.optionUnavailable') }})</span>
                             </label>
                         </div>
                     </div>
@@ -143,7 +144,7 @@
                     <!-- Acknowledgement checkbox -->
                     <div class="form-check text-start mb-3">
                         <input id="lockdown-ack" v-model="acknowledged" class="form-check-input" type="checkbox" />
-                        <label class="form-check-label small" for="lockdown-ack">
+                        <label class="form-check-label small lockdown-ack-label" for="lockdown-ack">
                             {{ $t('lockdown.ackLabel') }}
                         </label>
                     </div>
@@ -304,5 +305,9 @@ function onClose() {
 
 .lockdown-todo-item:last-child {
     border-bottom: none;
+}
+
+.lockdown-ack-label {
+    color: var(--pc-danger, #8b0000);
 }
 </style>
