@@ -1,4 +1,4 @@
-// LiFE Parental Control: pkexec relaunch uses /usr/bin/env + app path; tie AUTH_ADMIN to our command line.
+// LiFE Parental Control: allow pkexec to run privileged scripts (install + lockdown) as root.
 polkit.addRule(function(action, subject) {
     if (action.id !== 'org.freedesktop.policykit.exec') {
         return polkit.Result.NOT_HANDLED;
@@ -11,13 +11,14 @@ polkit.addRule(function(action, subject) {
         return polkit.Result.NOT_HANDLED;
     }
     var norm = cmd.toLowerCase();
-    // deb installs `life-parental-control`; AppImage may use spaces; renames may omit the hyphenated token.
+    // Match install and lockdown scripts by name pattern
     var matches =
-        norm.indexOf('life-parental-control') >= 0 ||
-        norm.indexOf('life parental control') >= 0 ||
-        (norm.indexOf('life') >= 0 && norm.indexOf('parental') >= 0);
+        norm.indexOf('life-parental-install') >= 0 ||
+        norm.indexOf('life-parental-lockdown') >= 0 ||
+        (norm.indexOf('life') >= 0 && norm.indexOf('parental') >= 0 &&
+            (norm.indexOf('install') >= 0 || norm.indexOf('lockdown') >= 0));
     if (!matches) {
         return polkit.Result.NOT_HANDLED;
     }
-    return polkit.Result.AUTH_ADMIN;
+    return polkit.Result.AUTH_ADMIN; // admin password required — prevents non-admin users from running these scripts
 });

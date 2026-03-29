@@ -41,6 +41,7 @@ function connect() {
     s.on('connect', () => {
         socket = s
         buf = ''
+        console.log(`[LiFE daemonClient] connected to ${SOCKET_PATH}`)
         emitEvent('connect', {})
     })
 
@@ -53,13 +54,15 @@ function connect() {
         }
     })
 
-    s.on('error', () => {
+    s.on('error', (e) => {
+        console.error(`[LiFE daemonClient] socket error: ${e.message} — reconnecting in ${RECONNECT_DELAY_MS / 1000}s`)
         socket = null
         emitEvent('disconnect', {})
         scheduleReconnect()
     })
 
     s.on('close', () => {
+        if (socket) console.log(`[LiFE daemonClient] disconnected — reconnecting in ${RECONNECT_DELAY_MS / 1000}s`)
         socket = null
         emitEvent('disconnect', {})
         scheduleReconnect()
@@ -100,6 +103,7 @@ export function daemonRequest(cmd, replyType, timeoutMs = 8_000) {
         })
         timer = setTimeout(() => {
             unsub()
+            console.error(`[LiFE daemonClient] request '${cmd.type}' timed out after ${timeoutMs}ms`)
             reject(new Error(`daemon request '${cmd.type}' timed out`))
         }, timeoutMs)
         if (!daemonSend(cmd)) {

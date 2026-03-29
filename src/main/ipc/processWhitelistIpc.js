@@ -1,5 +1,4 @@
 import fs from 'fs'
-import { execFile } from 'child_process'
 import { redeployQuotaFromDisk } from './quotaIpc.js'
 import { appendActivity } from './activityLog.js'
 import { patchDefaultJson, readDefaultJson } from '../defaultProfileStore.js'
@@ -31,12 +30,6 @@ export function removeLegacyProcessKillCronArtifacts() {
     }
     try {
         if (fs.existsSync(LEGACY_KILL_SCRIPT)) fs.unlinkSync(LEGACY_KILL_SCRIPT)
-    } catch {
-        // best-effort
-    }
-    try {
-        execFile('systemctl', ['reload', 'cron'], { timeout: 3000 }, () => {})
-        execFile('systemctl', ['reload', 'crond'], { timeout: 3000 }, () => {})
     } catch {
         // best-effort
     }

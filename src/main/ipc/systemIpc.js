@@ -2,6 +2,7 @@ import { app, dialog, Notification } from 'electron'
 import { execFile } from 'child_process'
 import fs from 'fs'
 import { appendActivity } from './activityLog.js'
+import { daemonWriteKiosk } from '../daemonPrivilegedOps.js'
 import { showWarningWindow } from '../warningWindow.js'
 import { getActiveGraphicalSessions } from '../graphicalSessionDetect.js'
 import { listDesktopLoginUsers } from '../linuxLoginUsers.js'
@@ -134,44 +135,9 @@ export function readKioskLockdownSummary() {
     }
 }
 
-function applyPlasmaLayoutHardLock() {
-    let existing
-    try {
-        existing = fs.readFileSync(PLASMA_APPLETSRC_PATH, 'utf8')
-    } catch (e) {
-        if (e.code !== 'ENOENT') throw e
-        existing = ''
-    }
-    const first = (existing.split('\n')[0] ?? '').trim()
-    if (first === '[$i]') return
-    fs.writeFileSync(PLASMA_APPLETSRC_PATH, existing ? `[$i]\n${existing}` : `[$i]\n`, 'utf8')
-}
 
-function stripPlasmaLayoutHardLock() {
-    let existing
-    try {
-        existing = fs.readFileSync(PLASMA_APPLETSRC_PATH, 'utf8')
-    } catch (e) {
-        if (e.code === 'ENOENT') return
-        throw e
-    }
-    const lines = existing.split('\n')
-    if ((lines[0] ?? '').trim() !== '[$i]') return
-    const rest = lines.slice(1)
-    while (rest.length && rest[0].trim() === '') rest.shift()
-    const next = rest.join('\n')
-    if (!next.trim()) {
-        try {
-            fs.unlinkSync(PLASMA_APPLETSRC_PATH)
-        } catch {
-            /* ignore */
-        }
-    } else {
-        fs.writeFileSync(PLASMA_APPLETSRC_PATH, next, 'utf8')
-    }
-}
-
-export function persistKioskConfigText(configDir, configText, plasmaLayoutHardLock = false) {
+export async function persistKioskConfigText(configDir, configText, plasmaLayoutHardLock = false) {
+    // Build kdeglobals content locally (reading is unprivileged — file is 0644)
     let existing = ''
     try {
         existing = fs.readFileSync(KDEGLOBALS_PATH, 'utf8')
@@ -180,17 +146,54 @@ export function persistKioskConfigText(configDir, configText, plasmaLayoutHardLo
     }
     const stripped = stripLiFEKioskSections(existing).trimEnd()
     const block = (configText ?? '').trim()
-    const next = block
+    const kdeglobalsContent = block
         ? (stripped ? `${stripped}\n\n${block}\n` : `${block}\n`)
         : (stripped ? `${stripped}\n` : '')
-    fs.writeFileSync(KDEGLOBALS_PATH, next, 'utf8')
+
+    // Compute plasma-appletsrc content
+    let plasmaAppletsrcContent // undefined = don't touch
     if (block === '') {
-        stripPlasmaLayoutHardLock()
+        // Strip: remove hard lock header if present
+        try {
+            const cur = fs.readFileSync(PLASMA_APPLETSRC_PATH, 'utf8')
+            const lines = cur.split('\n')
+            if ((lines[0] ?? '').trim() === '[$i]') {
+                const rest = lines.slice(1)
+                while (rest.length && rest[0].trim() === '') rest.shift()
+                plasmaAppletsrcContent = rest.join('\n').trim() ? rest.join('\n') : null // null = delete file
+            }
+        } catch (e) {
+            if (e.code !== 'ENOENT') throw e
+        }
     } else if (plasmaLayoutHardLock) {
-        applyPlasmaLayoutHardLock()
+        // Apply hard lock: prepend [$i] if not already present
+        try {
+            const cur = fs.readFileSync(PLASMA_APPLETSRC_PATH, 'utf8')
+            plasmaAppletsrcContent = (cur.split('\n')[0] ?? '').trim() === '[$i]'
+                ? undefined // already locked, no change needed
+                : (cur ? `[$i]\n${cur}` : `[$i]\n`)
+        } catch (e) {
+            if (e.code !== 'ENOENT') throw e
+            plasmaAppletsrcContent = '[$i]\n'
+        }
     } else {
-        stripPlasmaLayoutHardLock()
+        // No hard lock wanted: strip [$i] if present
+        try {
+            const cur = fs.readFileSync(PLASMA_APPLETSRC_PATH, 'utf8')
+            const lines = cur.split('\n')
+            if ((lines[0] ?? '').trim() === '[$i]') {
+                const rest = lines.slice(1)
+                while (rest.length && rest[0].trim() === '') rest.shift()
+                plasmaAppletsrcContent = rest.join('\n').trim() ? rest.join('\n') : null
+            }
+        } catch (e) {
+            if (e.code !== 'ENOENT') throw e
+        }
     }
+
+    // Delegate all writes to daemon (root)
+    await daemonWriteKiosk(kdeglobalsContent, plasmaAppletsrcContent ?? undefined)
+
     if (configDir) {
         appendActivity(configDir, { action: block ? 'kiosk_apply' : 'kiosk_strip' })
     }
@@ -258,13 +261,9 @@ export function registerSystemIpc(ipcMain, getWindow, configDir) {
         packaged: app.isPackaged,
         electron: process.versions.electron,
         node: process.versions.node,
-        runningAsRoot: typeof process.getuid === 'function' ? process.getuid() === 0 : null,
+        runningAsRoot: false,
         xdgCurrentDesktop: process.env.XDG_CURRENT_DESKTOP ?? '',
-        invokingLinuxUser: (() => {
-            if (typeof process.getuid !== 'function') return ''
-            if (process.getuid() !== 0) return process.env.USER || ''
-            return (process.env.SUDO_USER || '').trim() || (process.env.USER || '').trim() || ''
-        })()
+        invokingLinuxUser: (process.env.USER || '').trim()
     }))
 
     ipcMain.handle('system:getKioskStatus', async () => {
@@ -279,7 +278,7 @@ export function registerSystemIpc(ipcMain, getWindow, configDir) {
         try {
             const configText = typeof payload === 'string' ? payload : (payload?.configText ?? '')
             const plasmaLayoutHardLock = typeof payload === 'object' && payload?.plasmaLayoutHardLock === true
-            persistKioskConfigText(configDir, configText, plasmaLayoutHardLock)
+            await persistKioskConfigText(configDir, configText, plasmaLayoutHardLock)
             return { ok: true }
         } catch (err) {
             return { error: err.message }

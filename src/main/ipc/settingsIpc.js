@@ -1,19 +1,8 @@
-import crypto from 'crypto'
 import { normalizedLockIdleMinutesOrUndefined } from '@shared/lockIdleMinutes.js'
 import { normalizeQuotaLinuxUser } from '@shared/quotaUsageKey.js'
-import { pruneUsageArchives } from './usageArchivePrune.js'
 import { appendActivity } from './activityLog.js'
 import { readDefaultJson, patchDefaultJson } from '../defaultProfileStore.js'
-
-function hashPassword(password, salt) {
-    return crypto.createHash('sha256').update(password + salt).digest('hex')
-}
-
-function readPasswordSecurity(configDir) {
-    const def = readDefaultJson(configDir)
-    if (def?.security?.passwordHash && def?.security?.salt) return def.security
-    return { passwordHash: '', salt: '' }
-}
+import { daemonPruneArchives, daemonAuthIsSet, daemonAuthCheck, daemonAuthSet, daemonAuthChange } from '../daemonPrivilegedOps.js'
 
 export function readPreferencesForBackup(configDir) {
     const prefs = readDefaultJson(configDir)?.preferences || {}
@@ -58,56 +47,37 @@ export function repairInvalidLockIdleInConfig(configDir) {
     clearSessionLockPreference(configDir)
 }
 
-// Parent gate for privileged actions (screen-time bonus); unrelated to unlock-screen "no password" bypass.
-export function checkParentPassword(configDir, plain) {
-    const sec = readPasswordSecurity(configDir)
-    if (!sec.passwordHash) return { ok: false, reason: 'no_password' }
-    if (typeof plain !== 'string' || plain.length === 0) return { ok: false, reason: 'invalid' }
-    if (hashPassword(plain, sec.salt) !== sec.passwordHash) return { ok: false, reason: 'invalid' }
-    return { ok: true }
-}
-
 export function registerSettingsIpc(ipcMain, configDir) {
-    ipcMain.handle('settings:isPasswordSet', () => {
+    ipcMain.handle('settings:isPasswordSet', async () => {
         try {
-            const sec = readPasswordSecurity(configDir)
-            return !!sec.passwordHash
+            const r = await daemonAuthIsSet()
+            return r.ok ? r.isSet : false
         } catch {
             return false
         }
     })
 
-    ipcMain.handle('settings:checkPassword', (_, password) => {
+    ipcMain.handle('settings:checkPassword', async (_, password) => {
         try {
-            const sec = readPasswordSecurity(configDir)
-            if (!sec.passwordHash) return true  // no password set → allow through
-            return hashPassword(password, sec.salt) === sec.passwordHash
+            const r = await daemonAuthCheck(password)
+            // If daemon not connected, allow through (fail-open for session lock)
+            if (!r.ok && r.error?.includes('nicht verbunden')) return true
+            return r.valid === true
         } catch {
             return true
         }
     })
 
-    ipcMain.handle('settings:setPassword', (_, password) => {
-        const salt = crypto.randomBytes(16).toString('hex')
-        patchDefaultJson(configDir, (d) => {
-            d.security = { passwordHash: hashPassword(password, salt), salt }
-            return d
-        })
-        appendActivity(configDir, { action: 'parent_password_set' })
+    ipcMain.handle('settings:setPassword', async (_, password) => {
+        const r = await daemonAuthSet(password)
+        if (r.ok) appendActivity(configDir, { action: 'parent_password_set' })
+        return r.ok ? undefined : { error: r.error }
     })
 
-    ipcMain.handle('settings:changePassword', (_, oldPassword, newPassword) => {
-        const sec = readPasswordSecurity(configDir)
-        if (sec?.passwordHash && hashPassword(oldPassword, sec.salt) !== sec.passwordHash) {
-            return { error: 'Current password is incorrect' }
-        }
-        const salt = crypto.randomBytes(16).toString('hex')
-        patchDefaultJson(configDir, (d) => {
-            d.security = { passwordHash: hashPassword(newPassword, salt), salt }
-            return d
-        })
-        appendActivity(configDir, { action: 'parent_password_changed' })
-        return { ok: true }
+    ipcMain.handle('settings:changePassword', async (_, oldPassword, newPassword) => {
+        const r = await daemonAuthChange(oldPassword, newPassword)
+        if (r.ok) appendActivity(configDir, { action: 'parent_password_changed' })
+        return r.ok ? { ok: true } : { error: r.error || 'Current password is incorrect' }
     })
 
     ipcMain.handle('settings:getConfig', () => {
@@ -159,11 +129,12 @@ export function registerSettingsIpc(ipcMain, configDir) {
         }
     })
 
-    ipcMain.handle('settings:pruneUsageArchives', () => {
+    ipcMain.handle('settings:pruneUsageArchives', async () => {
         try {
-            const { removed } = pruneUsageArchives(configDir)
-            appendActivity(configDir, { action: 'usage_archives_pruned', removed })
-            return { ok: true, removed }
+            const result = await daemonPruneArchives()
+            if (!result.ok) return { error: result.error }
+            appendActivity(configDir, { action: 'usage_archives_pruned', removed: result.removed })
+            return { ok: true, removed: result.removed }
         } catch (e) {
             return { error: e.message }
         }

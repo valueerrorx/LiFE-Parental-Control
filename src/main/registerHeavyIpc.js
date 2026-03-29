@@ -13,30 +13,24 @@ import { registerProcessWhitelistIpc } from './ipc/processWhitelistIpc.js'
 import { registerActivityIpc } from './ipc/activityIpc.js'
 import { registerBackupIpc } from './ipc/backupIpc.js'
 import { registerSettingsDangerIpc } from './ipc/settingsDangerIpc.js'
-import { syncEmbeddedEnforcementIfNeeded } from './ipc/embeddedEnforcementSync.js'
+import { registerLockdownIpc } from './ipc/lockdownIpc.js'
 import { daemonConnect, daemonOn, daemonSend, daemonRequest, isDaemonConnected } from './daemonClient.js'
+import { daemonServiceControl, daemonRegisterClient } from './daemonPrivilegedOps.js'
 
 const execFileAsync = promisify(execFile)
 
 // Set true to re-enable CDN fetch + hosts apply on startup (can be slow / block main when persist runs).
 const RUN_STARTUP_HAGEZI_SYNC = false
 
-function cleanupLegacyCronFiles() {
-    const paths = [
-        '/etc/cron.d/life-parental',
-        '/etc/cron.d/life-parental-quota',
-        '/usr/local/bin/life-parental-check',
-        '/usr/local/bin/life-parental-quota'
-    ]
-    for (const p of paths) {
-        try {
-            if (fs.existsSync(p)) fs.unlinkSync(p)
-        } catch {
-            /* ignore */
-        }
-    }
-    execFile('systemctl', ['reload', 'cron'], { timeout: 3000 }, () => {})
-    execFile('systemctl', ['reload', 'crond'], { timeout: 3000 }, () => {})
+// Wait until the daemon socket reconnects (after a restart/install), then resolve.
+// Resolves immediately if already connected. Always resolves after timeoutMs even if not connected.
+function waitForDaemonConnect(timeoutMs = 20_000) {
+    return new Promise((resolve) => {
+        if (isDaemonConnected()) { resolve(); return }
+        let timer
+        const unsub = daemonOn('connect', () => { clearTimeout(timer); unsub(); resolve() })
+        timer = setTimeout(() => { unsub(); resolve() }, timeoutMs)
+    })
 }
 
 export function registerHeavyIpc(ipcMain, { appConfigDir, hageziBundledDir, getMainWindow }) {
@@ -50,11 +44,24 @@ export function registerHeavyIpc(ipcMain, { appConfigDir, hageziBundledDir, getM
     registerActivityIpc(ipcMain, appConfigDir)
     registerBackupIpc(ipcMain, appConfigDir, getMainWindow)
     registerSettingsDangerIpc(ipcMain, appConfigDir)
+    registerLockdownIpc(ipcMain, appConfigDir)
 
     // Daemon connection status
     ipcMain.handle('daemon:isConnected', () => isDaemonConnected())
 
     // Check if /usr/bin/node exists and return its version
+    // Check whether the installed daemon version matches the running app
+    ipcMain.handle('daemon:checkInstalledVersion', () => {
+        const versionFile = '/usr/lib/life-parental/.installed-version'
+        try {
+            const installed = fs.readFileSync(versionFile, 'utf8').trim()
+            const current = app.getVersion()
+            return { ok: true, installedVersion: installed, appVersion: current, upToDate: installed === current }
+        } catch {
+            return { ok: true, installedVersion: null, appVersion: app.getVersion(), upToDate: false }
+        }
+    })
+
     ipcMain.handle('daemon:nodeCheck', async () => {
         try {
             const { stdout } = await execFileAsync('/usr/bin/node', ['--version'], { timeout: 5000 })
@@ -107,84 +114,109 @@ export function registerHeavyIpc(ipcMain, { appConfigDir, hageziBundledDir, getM
         }
     })
 
-    // Control and install the parental-control systemd service (app runs as root — no password needed)
+    // Control and install the parental-control systemd service
     ipcMain.handle('daemon:serviceControl', async (_, { action } = {}) => {
+        console.log(`[LiFE serviceControl] action=${action}`)
         const allowed = ['start', 'stop', 'restart', 'enable', 'disable', 'status', 'install']
         if (!allowed.includes(action)) return { error: 'Ungültige Aktion.' }
 
-        // install: copy daemon + service files then enable + start
+        // install: requires root — delegate to pkexec install script
         if (action === 'install') {
             const resBase = app.isPackaged ? process.resourcesPath : app.getAppPath()
-            const daemonDir = path.join(resBase, 'daemon')
-            const daemonSrc = path.join(daemonDir, 'parental-control-daemon.js')
-            const daemonLib = '/usr/lib/life-parental'
-            const serviceSrc = app.isPackaged
-                ? path.join(resBase, 'systemd', 'parental-control.service')
-                : path.join(resBase, 'packaging', 'systemd', 'parental-control.service')
+            const installScriptSrc = app.isPackaged
+                ? path.join(resBase, 'life-parental-install.sh')
+                : path.join(app.getAppPath(), 'packaging', 'life-parental-install.sh')
+            console.log(`[LiFE serviceControl/install] resBase=${resBase}`)
+            console.log(`[LiFE serviceControl/install] scriptSrc=${installScriptSrc} exists=${fs.existsSync(installScriptSrc)}`)
+
+            if (!fs.existsSync(installScriptSrc)) {
+                console.error(`[LiFE serviceControl/install] install script not found: ${installScriptSrc}`)
+                return { error: `Install-Script nicht gefunden: ${installScriptSrc}` }
+            }
+
+            // AppImage FUSE mounts (/tmp/.mount_*) are not accessible by root (squashfuse mounts without allow_root).
+            // Copy the script AND all required resources to /tmp before calling pkexec.
+            const tmpScript = '/tmp/life-parental-install.sh'
+            const tmpResBase = '/tmp/life-parental-res'
             try {
-                if (!fs.existsSync(daemonSrc)) return { error: `Daemon-Datei nicht gefunden: ${daemonSrc}` }
-                if (!fs.existsSync(serviceSrc)) return { error: `Service-Datei nicht gefunden: ${serviceSrc}` }
-                fs.mkdirSync(daemonLib, { recursive: true })
-                try {
-                    const legacy = ['/usr/bin/parental-control-daemon.js', '/usr/bin/defaultSync.js']
-                    for (const p of legacy) {
-                        try { fs.unlinkSync(p) } catch { /* absent */ }
-                    }
-                } catch { /* ignore */ }
-                try {
-                    for (const file of fs.readdirSync(daemonDir).filter(f => f.endsWith('.js'))) {
-                        const src = path.join(daemonDir, file)
-                        const dst = path.join(daemonLib, file)
-                        fs.copyFileSync(src, dst)
-                        fs.chmodSync(dst, 0o755)
-                    }
-                } catch {
-                    return { error: 'Daemon-Module konnten nicht installiert werden.' }
-                }
-                fs.mkdirSync('/etc/systemd/system', { recursive: true })
-                fs.copyFileSync(serviceSrc, '/etc/systemd/system/parental-control.service')
+                // Copy install script
+                fs.copyFileSync(installScriptSrc, tmpScript)
+                fs.chmodSync(tmpScript, 0o755)
 
-                // Ensure bundled HaGeZi feed files exist for daemon webfilter enforcement.
-                try {
-                    const hageziSrc = path.join(resBase, 'hagezi')
-                    const hageziDst = '/usr/share/life-parental/hagezi'
-                    if (fs.existsSync(hageziSrc)) {
-                        const copyRecursive = (src, dst) => {
-                            fs.mkdirSync(dst, { recursive: true })
-                            for (const ent of fs.readdirSync(src, { withFileTypes: true })) {
-                                const sp = path.join(src, ent.name)
-                                const dp = path.join(dst, ent.name)
-                                if (ent.isDirectory()) copyRecursive(sp, dp)
-                                else if (ent.isFile()) fs.copyFileSync(sp, dp)
-                            }
-                        }
-                        copyRecursive(hageziSrc, hageziDst)
-                    }
-                } catch {
-                    /* best-effort */
+                // Copy daemon JS files (required)
+                const daemonSrc = path.join(resBase, 'daemon')
+                const daemonDst = path.join(tmpResBase, 'daemon')
+                fs.mkdirSync(daemonDst, { recursive: true })
+                for (const f of fs.readdirSync(daemonSrc).filter(f => f.endsWith('.js'))) {
+                    fs.copyFileSync(path.join(daemonSrc, f), path.join(daemonDst, f))
                 }
 
-                await execFileAsync('systemctl', ['daemon-reload'], { timeout: 10_000 })
-                await execFileAsync('systemctl', ['enable', 'parental-control.service'], { timeout: 10_000 })
-                await execFileAsync('systemctl', ['start', 'parental-control.service'], { timeout: 10_000 })
+                // Copy systemd service file (required)
+                // packaged: resBase/systemd/  dev: resBase/packaging/systemd/
+                const systemdSrc = fs.existsSync(path.join(resBase, 'systemd', 'parental-control.service'))
+                    ? path.join(resBase, 'systemd', 'parental-control.service')
+                    : path.join(resBase, 'packaging', 'systemd', 'parental-control.service')
+                fs.mkdirSync(path.join(tmpResBase, 'systemd'), { recursive: true })
+                fs.copyFileSync(systemdSrc, path.join(tmpResBase, 'systemd', 'parental-control.service'))
+
+                // Copy polkit rules (best-effort)
+                // packaged: resBase/polkit/  dev: resBase/packaging/polkit/
+                const polkitSrc = fs.existsSync(path.join(resBase, 'polkit', '50-org.tuxfamily.life-parental-control.rules'))
+                    ? path.join(resBase, 'polkit', '50-org.tuxfamily.life-parental-control.rules')
+                    : path.join(resBase, 'packaging', 'polkit', '50-org.tuxfamily.life-parental-control.rules')
+                if (fs.existsSync(polkitSrc)) {
+                    fs.mkdirSync(path.join(tmpResBase, 'polkit'), { recursive: true })
+                    fs.copyFileSync(polkitSrc, path.join(tmpResBase, 'polkit', '50-org.tuxfamily.life-parental-control.rules'))
+                }
+
+                // Copy lockdown script (best-effort)
+                // packaged: resBase/life-parental-lockdown.sh  dev: resBase/packaging/life-parental-lockdown.sh
+                const lockdownSrc = fs.existsSync(path.join(resBase, 'life-parental-lockdown.sh'))
+                    ? path.join(resBase, 'life-parental-lockdown.sh')
+                    : path.join(resBase, 'packaging', 'life-parental-lockdown.sh')
+                if (fs.existsSync(lockdownSrc)) {
+                    fs.mkdirSync(path.join(tmpResBase, 'packaging'), { recursive: true })
+                    fs.copyFileSync(lockdownSrc, path.join(tmpResBase, 'packaging', 'life-parental-lockdown.sh'))
+                }
+
+                console.log(`[LiFE serviceControl/install] resources staged to ${tmpResBase}, spawning pkexec...`)
+                console.log(`[LiFE serviceControl/pkexec-env] DBUS=${process.env.DBUS_SESSION_BUS_ADDRESS} DISPLAY=${process.env.DISPLAY} WAYLAND=${process.env.WAYLAND_DISPLAY} XDG_RUNTIME=${process.env.XDG_RUNTIME_DIR}`)
+                const { stdout, stderr } = await execFileAsync('pkexec', [tmpScript, tmpResBase, app.getVersion()], { timeout: 120_000 })
+                console.log(`[LiFE serviceControl/install] pkexec OK stdout=${stdout?.trim()} stderr=${stderr?.trim()}`)
+                console.log('[LiFE serviceControl/install] waiting for daemon reconnect...')
+                await waitForDaemonConnect(25_000)
+                console.log(`[LiFE serviceControl/install] daemon connected=${isDaemonConnected()}`)
                 return { ok: true }
             } catch (e) {
+                console.error(`[LiFE serviceControl/install] pkexec FAILED code=${e.code} signal=${e.signal} stderr=${e.stderr?.trim()} message=${e.message}`)
+                if (e.code === 126 || e.code === 127) return { error: 'Authentifizierung fehlgeschlagen oder abgebrochen.' }
+                return { error: e.message }
+            } finally {
+                try { fs.unlinkSync(tmpScript) } catch { /* ignore */ }
+                try { fs.rmSync(tmpResBase, { recursive: true, force: true }) } catch { /* ignore */ }
+            }
+        }
+
+        // start/restart when daemon is not connected: daemon socket is gone, fall back to pkexec systemctl directly
+        if ((action === 'start' || action === 'restart') && !isDaemonConnected()) {
+            console.log(`[LiFE serviceControl] daemon not connected, using pkexec for action=${action}`)
+            console.log(`[LiFE serviceControl/pkexec-env] DBUS=${process.env.DBUS_SESSION_BUS_ADDRESS} DISPLAY=${process.env.DISPLAY} WAYLAND=${process.env.WAYLAND_DISPLAY} XDG_RUNTIME=${process.env.XDG_RUNTIME_DIR}`)
+            try {
+                await execFileAsync('pkexec', ['systemctl', action, 'parental-control.service'], { timeout: 30_000 })
+                console.log(`[LiFE serviceControl] pkexec systemctl ${action} OK`)
+                return { ok: true }
+            } catch (e) {
+                console.error(`[LiFE serviceControl/pkexec-systemctl] FAILED code=${e.code} stderr=${e.stderr?.trim()} message=${e.message}`)
+                if (e.code === 126 || e.code === 127) return { error: 'Authentifizierung fehlgeschlagen. Führe manuell aus: sudo systemctl start parental-control.service' }
                 return { error: e.message }
             }
         }
 
-        try {
-            if (action === 'status') {
-                const { stdout } = await execFileAsync('systemctl', ['is-active', 'parental-control.service'], { timeout: 5000 })
-                return { ok: true, status: stdout.trim() }
-            }
-            await execFileAsync('systemctl', [action, 'parental-control.service'], { timeout: 10_000 })
-            return { ok: true }
-        } catch (e) {
-            // is-active exits with code 3 when inactive — still return the status text
-            if (action === 'status' && e.stdout) return { ok: true, status: e.stdout.trim() }
-            return { error: e.message }
-        }
+        // All other actions routed through the running daemon (it has root)
+        console.log(`[LiFE serviceControl] routing to daemon: action=${action}`)
+        const result = await daemonServiceControl(action)
+        console.log(`[LiFE serviceControl] daemon result: ok=${result.ok} error=${result.error ?? '-'}`)
+        return result.ok ? { ok: true, ...(result.status != null ? { status: result.status } : {}) } : { error: result.error }
     })
 
     // Forward daemon status snapshots to any renderer that requests them
@@ -222,13 +254,6 @@ export function registerHeavyIpc(ipcMain, { appConfigDir, hageziBundledDir, getM
 }
 
 export function runDeferredStartupTasks(appConfigDir) {
-    if (app.isPackaged && typeof process.getuid === 'function' && process.getuid() === 0) {
-        try {
-            syncEmbeddedEnforcementIfNeeded(appConfigDir, app.getVersion())
-        } catch {
-            // best-effort
-        }
-    }
     if (RUN_STARTUP_HAGEZI_SYNC) {
         void runStartupHageziSync(appConfigDir)
     }
@@ -239,15 +264,9 @@ export function runDeferredStartupTasks(appConfigDir) {
             // best-effort: catalog so dashboard app-usage can run without opening App Control first
         }
     })
-    if (typeof process.getuid === 'function' && process.getuid() === 0) {
-        try {
-            cleanupLegacyCronFiles()
-        } catch {
-            /* ignore */
-        }
-
-        // Connect to the root daemon — it is the sole source of truth for timekeeping.
-        // Warnings are handled by --warning-mode (user-context Electron), not by this root process.
-        daemonConnect()
-    }
+    // Register exec path with daemon on every (re)connect so warning windows can be spawned.
+    // AppImage: use process.env.APPIMAGE (the actual .AppImage file) so the daemon can re-spawn
+    // it correctly as the desktop user with APPIMAGE_EXTRACT_AND_RUN=1.
+    daemonOn('connect', () => daemonRegisterClient(process.env.APPIMAGE || app.getPath('exe')))
+    daemonConnect()
 }

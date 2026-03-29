@@ -1,6 +1,5 @@
 import fs from 'fs'
-import { readFile as readFileAsync, writeFile as writeFileAsync } from 'fs/promises'
-import { execFile } from 'child_process'
+import { daemonWriteHosts } from '../daemonPrivilegedOps.js'
 import {
     WEB_FILTER_STATIC_CATEGORIES,
     CATEGORY_TO_HAGEZI_FEED,
@@ -19,6 +18,9 @@ import { patchDefaultJson, readDefaultJson } from '../defaultProfileStore.js'
 const HOSTS_FILE = '/etc/hosts'
 const MARKER_BEGIN = '# LiFE Parental Control - BEGIN'
 const MARKER_END = '# LiFE Parental Control - END'
+
+/** Past sinkhole IPs still parsed when reading the LiFE hosts block (re-apply migrates to current IP). */
+const HOSTS_SINKHOLE_IPV4_RE = /^(?:192\.0\.2\.1|0\.0\.0\.0|127\.0\.0\.2)\s+(\S+)\s*$/
 
 /** @type {string|null} */
 let hageziBundledDir = null
@@ -79,34 +81,21 @@ function readHostsSection() {
     const section = content.slice(begin + MARKER_BEGIN.length, end)
     return section.split('\n')
         .map(l => l.trim())
-        .filter(l => l.startsWith('0.0.0.0 ') || l.startsWith('#0.0.0.0 '))
-        .map(l => {
+        .map((l) => {
             const disabled = l.startsWith('#')
-            const domain = (disabled ? l.slice(1) : l).replace('0.0.0.0 ', '').trim()
-            return { domain, enabled: !disabled }
+            const rest = (disabled ? l.slice(1) : l).trim()
+            const m = rest.match(HOSTS_SINKHOLE_IPV4_RE)
+            if (!m) return null
+            return { domain: m[1], enabled: !disabled }
         })
+        .filter(Boolean)
 }
 
 async function writeHostsSectionAsync(entries) {
-    const content = await readFileAsync(HOSTS_FILE, 'utf8')
-    const lines = entries.map(e => `${e.enabled ? '' : '#'}127.0.0.2 ${e.domain}`)
-    const section = `\n${lines.join('\n')}\n`
-    const begin = content.indexOf(MARKER_BEGIN)
-    const end = content.indexOf(MARKER_END)
-
-    let newContent
-    if (begin !== -1 && end !== -1) {
-        newContent = content.slice(0, begin) + MARKER_BEGIN + section + MARKER_END + content.slice(end + MARKER_END.length)
-    } else {
-        newContent = content.trimEnd() + `\n\n${MARKER_BEGIN}${section}${MARKER_END}\n`
-    }
-    await writeFileAsync(HOSTS_FILE, newContent, 'utf8')
-}
-
-function flushDns() {
-    execFile('systemd-resolve', ['--flush-caches'], { timeout: 3000 }, () => {})
-    execFile('resolvectl', ['flush-caches'], { timeout: 3000 }, () => {})
-    execFile('dnsmasq', ['--clear-on-reload'], { timeout: 3000 }, () => {})
+    // Delegate to daemon (root) — frontend no longer has write access to /etc/hosts.
+    // Daemon also handles DNS cache flush after writing.
+    const result = await daemonWriteHosts(entries)
+    if (!result.ok) throw new Error(result.error || 'write-hosts failed')
 }
 
 async function persistWebfilterAndHosts(configDir, wf) {
@@ -129,7 +118,6 @@ async function persistWebfilterAndHosts(configDir, wf) {
         return d
     })
     await writeHostsSectionAsync(combined)
-    flushDns()
 }
 
 export function registerWebFilterIpc(ipcMain, configDir, opts = {}) {

@@ -1,5 +1,6 @@
 import fs from 'fs'
 import path from 'path'
+import { daemonWriteConfigAsync } from './daemonPrivilegedOps.js'
 
 const DEFAULT_JSON_FILE = 'default.json'
 
@@ -29,10 +30,6 @@ const EMPTY_DEFAULT = {
         quotaViewLinuxUser: ''
     },
     blockedDesktopIds: [],
-    security: {
-        passwordHash: '',
-        salt: ''
-    },
     quotaExemptions: {
         enabled: false,
         allowedIds: []
@@ -65,27 +62,14 @@ function readJsonSafe(p) {
     try { return JSON.parse(fs.readFileSync(p, 'utf8')) } catch { return null }
 }
 
-function ensureDefaultJsonExists(configDir) {
-    const p = defaultJsonPath(configDir)
-    try {
-        if (fs.existsSync(p)) return false
-        fs.mkdirSync(configDir, { recursive: true })
-        fs.writeFileSync(p, JSON.stringify(EMPTY_DEFAULT, null, 2), { encoding: 'utf8', mode: 0o600 })
-        return true
-    } catch { /* best-effort */ }
-}
+// In-memory cache: prevents race condition when multiple patchDefaultJson calls happen before the
+// async daemon write completes. Without this, a read after a write returns the stale disk value
+// and a subsequent patch overwrites the first change (e.g. toggling app control off then reading list).
+let _cache = null
 
-export function readDefaultJson(configDir) {
-    ensureDefaultJsonExists(configDir)
-    const p = defaultJsonPath(configDir)
-    const raw = readJsonSafe(p)
+function buildFromRaw(raw) {
     if (!raw || typeof raw !== 'object') return JSON.parse(JSON.stringify(EMPTY_DEFAULT))
     const next = JSON.parse(JSON.stringify(EMPTY_DEFAULT))
-    if (raw.security && typeof raw.security === 'object' && !Array.isArray(raw.security)) {
-        const sec = raw.security
-        if (typeof sec.passwordHash === 'string') next.security.passwordHash = sec.passwordHash
-        if (typeof sec.salt === 'string') next.security.salt = sec.salt
-    }
     if (raw.label && typeof raw.label === 'string') next.label = raw.label
     if (raw.schedule) next.schedule = normalizeSchedule(raw.schedule)
     if (raw.webfilter && typeof raw.webfilter === 'object' && !Array.isArray(raw.webfilter)) {
@@ -117,24 +101,37 @@ export function readDefaultJson(configDir) {
     }
     if (Array.isArray(raw.quota)) next.quota = raw.quota
     next.requestDaemonWarningTest = raw.requestDaemonWarningTest === true
+    if (raw.finishedLockdownWizard === true) next.finishedLockdownWizard = true
     return next
 }
 
+export function readDefaultJson(configDir) {
+    if (_cache) return JSON.parse(JSON.stringify(_cache))
+    const raw = readJsonSafe(defaultJsonPath(configDir))
+    _cache = buildFromRaw(raw)
+    return JSON.parse(JSON.stringify(_cache))
+}
+
+/** Invalidate the in-memory cache (call after daemon confirms write, or on reconnect). */
+export function invalidateDefaultJsonCache() {
+    _cache = null
+}
+
 function atomicWriteJson(configDir, obj) {
-    const p = defaultJsonPath(configDir)
-    const tmp = path.join(configDir, `.default.json.tmp-${process.pid}-${Date.now()}`)
-    fs.writeFileSync(tmp, JSON.stringify(obj, null, 2), { encoding: 'utf8', mode: 0o600 })
-    fs.renameSync(tmp, p)
+    void configDir
+    daemonWriteConfigAsync(JSON.stringify(obj, null, 2))
 }
 
 export function patchDefaultJson(configDir, patcher) {
     const cur = readDefaultJson(configDir)
     const next = patcher(cur) || cur
+    // Update cache immediately so concurrent reads see the new state before the async daemon write completes.
+    _cache = JSON.parse(JSON.stringify(next))
     atomicWriteJson(configDir, next)
     return next
 }
 
 export function ensureDefaultJsonExistsForUi(configDir) {
-    ensureDefaultJsonExists(configDir)
+    void configDir
 }
 

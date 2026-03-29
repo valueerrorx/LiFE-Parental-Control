@@ -42,6 +42,13 @@ if [ -d "$daemon_dir" ]; then
     done
 fi
 
+# Install lockdown script
+lockdown_src="${pkg_res}/packaging/life-parental-lockdown.sh"
+[ -f "$lockdown_src" ] || lockdown_src="${pkg_res}/life-parental-lockdown.sh"
+if [ -f "$lockdown_src" ]; then
+    install -D -m 755 "$lockdown_src" /usr/bin/life-parental-lockdown
+fi
+
 # Wrapper script in /usr/bin — passes --no-sandbox (required when Electron runs as root)
 cat > /usr/bin/life-parental-control << 'WRAPPER'
 #!/bin/sh

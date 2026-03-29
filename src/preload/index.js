@@ -100,6 +100,12 @@ contextBridge.exposeInMainWorld('api', {
         deleteAllUsageHistory: () => ipcRenderer.invoke('settings:deleteAllUsageHistory'),
         queueDaemonWarningTest: () => ipcRenderer.invoke('settings:queueDaemonWarningTest')
     },
+    lockdown: {
+        isFinished: () => ipcRenderer.invoke('lockdown:isFinished'),
+        analyze: (targetUser) => ipcRenderer.invoke('lockdown:analyze', targetUser),
+        execute: (payload) => ipcRenderer.invoke('lockdown:execute', payload),
+        markFinished: (skipped) => ipcRenderer.invoke('lockdown:markFinished', skipped)
+    },
     daemon: {
         isConnected: () => ipcRenderer.invoke('daemon:isConnected'),
         getStatus: () => ipcRenderer.invoke('daemon:getStatus'),
@@ -107,6 +113,7 @@ contextBridge.exposeInMainWorld('api', {
         extendApp: (payload) => ipcRenderer.invoke('daemon:extendApp', payload),
         serviceControl: (payload) => ipcRenderer.invoke('daemon:serviceControl', payload),
         nodeCheck: () => ipcRenderer.invoke('daemon:nodeCheck'),
-        apparmorCheck: () => ipcRenderer.invoke('daemon:apparmorCheck')
+        apparmorCheck: () => ipcRenderer.invoke('daemon:apparmorCheck'),
+        checkInstalledVersion: () => ipcRenderer.invoke('daemon:checkInstalledVersion')
     }
 })

@@ -1,5 +1,3 @@
-import fs from 'fs'
-import path from 'path'
 import { DEFAULT_SCHEDULE, persistSchedule } from './schedulesIpc.js'
 import { replaceQuotaEntries } from './quotaIpc.js'
 import { replaceBlockedDesktopIds } from './appBlockerIpc.js'
@@ -7,28 +5,7 @@ import { persistWebFilterEntries } from './webFilterIpc.js'
 import { replaceProcessWhitelistFromBackup } from './processWhitelistIpc.js'
 import { readKioskLockdownSummary, persistKioskConfigText } from './systemIpc.js'
 import { appendActivity } from './activityLog.js'
-
-const USAGE_OR_QUOTA_LOG_RE = /^(usage|quota-usage|app-usage)-\d{4}-\d{2}-\d{2}\.json$/
-
-function unlinkAllUsageAndQuotaLogs(configDir) {
-    let removed = 0
-    let names
-    try {
-        names = fs.readdirSync(configDir)
-    } catch {
-        return { removed: 0 }
-    }
-    for (const name of names) {
-        if (!USAGE_OR_QUOTA_LOG_RE.test(name)) continue
-        try {
-            fs.unlinkSync(path.join(configDir, name))
-            removed++
-        } catch {
-            // unreadable or race; skip
-        }
-    }
-    return { removed }
-}
+import { daemonWipeUsageHistory } from '../daemonPrivilegedOps.js'
 
 export function registerSettingsDangerIpc(ipcMain, configDir) {
     ipcMain.handle('settings:stopAllProtections', async () => {
@@ -47,11 +24,12 @@ export function registerSettingsDangerIpc(ipcMain, configDir) {
         }
     })
 
-    ipcMain.handle('settings:deleteAllUsageHistory', () => {
+    ipcMain.handle('settings:deleteAllUsageHistory', async () => {
         try {
-            const { removed } = unlinkAllUsageAndQuotaLogs(configDir)
-            appendActivity(configDir, { action: 'usage_history_wiped_all', removed })
-            return { ok: true, removed }
+            const result = await daemonWipeUsageHistory()
+            if (!result.ok) return { error: result.error }
+            appendActivity(configDir, { action: 'usage_history_wiped_all', removed: result.removed })
+            return { ok: true, removed: result.removed }
         } catch (e) {
             return { error: e.message }
         }

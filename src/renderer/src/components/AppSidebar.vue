@@ -109,17 +109,8 @@ const isKDE = computed(() => {
     return !d || d.includes('KDE')
 })
 
-const footerLabel = computed(() => {
-    if (store.runningAsRoot === true) return t('sidebar.runningAsRoot')
-    if (store.runningAsRoot === false) return t('sidebar.notRoot')
-    return '…'
-})
-const footerTitle = computed(() => {
-    if (store.runningAsRoot === false) {
-        return t('sidebar.rootTooltip')
-    }
-    return undefined
-})
+const footerLabel = computed(() => store.invokingLinuxUser || '…')
+const footerTitle = computed(() => undefined)
 
 function toggleLang() {
     const next = locale.value === 'en' ? 'de' : 'en'

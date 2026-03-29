@@ -103,6 +103,9 @@ function resetExemptWatchdogState() {
 // Connected socket clients (Electron UI instances)
 const clients = new Set();
 
+// Exec path registered by the most recently connected frontend UI (used to spawn warning windows)
+let registeredClientExecPath = '';
+
 // --- Date helpers (match existing app behavior) ---
 
 function localIsoDate(d = new Date()) {
@@ -159,6 +162,7 @@ const DEFAULT_SCHEDULE = {
 };
 
 const DEFAULT_JSON_FILE = 'default.json'
+const AUTH_JSON_FILE = 'auth.json'
 
 const DESKTOP_DIRS = [
     '/usr/share/applications',
@@ -483,27 +487,27 @@ function hashPassword(password, salt) {
 }
 
 let cachedPasswordSecurity = null;
-let cachedPasswordSecurityLoaded = false;
 
 function readPasswordSecurity() {
-    if (cachedPasswordSecurityLoaded) return cachedPasswordSecurity;
-    cachedPasswordSecurityLoaded = true;
-
-    function readJsonSafe(p) {
-        try { return JSON.parse(fs.readFileSync(p, 'utf8')); } catch { return null; }
-    }
-
-    const defaultPath = path.join(CONFIG_DIR, DEFAULT_JSON_FILE);
-
-    const def = readJsonSafe(defaultPath);
-    const sec = def && typeof def === 'object' ? def.security : null;
-    if (sec && typeof sec === 'object' && typeof sec.passwordHash === 'string' && typeof sec.salt === 'string') {
-        cachedPasswordSecurity = { passwordHash: sec.passwordHash, salt: sec.salt };
-        return cachedPasswordSecurity;
-    }
-
+    if (cachedPasswordSecurity) return cachedPasswordSecurity;
+    try {
+        const raw = JSON.parse(fs.readFileSync(path.join(CONFIG_DIR, AUTH_JSON_FILE), 'utf8'));
+        if (raw && typeof raw.passwordHash === 'string' && typeof raw.salt === 'string') {
+            cachedPasswordSecurity = { passwordHash: raw.passwordHash, salt: raw.salt };
+            return cachedPasswordSecurity;
+        }
+    } catch { /* file may not exist yet */ }
     cachedPasswordSecurity = { passwordHash: '', salt: '' };
     return cachedPasswordSecurity;
+}
+
+function writeAuthFile(passwordHash, salt) {
+    const p = path.join(CONFIG_DIR, AUTH_JSON_FILE);
+    const tmp = p + `.tmp-${Date.now()}`;
+    fs.writeFileSync(tmp, JSON.stringify({ passwordHash, salt }, null, 2), { encoding: 'utf8', mode: 0o600 });
+    fs.renameSync(tmp, p);
+    fs.chmodSync(p, 0o600);
+    cachedPasswordSecurity = { passwordHash, salt };
 }
 
 function checkParentPassword(plain) {
@@ -817,6 +821,7 @@ function broadcastWarn(payload) {
 
 // Resolve the installed Electron app executable path
 function findElectronExecPath() {
+    if (registeredClientExecPath && fs.existsSync(registeredClientExecPath)) return registeredClientExecPath;
     try {
         const stored = fs.readFileSync('/etc/life-parental/.electron-exec', 'utf8').trim();
         if (stored && fs.existsSync(stored)) return stored;
@@ -1748,6 +1753,368 @@ function handleClientCommand(client, cmd) {
         }) + '\n');
         return;
     }
+
+    // --- New privileged commands (frontend runs as normal user, daemon executes as root) ---
+
+    if (cmd.type === 'register-client') {
+        // Frontend registers its executable path so daemon can spawn warning windows
+        if (typeof cmd.execPath === 'string' && cmd.execPath) {
+            registeredClientExecPath = cmd.execPath;
+            try {
+                fs.writeFileSync(
+                    path.join(CONFIG_DIR, '.electron-exec'),
+                    cmd.execPath + '\n',
+                    { encoding: 'utf8', mode: 0o644 }
+                );
+            } catch { /* best-effort */ }
+        }
+        client.write(JSON.stringify({ type: 'register-client-result', ok: true }) + '\n');
+        return;
+    }
+
+    if (cmd.type === 'write-config') {
+        // Write /etc/life-parental/default.json atomically; invalidate in-memory cache.
+        // Strip security section — auth is stored in auth.json (600) not here.
+        try {
+            const content = typeof cmd.content === 'string' ? cmd.content : null;
+            if (!content) throw new Error('no content');
+            const parsed = JSON.parse(content);
+            delete parsed.security; // never store password hash in world-readable file
+            const p = path.join(CONFIG_DIR, 'default.json');
+            const tmp = path.join(CONFIG_DIR, `.default.json.tmp-${Date.now()}`);
+            fs.writeFileSync(tmp, JSON.stringify(parsed, null, 2), { encoding: 'utf8', mode: 0o644 });
+            fs.renameSync(tmp, p);
+            cachedDefaultConfig = null;
+            cachedDefaultMtimeMs = 0;
+            log.info('write-config: ok');
+            client.write(JSON.stringify({ type: 'write-config-result', ok: true }) + '\n');
+        } catch (e) {
+            log.error('write-config: ' + e.message);
+            client.write(JSON.stringify({ type: 'write-config-result', ok: false, error: e.message }) + '\n');
+        }
+        return;
+    }
+
+    if (cmd.type === 'auth:is-set') {
+        const sec = readPasswordSecurity();
+        client.write(JSON.stringify({ type: 'auth:is-set-result', ok: true, isSet: !!sec.passwordHash }) + '\n');
+        return;
+    }
+
+    if (cmd.type === 'auth:check') {
+        const sec = readPasswordSecurity();
+        let valid = false;
+        if (!sec.passwordHash) {
+            valid = true; // no password set → allow through
+        } else if (typeof cmd.password === 'string' && cmd.password.length > 0) {
+            valid = hashPassword(cmd.password, sec.salt) === sec.passwordHash;
+        }
+        client.write(JSON.stringify({ type: 'auth:check-result', ok: true, valid }) + '\n');
+        return;
+    }
+
+    if (cmd.type === 'auth:set') {
+        try {
+            const salt = crypto.randomBytes(16).toString('hex');
+            const hash = hashPassword(typeof cmd.password === 'string' ? cmd.password : '', salt);
+            writeAuthFile(hash, salt);
+            log.info('auth:set ok');
+            client.write(JSON.stringify({ type: 'auth:set-result', ok: true }) + '\n');
+        } catch (e) {
+            log.error('auth:set: ' + e.message);
+            client.write(JSON.stringify({ type: 'auth:set-result', ok: false, error: e.message }) + '\n');
+        }
+        return;
+    }
+
+    if (cmd.type === 'auth:change') {
+        try {
+            const sec = readPasswordSecurity();
+            if (sec.passwordHash) {
+                const oldOk = typeof cmd.oldPassword === 'string' &&
+                    hashPassword(cmd.oldPassword, sec.salt) === sec.passwordHash;
+                if (!oldOk) {
+                    client.write(JSON.stringify({ type: 'auth:change-result', ok: false, error: 'Current password is incorrect' }) + '\n');
+                    return;
+                }
+            }
+            const salt = crypto.randomBytes(16).toString('hex');
+            const hash = hashPassword(typeof cmd.newPassword === 'string' ? cmd.newPassword : '', salt);
+            writeAuthFile(hash, salt);
+            log.info('auth:change ok');
+            client.write(JSON.stringify({ type: 'auth:change-result', ok: true }) + '\n');
+        } catch (e) {
+            log.error('auth:change: ' + e.message);
+            client.write(JSON.stringify({ type: 'auth:change-result', ok: false, error: e.message }) + '\n');
+        }
+        return;
+    }
+
+    if (cmd.type === 'write-hosts') {
+        // Splice LiFE section into /etc/hosts and flush DNS caches
+        const MARKER_BEGIN = '# LiFE Parental Control - BEGIN';
+        const MARKER_END = '# LiFE Parental Control - END';
+        try {
+            const entries = Array.isArray(cmd.entries) ? cmd.entries : [];
+            const content = fs.readFileSync('/etc/hosts', 'utf8');
+            // RFC 5737 TEST-NET-1 — non-routable; 0.0.0.0 can still hit daemons bound to 0.0.0.0 on the same host
+            const lines = entries.map(e => `${e.enabled ? '' : '#'}192.0.2.1 ${e.domain}`);
+            const section = `\n${lines.join('\n')}\n`;
+            const begin = content.indexOf(MARKER_BEGIN);
+            const end = content.indexOf(MARKER_END);
+            let newContent;
+            if (begin !== -1 && end !== -1) {
+                newContent = content.slice(0, begin) + MARKER_BEGIN + section + MARKER_END + content.slice(end + MARKER_END.length);
+            } else {
+                newContent = content.trimEnd() + `\n\n${MARKER_BEGIN}${section}${MARKER_END}\n`;
+            }
+            fs.writeFileSync('/etc/hosts', newContent, 'utf8');
+            execFile('systemd-resolve', ['--flush-caches'], { timeout: 3000 }, () => {});
+            execFile('resolvectl', ['flush-caches'], { timeout: 3000 }, () => {});
+            execFile('dnsmasq', ['--clear-on-reload'], { timeout: 3000 }, () => {});
+            log.info(`write-hosts: applied ${entries.length} entries`);
+            client.write(JSON.stringify({ type: 'write-hosts-result', ok: true }) + '\n');
+        } catch (e) {
+            log.error('write-hosts: ' + e.message);
+            client.write(JSON.stringify({ type: 'write-hosts-result', ok: false, error: e.message }) + '\n');
+        }
+        return;
+    }
+
+    if (cmd.type === 'sync-apparmor') {
+        // Write /etc/apparmor.d/life-parental-blocked and reload it
+        const APPARMOR_PROFILE = '/etc/apparmor.d/life-parental-blocked';
+        try {
+            const content = typeof cmd.profileContent === 'string' ? cmd.profileContent : '';
+            if (fs.existsSync(APPARMOR_PROFILE)) {
+                spawnSync('apparmor_parser', ['-R', APPARMOR_PROFILE], { timeout: 5000, stdio: 'ignore' });
+            }
+            try { fs.mkdirSync(path.dirname(APPARMOR_PROFILE), { recursive: true }); } catch { /* exists */ }
+            fs.writeFileSync(APPARMOR_PROFILE, content, 'utf8');
+            if (content.includes('deny')) {
+                spawnSync('apparmor_parser', ['-a', APPARMOR_PROFILE], { timeout: 5000, stdio: 'ignore' });
+            }
+            log.info('sync-apparmor: ok');
+            client.write(JSON.stringify({ type: 'sync-apparmor-result', ok: true }) + '\n');
+        } catch (e) {
+            log.error('sync-apparmor: ' + e.message);
+            client.write(JSON.stringify({ type: 'sync-apparmor-result', ok: false, error: e.message }) + '\n');
+        }
+        return;
+    }
+
+    if (cmd.type === 'desktop-override') {
+        // Write/delete .desktop override files in /usr/local/share/applications + refresh DB
+        const OVERRIDE_DIR = '/usr/local/share/applications';
+        try {
+            fs.mkdirSync(OVERRIDE_DIR, { recursive: true });
+            const toWrite = Array.isArray(cmd.write) ? cmd.write : [];
+            const toDelete = Array.isArray(cmd.delete) ? cmd.delete : [];
+            for (const { appId, content } of toWrite) {
+                if (typeof appId !== 'string' || !appId.endsWith('.desktop') || typeof content !== 'string') continue;
+                fs.writeFileSync(path.join(OVERRIDE_DIR, appId), content, 'utf8');
+            }
+            for (const appId of toDelete) {
+                if (typeof appId !== 'string' || !appId.endsWith('.desktop')) continue;
+                try { fs.unlinkSync(path.join(OVERRIDE_DIR, appId)); } catch { /* already gone */ }
+            }
+            execFile('update-desktop-database', [OVERRIDE_DIR], { timeout: 5000 }, () => {});
+            log.info(`desktop-override: wrote ${toWrite.length} deleted ${toDelete.length}`);
+            client.write(JSON.stringify({ type: 'desktop-override-result', ok: true }) + '\n');
+        } catch (e) {
+            log.error('desktop-override: ' + e.message);
+            client.write(JSON.stringify({ type: 'desktop-override-result', ok: false, error: e.message }) + '\n');
+        }
+        return;
+    }
+
+    if (cmd.type === 'write-kiosk') {
+        // Write /etc/xdg/kdeglobals and optionally /etc/xdg/plasma-appletsrc
+        try {
+            fs.mkdirSync('/etc/xdg', { recursive: true });
+            if (typeof cmd.kdeglobalsContent === 'string') {
+                fs.writeFileSync('/etc/xdg/kdeglobals', cmd.kdeglobalsContent, 'utf8');
+            }
+            if (cmd.plasmaAppletsrcContent === null) {
+                try { fs.unlinkSync('/etc/xdg/plasma-appletsrc'); } catch { /* already gone */ }
+            } else if (typeof cmd.plasmaAppletsrcContent === 'string') {
+                fs.writeFileSync('/etc/xdg/plasma-appletsrc', cmd.plasmaAppletsrcContent, 'utf8');
+            }
+            log.info('write-kiosk: ok');
+            client.write(JSON.stringify({ type: 'write-kiosk-result', ok: true }) + '\n');
+        } catch (e) {
+            log.error('write-kiosk: ' + e.message);
+            client.write(JSON.stringify({ type: 'write-kiosk-result', ok: false, error: e.message }) + '\n');
+        }
+        return;
+    }
+
+    if (cmd.type === 'write-app-catalog') {
+        // Write /etc/life-parental/app-monitor-catalog.json (world-readable, not sensitive)
+        try {
+            const content = typeof cmd.content === 'string' ? cmd.content : null;
+            if (!content) throw new Error('no content');
+            JSON.parse(content); // validate JSON
+            fs.writeFileSync(
+                path.join(CONFIG_DIR, 'app-monitor-catalog.json'),
+                content,
+                { encoding: 'utf8', mode: 0o644 }
+            );
+            client.write(JSON.stringify({ type: 'write-app-catalog-result', ok: true }) + '\n');
+        } catch (e) {
+            log.error('write-app-catalog: ' + e.message);
+            client.write(JSON.stringify({ type: 'write-app-catalog-result', ok: false, error: e.message }) + '\n');
+        }
+        return;
+    }
+
+    if (cmd.type === 'service-control') {
+        // systemctl actions on parental-control.service
+        const allowed = ['start', 'stop', 'restart', 'enable', 'disable', 'status'];
+        if (!allowed.includes(cmd.action)) {
+            client.write(JSON.stringify({ type: 'service-control-result', ok: false, error: 'Invalid action' }) + '\n');
+            return;
+        }
+        if (cmd.action === 'status') {
+            execFile('systemctl', ['is-active', 'parental-control.service'], { timeout: 5000 }, (err, stdout) => {
+                const status = String(stdout || (err && err.stdout) || '').trim() || (err ? 'inactive' : 'active');
+                client.write(JSON.stringify({ type: 'service-control-result', ok: true, status }) + '\n');
+            });
+            return;
+        }
+        if (cmd.action === 'stop' || cmd.action === 'disable') {
+            // Send reply before self-termination so client receives it
+            client.write(JSON.stringify({ type: 'service-control-result', ok: true }) + '\n');
+            setTimeout(() => execFile('systemctl', [cmd.action, 'parental-control.service'], { timeout: 10000 }, () => {}), 300);
+            return;
+        }
+        execFile('systemctl', [cmd.action, 'parental-control.service'], { timeout: 10000 }, (err) => {
+            if (err) client.write(JSON.stringify({ type: 'service-control-result', ok: false, error: err.message }) + '\n');
+            else client.write(JSON.stringify({ type: 'service-control-result', ok: true }) + '\n');
+        });
+        return;
+    }
+
+    if (cmd.type === 'reset-today-usage') {
+        // Delete today's usage file (screen time reset)
+        try {
+            const file = path.join(CONFIG_DIR, `usage-${localIsoDate()}.json`);
+            try { fs.unlinkSync(file); } catch { /* already gone */ }
+            log.info('reset-today-usage: ok');
+            client.write(JSON.stringify({ type: 'reset-today-usage-result', ok: true }) + '\n');
+        } catch (e) {
+            client.write(JSON.stringify({ type: 'reset-today-usage-result', ok: false, error: e.message }) + '\n');
+        }
+        return;
+    }
+
+    if (cmd.type === 'reset-today-quota-usage') {
+        // Delete today's quota-usage file (app quota reset)
+        try {
+            const file = path.join(CONFIG_DIR, `quota-usage-${localIsoDate()}.json`);
+            try { fs.unlinkSync(file); } catch { /* already gone */ }
+            log.info('reset-today-quota-usage: ok');
+            client.write(JSON.stringify({ type: 'reset-today-quota-usage-result', ok: true }) + '\n');
+        } catch (e) {
+            client.write(JSON.stringify({ type: 'reset-today-quota-usage-result', ok: false, error: e.message }) + '\n');
+        }
+        return;
+    }
+
+    if (cmd.type === 'wipe-usage-history') {
+        // Delete all usage/quota-usage/app-usage JSON files (full history wipe)
+        const re = /^(usage|quota-usage|app-usage)-\d{4}-\d{2}-\d{2}\.json$/;
+        let removed = 0;
+        try {
+            for (const name of fs.readdirSync(CONFIG_DIR)) {
+                if (!re.test(name)) continue;
+                try { fs.unlinkSync(path.join(CONFIG_DIR, name)); removed++; } catch { /* skip */ }
+            }
+            log.info(`wipe-usage-history: removed ${removed}`);
+            client.write(JSON.stringify({ type: 'wipe-usage-history-result', ok: true, removed }) + '\n');
+        } catch (e) {
+            client.write(JSON.stringify({ type: 'wipe-usage-history-result', ok: false, error: e.message }) + '\n');
+        }
+        return;
+    }
+
+    if (cmd.type === 'append-activity') {
+        // Append a single entry to the activity ring-buffer log (max 400 entries)
+        const LOG_FILE = '/var/log/life-parental.json';
+        const MAX_ENTRIES = 400;
+        try {
+            let list = [];
+            try { const d = JSON.parse(fs.readFileSync(LOG_FILE, 'utf8')); if (Array.isArray(d)) list = d; } catch { /* first write */ }
+            list.push({ t: new Date().toISOString(), ...(cmd.entry || {}) });
+            if (list.length > MAX_ENTRIES) list = list.slice(-MAX_ENTRIES);
+            fs.writeFileSync(LOG_FILE, JSON.stringify(list), 'utf8');
+            try { fs.chmodSync(LOG_FILE, 0o644); } catch { /* already set */ }
+        } catch { /* best-effort */ }
+        // Fire-and-forget: no result expected
+        return;
+    }
+
+    if (cmd.type === 'write-hagezi-cache') {
+        // Write downloaded hagezi feed files and meta to /etc/life-parental/blocklists/
+        try {
+            const dir = path.join(CONFIG_DIR, 'blocklists');
+            fs.mkdirSync(dir, { recursive: true });
+            for (const f of (cmd.files || [])) {
+                if (typeof f.name !== 'string' || typeof f.content !== 'string') continue;
+                const name = path.basename(f.name);
+                if (!name || name.startsWith('.')) continue;
+                fs.writeFileSync(path.join(dir, name), f.content, 'utf8');
+                try { fs.chmodSync(path.join(dir, name), 0o644); } catch { /* ignore */ }
+            }
+            if (cmd.meta && typeof cmd.meta === 'object') {
+                fs.writeFileSync(path.join(dir, 'meta.json'), JSON.stringify(cmd.meta, null, 2), 'utf8');
+                try { fs.chmodSync(path.join(dir, 'meta.json'), 0o644); } catch { /* ignore */ }
+            }
+            client.write(JSON.stringify({ type: 'write-hagezi-cache-result', ok: true }) + '\n');
+        } catch (e) {
+            client.write(JSON.stringify({ type: 'write-hagezi-cache-result', ok: false, error: e.message }) + '\n');
+        }
+        return;
+    }
+
+    if (cmd.type === 'write-life-modes') {
+        // Write or delete /etc/life-parental/life-modes.json
+        const LM_FILE = path.join(CONFIG_DIR, 'life-modes.json');
+        try {
+            if (cmd.content != null) {
+                fs.writeFileSync(LM_FILE, typeof cmd.content === 'string' ? cmd.content : JSON.stringify(cmd.content, null, 2), 'utf8');
+                try { fs.chmodSync(LM_FILE, 0o644); } catch { /* ignore */ }
+            } else {
+                try { fs.unlinkSync(LM_FILE); } catch { /* already gone */ }
+            }
+            client.write(JSON.stringify({ type: 'write-life-modes-result', ok: true }) + '\n');
+        } catch (e) {
+            client.write(JSON.stringify({ type: 'write-life-modes-result', ok: false, error: e.message }) + '\n');
+        }
+        return;
+    }
+
+    if (cmd.type === 'prune-archives') {
+        // Delete usage/quota/app-usage files older than 90 days
+        try {
+            const KEEP_DAYS = 90;
+            const cutoff = new Date(Date.now() - KEEP_DAYS * 86400_000);
+            const re = /^(usage|quota-usage|app-usage)-(\d{4}-\d{2}-\d{2})\.json$/;
+            let removed = 0;
+            for (const name of fs.readdirSync(CONFIG_DIR)) {
+                const m = name.match(re);
+                if (!m) continue;
+                if (new Date(m[2]) < cutoff) {
+                    try { fs.unlinkSync(path.join(CONFIG_DIR, name)); removed++; } catch { /* skip */ }
+                }
+            }
+            log.info(`prune-archives: removed ${removed}`);
+            client.write(JSON.stringify({ type: 'prune-archives-result', ok: true, removed }) + '\n');
+        } catch (e) {
+            client.write(JSON.stringify({ type: 'prune-archives-result', ok: false, error: e.message }) + '\n');
+        }
+        return;
+    }
 }
 
 // --- Unix socket server ---
@@ -1795,6 +2162,39 @@ if (typeof process.getuid === 'function' && process.getuid() !== 0) {
 
 log.info(`starting PID=${process.pid} node=${process.version}`);
 fs.mkdirSync(CONFIG_DIR, { recursive: true });
+
+// Ensure default.json exists (644, no security section) and auth.json exists (600, password only).
+try {
+    const defaultJsonPath = path.join(CONFIG_DIR, 'default.json');
+    const authJsonPath = path.join(CONFIG_DIR, AUTH_JSON_FILE);
+
+    if (!fs.existsSync(defaultJsonPath)) {
+        const empty = { label: 'Default', schedule: { enabled: false, dailyLimitEnabled: false, dailyLimitMinutes: 120, screenTimeLinuxUser: '', allowedHoursEnabled: false, allowedHoursStart: '07:00', allowedHoursEnd: '22:00', allowedDays: [1,2,3,4,5,6,7] }, webfilter: { enabled: true, feedState: {}, entries: [], listAllowlist: [] }, appControl: { enabled: true }, preferences: { lockIdleMinutes: null, quotaViewLinuxUser: '' }, blockedDesktopIds: [], quotaExemptions: { enabled: false, allowedIds: [] }, quota: [], requestDaemonWarningTest: false };
+        fs.writeFileSync(defaultJsonPath, JSON.stringify(empty, null, 2), { encoding: 'utf8', mode: 0o644 });
+    } else {
+        // Migrate: if default.json has a security section, move it to auth.json then strip it
+        try {
+            const existing = JSON.parse(fs.readFileSync(defaultJsonPath, 'utf8'));
+            if (existing && existing.security && existing.security.passwordHash && !fs.existsSync(authJsonPath)) {
+                writeAuthFile(existing.security.passwordHash, existing.security.salt || '');
+                log.info('migrated password hash from default.json to auth.json');
+            }
+            if (existing && existing.security) {
+                delete existing.security;
+                fs.writeFileSync(defaultJsonPath, JSON.stringify(existing, null, 2), { encoding: 'utf8', mode: 0o644 });
+            } else {
+                fs.chmodSync(defaultJsonPath, 0o644);
+            }
+        } catch { fs.chmodSync(defaultJsonPath, 0o644); }
+    }
+
+    // Ensure auth.json exists (empty = no password set) and is root-only
+    if (!fs.existsSync(authJsonPath)) {
+        fs.writeFileSync(authJsonPath, JSON.stringify({ passwordHash: '', salt: '' }, null, 2), { encoding: 'utf8', mode: 0o600 });
+    } else {
+        fs.chmodSync(authJsonPath, 0o600);
+    }
+} catch { /* best-effort */ }
 
 const defaultSync = createDefaultSync({ configDir: CONFIG_DIR, log });
 defaultSync.maybeSync().catch(e => log.warn(`defaultSync initial: ${e && e.message ? e.message : String(e)}`));

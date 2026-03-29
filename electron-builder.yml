@@ -29,17 +29,17 @@ extraResources:
     filter: ["**/*.txt"]
   - from: "packaging/polkit"
     to: "polkit"
-    filter: ["**/*.policy", "**/*.rules"]
+    filter: ["**/*.rules"]
   - from: "daemon"
     to: "daemon"
     filter: ["**/*.js"]
   - from: "packaging/systemd/parental-control.service"
     to: "systemd/parental-control.service"
+  - from: "packaging/life-parental-install.sh"
+    to: "life-parental-install.sh"
 
 linux:
   executableName: life-parental-control
-  executableArgs:
-    - --no-sandbox
   desktop:
     entry:
       Name: "LiFE Parental Control"
