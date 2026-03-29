@@ -175,11 +175,7 @@
                             <div><span class="text-muted" style="min-width:120px;display:inline-block;">{{ $t('settings.configDirectory') }}</span> <code>/etc/life-parental/</code></div>
                             <div>
                                 <span class="text-muted" style="min-width:120px;display:inline-block;">{{ $t('settings.runningAs') }}</span>
-                                <template v-if="appInfo?.runningAsRoot === true">{{ $t('settings.rootUser') }}</template>
-                                <template v-else-if="appInfo?.runningAsRoot === false">
-                                    <span class="text-warning" v-html="$t('settings.regularUserWarning')" />
-                                </template>
-                                <template v-else>—</template>
+                                {{ appInfo?.invokingLinuxUser || '—' }}
                             </div>
                         </div>
                     </div>
