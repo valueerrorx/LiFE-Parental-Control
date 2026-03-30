@@ -12,22 +12,51 @@ const BONUS_MIN = 5
 const BONUS_MAX = 180
 const BONUS_DEFAULT = 30
 
-export const DEFAULT_SCHEDULE = {
-    enabled: false,
+export const DEFAULT_SCHEDULE_PERIOD = {
     dailyLimitEnabled: false,
     dailyLimitMinutes: 120,
-    /** Empty = legacy pool (any graphical session adds to one counter); set to child’s Linux login for per-user tally + limit. */
-    screenTimeLinuxUser: '',
     allowedHoursEnabled: false,
     allowedHoursStart: '07:00',
-    allowedHoursEnd: '22:00',
-    allowedDays: [1, 2, 3, 4, 5, 6, 7] // 1=Mon, 7=Sun
+    allowedHoursEnd: '22:00'
+}
+
+export const DEFAULT_SCHEDULE = {
+    enabled: false,
+    screenTimeLinuxUser: '',
+    weekday: { ...DEFAULT_SCHEDULE_PERIOD },
+    weekend: { ...DEFAULT_SCHEDULE_PERIOD, dailyLimitMinutes: 180 }
+}
+
+function normalizePeriod(p, def) {
+    const src = p && typeof p === 'object' && !Array.isArray(p) ? p : {}
+    return {
+        dailyLimitEnabled: src.dailyLimitEnabled === true,
+        dailyLimitMinutes: Number.isFinite(Number(src.dailyLimitMinutes)) ? Number(src.dailyLimitMinutes) : def.dailyLimitMinutes,
+        allowedHoursEnabled: src.allowedHoursEnabled === true,
+        allowedHoursStart: typeof src.allowedHoursStart === 'string' ? src.allowedHoursStart : def.allowedHoursStart,
+        allowedHoursEnd: typeof src.allowedHoursEnd === 'string' ? src.allowedHoursEnd : def.allowedHoursEnd
+    }
 }
 
 export function readSchedule(configDir) {
     const def = readDefaultJson(configDir)
-    const sched = def?.schedule && typeof def.schedule === 'object' && !Array.isArray(def.schedule) ? def.schedule : {}
-    return { ...DEFAULT_SCHEDULE, ...sched }
+    const s = def?.schedule && typeof def.schedule === 'object' && !Array.isArray(def.schedule) ? def.schedule : {}
+    // Backward compat: migrate old flat format to weekday/weekend
+    const hasOldFormat = (s.dailyLimitEnabled != null || s.allowedHoursEnabled != null) && !s.weekday
+    const legacyFlat = hasOldFormat ? {
+        dailyLimitEnabled: s.dailyLimitEnabled === true,
+        dailyLimitMinutes: s.dailyLimitMinutes ?? DEFAULT_SCHEDULE_PERIOD.dailyLimitMinutes,
+        allowedHoursEnabled: s.allowedHoursEnabled === true,
+        allowedHoursStart: s.allowedHoursStart ?? DEFAULT_SCHEDULE_PERIOD.allowedHoursStart,
+        allowedHoursEnd: s.allowedHoursEnd ?? DEFAULT_SCHEDULE_PERIOD.allowedHoursEnd
+    } : null
+    return {
+        enabled: s.enabled === true,
+        screenTimeLinuxUser: typeof s.screenTimeLinuxUser === 'string' ? s.screenTimeLinuxUser : '',
+        allowedDays: Array.isArray(s.allowedDays) ? s.allowedDays : DEFAULT_SCHEDULE.allowedDays,
+        weekday: normalizePeriod(s.weekday ?? legacyFlat, DEFAULT_SCHEDULE_PERIOD),
+        weekend: normalizePeriod(s.weekend ?? legacyFlat, { ...DEFAULT_SCHEDULE_PERIOD, dailyLimitMinutes: 180 })
+    }
 }
 
 function emptyUsage(today) {

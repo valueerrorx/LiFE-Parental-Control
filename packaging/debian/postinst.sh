@@ -67,6 +67,12 @@ exec "/opt/LiFE_Parental_Control/life-parental-control" --no-sandbox "$@"
 WRAPPER
 chmod 755 /usr/bin/life-parental-control
 
+# Patch .desktop file to use the /usr/bin wrapper instead of the /opt path
+DESKTOP_FILE="/usr/share/applications/life-parental-control.desktop"
+if [ -f "$DESKTOP_FILE" ]; then
+    sed -i 's|^Exec=.*|Exec=/usr/bin/life-parental-control %U|' "$DESKTOP_FILE"
+fi
+
 # Install and enable the systemd service
 service_src="${pkg_res}/systemd/parental-control.service"
 if [ -f "$service_src" ] && command -v systemctl >/dev/null 2>&1; then

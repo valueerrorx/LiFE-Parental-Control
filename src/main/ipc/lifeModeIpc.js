@@ -229,7 +229,7 @@ function stripCategoriesFromMirror(mirror, categoryNames) {
     return { entries, feedState }
 }
 
-export async function applyLifeModeDirect(configDir, modeKey, { quiet = false } = {}) {
+export async function applyLifeModeDirect(configDir, modeKey, { quiet = false, background = false } = {}) {
     const all = getAllLifeModes(configDir)
     const mode = all[modeKey]
     if (!mode) return { error: `Unknown mode: ${modeKey}` }
@@ -250,20 +250,20 @@ export async function applyLifeModeDirect(configDir, modeKey, { quiet = false } 
         try {
             if (mode.webfilterMirror?.entries) {
                 const { entries, feedState, listAllowlist } = mode.webfilterMirror
-                await persistWebFilterEntries(configDir, entries, feedState, listAllowlist)
+                await persistWebFilterEntries(configDir, entries, feedState, listAllowlist, { background })
                 console.info('[LiFE Parental Control] default webfilter mirror applied', {
                     entryCount: entries?.length ?? 0
                 })
             } else if (mode.mergeCategories?.length) {
                 const cur = readWebFilterConfig(configDir)
                 const next = mergeCategoriesIntoMirror(cur, mode.mergeCategories)
-                await persistWebFilterEntries(configDir, next.entries, next.feedState)
+                await persistWebFilterEntries(configDir, next.entries, next.feedState, undefined, { background })
             } else if (mode.stripCategories?.length) {
                 const cur = readWebFilterConfig(configDir)
                 const next = stripCategoriesFromMirror(cur, mode.stripCategories)
-                await persistWebFilterEntries(configDir, next.entries, next.feedState)
+                await persistWebFilterEntries(configDir, next.entries, next.feedState, undefined, { background })
             } else {
-                await persistWebFilterEntries(configDir, [], {}, [])
+                await persistWebFilterEntries(configDir, [], {}, [], { background })
                 console.info('[LiFE Parental Control] default webfilter mirror cleared (empty default)')
             }
         } catch (e) {

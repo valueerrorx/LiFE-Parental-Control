@@ -97,6 +97,7 @@ const { prompt } = useModal()
 const unlocked = ref(false)
 const passwordSet = ref(false)
 const showLockdownWizard = ref(false)
+let lockdownWizardDismissedThisSession = false
 const password = ref('')
 const pw1 = ref('')
 const pw2 = ref('')
@@ -300,6 +301,7 @@ async function handleQuitRequest() {
 
 /** Check if lockdown wizard should be shown (only after the user is unlocked). */
 async function checkLockdownWizard() {
+    if (lockdownWizardDismissedThisSession) return
     try {
         const finished = await window.api.lockdown.isFinished()
         showLockdownWizard.value = !finished
@@ -310,6 +312,7 @@ async function checkLockdownWizard() {
 
 function onLockdownWizardClose() {
     showLockdownWizard.value = false
+    lockdownWizardDismissedThisSession = true
 }
 </script>
 

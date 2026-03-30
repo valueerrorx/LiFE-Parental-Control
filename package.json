@@ -9,8 +9,8 @@
     "main": "out/main/index.js",
     "scripts": {
         "cleanbuild": "sudo rm -r ./out && npm run build",
-        "dev": "sudo -E env -u DBUS_SESSION_BUS_ADDRESS XDG_RUNTIME_DIR=/run/user/$(id -u) npx electron-vite dev -- --no-sandbox",
-        "user": "npx electron-vite dev",
+       
+        "dev": "sudo rm -rf ./out && npx electron-vite dev",
         "compile": "electron-vite build",
         "check": "npm run lint && npm run compile",
         "build": "electron-vite build && electron-builder --publish never",

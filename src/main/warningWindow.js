@@ -82,6 +82,9 @@ p{color:#555;font-size:13px;line-height:1.5;margin-bottom:10px}
 label{display:block;font-size:11px;font-weight:600;color:#616161;margin:10px 0 3px}
 input,select{width:100%;padding:6px 10px;border:1px solid #ccc;border-radius:6px;font-size:13px;outline:none}
 input:focus,select:focus{border-color:#1976d2}
+.pw-wrap{position:relative;flex:1}.pw-wrap input{padding-right:34px}
+.eye{position:absolute;right:8px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;padding:0;color:#888;font-size:15px;line-height:1}
+.eye:hover{color:#333}
 .row{display:flex;gap:8px}.sel{flex:0 0 110px}
 .btns{display:flex;gap:8px;justify-content:flex-end;margin-top:14px}
 button{padding:7px 18px;border:none;border-radius:6px;font-size:13px;cursor:pointer;font-weight:500}
@@ -94,7 +97,10 @@ button{padding:7px 18px;border:none;border-radius:6px;font-size:13px;cursor:poin
 <p>${info} Enter the parent password to add bonus time for ${isApp ? 'this app' : 'today'}.</p>
 <label>Parent password</label>
 <div class="row">
-  <input type="password" id="pw" autocomplete="off" placeholder="Password"/>
+  <div class="pw-wrap">
+    <input type="password" id="pw" autocomplete="off" placeholder="Password"/>
+    <button class="eye" id="eye" tabindex="-1" title="Show/hide password">&#128065;</button>
+  </div>
   <select id="mins" class="sel">
     <option value="5">+5 min</option>
     <option value="15">+15 min</option>
@@ -115,6 +121,7 @@ const mins = document.getElementById('mins')
 const err = document.getElementById('err')
 const grantBtn = document.getElementById('grant')
 document.getElementById('dismiss').onclick = () => window.close()
+document.getElementById('eye').onclick = () => { pw.type = pw.type === 'password' ? 'text' : 'password' }
 pw.addEventListener('keydown', e => { if (e.key === 'Enter') doGrant() })
 grantBtn.onclick = doGrant
 async function doGrant() {

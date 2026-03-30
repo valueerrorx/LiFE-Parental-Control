@@ -155,10 +155,16 @@ function effectiveScreenMinutes(usage, screenTimeLinuxUser) {
 
 // --- Config file readers / writers ---
 
+const DEFAULT_SCHEDULE_PERIOD = {
+    dailyLimitEnabled: false, dailyLimitMinutes: 120,
+    allowedHoursEnabled: false, allowedHoursStart: '07:00', allowedHoursEnd: '22:00'
+};
+
 const DEFAULT_SCHEDULE = {
-    enabled: false, dailyLimitEnabled: false, dailyLimitMinutes: 120,
-    screenTimeLinuxUser: '', allowedHoursEnabled: false,
-    allowedHoursStart: '07:00', allowedHoursEnd: '22:00', allowedDays: [1, 2, 3, 4, 5, 6, 7]
+    enabled: false,
+    screenTimeLinuxUser: '',
+    weekday: { ...DEFAULT_SCHEDULE_PERIOD },
+    weekend: { ...DEFAULT_SCHEDULE_PERIOD, dailyLimitMinutes: 180 }
 };
 
 const DEFAULT_JSON_FILE = 'default.json'
@@ -289,20 +295,34 @@ function resolveBlockedIdsAgainstInstalled(rawIds, installedIds) {
     return out
 }
 
+function normalizePeriod(p, def) {
+    const src = p && typeof p === 'object' && !Array.isArray(p) ? p : {}
+    return {
+        dailyLimitEnabled: src.dailyLimitEnabled === true,
+        dailyLimitMinutes: Number.isFinite(Number(src.dailyLimitMinutes)) ? Number(src.dailyLimitMinutes) : def.dailyLimitMinutes,
+        allowedHoursEnabled: src.allowedHoursEnabled === true,
+        allowedHoursStart: typeof src.allowedHoursStart === 'string' ? src.allowedHoursStart : def.allowedHoursStart,
+        allowedHoursEnd: typeof src.allowedHoursEnd === 'string' ? src.allowedHoursEnd : def.allowedHoursEnd
+    }
+}
+
 function normalizeScheduleFromDefault(schedule) {
     const s = schedule && typeof schedule === 'object' && !Array.isArray(schedule) ? schedule : {}
-    const allowedDays = Array.isArray(s.allowedDays)
-        ? s.allowedDays.map(n => Number(n)).filter(n => Number.isFinite(n)).map(n => Math.trunc(n))
-        : DEFAULT_SCHEDULE.allowedDays
+    // Backward compat: if old flat format, migrate to weekday/weekend structure
+    const hasOldFormat = (s.dailyLimitEnabled != null || s.allowedHoursEnabled != null) && !s.weekday
+    const legacyFlat = hasOldFormat ? {
+        dailyLimitEnabled: s.dailyLimitEnabled === true,
+        dailyLimitMinutes: Number.isFinite(Number(s.dailyLimitMinutes)) ? Number(s.dailyLimitMinutes) : DEFAULT_SCHEDULE_PERIOD.dailyLimitMinutes,
+        allowedHoursEnabled: s.allowedHoursEnabled === true,
+        allowedHoursStart: typeof s.allowedHoursStart === 'string' ? s.allowedHoursStart : DEFAULT_SCHEDULE_PERIOD.allowedHoursStart,
+        allowedHoursEnd: typeof s.allowedHoursEnd === 'string' ? s.allowedHoursEnd : DEFAULT_SCHEDULE_PERIOD.allowedHoursEnd
+    } : null
+
     return {
         enabled: s.enabled === true,
-        dailyLimitEnabled: s.dailyLimitEnabled === true,
-        dailyLimitMinutes: Number.isFinite(Number(s.dailyLimitMinutes)) ? Number(s.dailyLimitMinutes) : DEFAULT_SCHEDULE.dailyLimitMinutes,
         screenTimeLinuxUser: typeof s.screenTimeLinuxUser === 'string' ? s.screenTimeLinuxUser : '',
-        allowedHoursEnabled: s.allowedHoursEnabled === true,
-        allowedHoursStart: typeof s.allowedHoursStart === 'string' ? s.allowedHoursStart : DEFAULT_SCHEDULE.allowedHoursStart,
-        allowedHoursEnd: typeof s.allowedHoursEnd === 'string' ? s.allowedHoursEnd : DEFAULT_SCHEDULE.allowedHoursEnd,
-        allowedDays: allowedDays.length ? allowedDays : DEFAULT_SCHEDULE.allowedDays
+        weekday: normalizePeriod(s.weekday ?? legacyFlat, DEFAULT_SCHEDULE_PERIOD),
+        weekend: normalizePeriod(s.weekend ?? legacyFlat, { ...DEFAULT_SCHEDULE_PERIOD, dailyLimitMinutes: 180 })
     }
 }
 
@@ -1379,6 +1399,8 @@ async function tickScreenTime(logMinute) {
     const now = new Date();
     const today = localIsoDate(now);
     const weekday = isoWeekday(now);
+    const isWeekend = weekday >= 6; // 6=Sat, 7=Sun
+    const period = isWeekend ? s.weekend : s.weekday;
     const sessions = await getActiveGraphicalSessions();
     const activeUsers = uniqueUsers(sessions);
     const limitLu = normalizeLinuxUser(s.screenTimeLinuxUser);
@@ -1400,7 +1422,7 @@ async function tickScreenTime(logMinute) {
     usage.date = today;
 
     const minutes = effectiveScreenMinutes(usage, s.screenTimeLinuxUser);
-    const limitBase = Math.max(0, Number(s.dailyLimitMinutes) || 0);
+    const limitBase = Math.max(0, Number(period.dailyLimitMinutes) || 0);
     const extra = Math.max(0, Number(usage.extraAllowanceMinutes) || 0);
     const limit = limitBase + extra;
 
@@ -1411,8 +1433,8 @@ async function tickScreenTime(logMinute) {
     }
 
     // Enforce allowed hours window; terminate session if outside allowed hours
-    if (s.allowedHoursEnabled && Array.isArray(s.allowedDays) && s.allowedDays.includes(weekday)) {
-        if (!isWithinAllowedHours(s, now)) {
+    if (period.allowedHoursEnabled) {
+        if (!isWithinAllowedHours(period, now)) {
             writeUsage(usage);
             await terminateSessionsForPolicy(sessions, limitLu);
             if (Date.now() - lastAllowedHoursWarnAt >= ALLOWED_HOURS_WARN_INTERVAL_MS) {
@@ -1424,7 +1446,7 @@ async function tickScreenTime(logMinute) {
         }
     }
 
-    if (!s.dailyLimitEnabled) {
+    if (!period.dailyLimitEnabled) {
         writeUsage(usage);
         return;
     }
@@ -1441,7 +1463,7 @@ async function tickScreenTime(logMinute) {
 
     const remaining = limit - minutes;
 
-    if (logMinute) log.info(`screenTime sessions=${sessions.length} users=[${activeUsers.join(',')}] minutes=${minutes} limit=${limit} remaining=${remaining} limitEnabled=${s.dailyLimitEnabled}`);
+    if (logMinute) log.info(`screenTime sessions=${sessions.length} users=[${activeUsers.join(',')}] minutes=${minutes} limit=${limit} remaining=${remaining} limitEnabled=${period.dailyLimitEnabled} period=${isWeekend?'weekend':'weekday'}`);
 
     if (remaining <= 0) {
         const exemptProcs = loadExemptAppProcessNames();
@@ -1637,7 +1659,7 @@ function clearRequestDaemonWarningTestFlag() {
         if (data.requestDaemonWarningTest !== true) return;
         delete data.requestDaemonWarningTest;
         const tmp = path.join(CONFIG_DIR, `.default.json.tmp-daemon-${process.pid}-${Date.now()}`);
-        fs.writeFileSync(tmp, JSON.stringify(data, null, 2) + '\n', { encoding: 'utf8', mode: 0o600 });
+        fs.writeFileSync(tmp, JSON.stringify(data, null, 2) + '\n', { encoding: 'utf8', mode: 0o644 });
         fs.renameSync(tmp, p);
         cachedDefaultConfig = null;
         cachedDefaultMtimeMs = 0;
@@ -1691,8 +1713,9 @@ function handleClientCommand(client, cmd) {
             usage.warnedScreenTimeExhausted = false;
             writeUsage(usage);
             const s = readSchedule();
+            const _extNow = new Date(); const _extWd = _extNow.getDay(); const _extPeriod = (_extWd === 0 || _extWd === 6) ? s.weekend : s.weekday;
             const mins = effectiveScreenMinutes(usage, s.screenTimeLinuxUser);
-            const limit = Math.max(0, Number(s.dailyLimitMinutes) || 0) + usage.extraAllowanceMinutes;
+            const limit = Math.max(0, Number(_extPeriod.dailyLimitMinutes) || 0) + usage.extraAllowanceMinutes;
             client.write(JSON.stringify({ type: 'extend-result', ok: true, minutes, newRemaining: Math.max(0, limit - mins) }) + '\n');
             broadcast({ type: 'bonus-granted', minutes });
         } catch (e) {
@@ -1745,11 +1768,14 @@ function handleClientCommand(client, cmd) {
         // Respond with current screen time status
         const usage = readUsage();
         const s = readSchedule();
+        const _now = new Date();
+        const _wd = _now.getDay(); const _isWe = _wd === 0 || _wd === 6;
+        const _period = _isWe ? s.weekend : s.weekday;
         const minutes = effectiveScreenMinutes(usage, s.screenTimeLinuxUser);
-        const limit = Math.max(0, Number(s.dailyLimitMinutes) || 0) + Math.max(0, Number(usage.extraAllowanceMinutes) || 0);
+        const limit = Math.max(0, Number(_period.dailyLimitMinutes) || 0) + Math.max(0, Number(usage.extraAllowanceMinutes) || 0);
         client.write(JSON.stringify({
             type: 'status',
-            screenTime: { enabled: s.enabled, dailyLimitEnabled: s.dailyLimitEnabled, minutes, limitMinutes: limit, remaining: Math.max(0, limit - minutes) }
+            screenTime: { enabled: s.enabled, dailyLimitEnabled: _period.dailyLimitEnabled, minutes, limitMinutes: limit, remaining: Math.max(0, limit - minutes) }
         }) + '\n');
         return;
     }

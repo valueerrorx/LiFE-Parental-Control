@@ -12,13 +12,10 @@ const EMPTY_DEFAULT = {
     label: 'Default',
     schedule: {
         enabled: false,
-        dailyLimitEnabled: false,
-        dailyLimitMinutes: 120,
         screenTimeLinuxUser: '',
-        allowedHoursEnabled: false,
-        allowedHoursStart: '07:00',
-        allowedHoursEnd: '22:00',
-        allowedDays: [1, 2, 3, 4, 5, 6, 7]
+        allowedDays: [1, 2, 3, 4, 5, 6, 7],
+        weekday: { dailyLimitEnabled: false, dailyLimitMinutes: 120, allowedHoursEnabled: false, allowedHoursStart: '07:00', allowedHoursEnd: '22:00' },
+        weekend: { dailyLimitEnabled: false, dailyLimitMinutes: 180, allowedHoursEnabled: false, allowedHoursStart: '09:00', allowedHoursEnd: '21:00' }
     },
     webfilter: {
         enabled: true,

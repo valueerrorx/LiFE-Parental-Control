@@ -98,7 +98,7 @@ async function writeHostsSectionAsync(entries) {
     if (!result.ok) throw new Error(result.error || 'write-hosts failed')
 }
 
-async function persistWebfilterAndHosts(configDir, wf) {
+async function persistWebfilterAndHosts(configDir, wf, { background = false } = {}) {
     const full = {
         enabled: wf.enabled !== false,
         entries: wf.entries,
@@ -117,6 +117,18 @@ async function persistWebfilterAndHosts(configDir, wf) {
         }
         return d
     })
+
+    // background=true: fire-and-forget daemon calls (used during startup to avoid blocking UI)
+    if (background) {
+        writeHostsSectionAsync(combined).catch(e => console.warn('[LiFE webfilter] write-hosts (bg):', e.message))
+        if (full.enabled && combined.length > 0) {
+            daemonWriteDnsmasq(combined).catch(e => console.warn('[LiFE webfilter] write-dnsmasq (bg):', e.message))
+        } else {
+            daemonRemoveDnsmasq().catch(e => console.warn('[LiFE webfilter] remove-dnsmasq (bg):', e.message))
+        }
+        return
+    }
+
     await writeHostsSectionAsync(combined)
     // Also write dnsmasq config for subdomain filtering
     if (full.enabled && combined.length > 0) {
@@ -313,7 +325,7 @@ export function runStartupHageziSync(configDir) {
         })
 }
 
-export async function persistWebFilterEntries(configDir, entries, feedState = undefined, listAllowlist = undefined) {
+export async function persistWebFilterEntries(configDir, entries, feedState = undefined, listAllowlist = undefined, { background = false } = {}) {
     const wf = readWebfilterFromConfig(configDir)
     wf.entries = Array.isArray(entries)
         ? entries.filter(e => e && typeof e.domain === 'string').map(e => ({
@@ -327,7 +339,7 @@ export async function persistWebFilterEntries(configDir, entries, feedState = un
     if (listAllowlist !== undefined) {
         wf.listAllowlist = normalizeAllowlist(listAllowlist)
     }
-    await persistWebfilterAndHosts(configDir, wf)
+    await persistWebfilterAndHosts(configDir, wf, { background })
 }
 
 export async function reapplyWebFilter(configDir) {

@@ -294,6 +294,43 @@ function saveBlocked(configDir, list) {
     })
 }
 
+// Extract the real executable absolute path from a .desktop Exec= line; null for flatpak/snap or unresolved.
+function execLineToFullPath(execLine) {
+    if (!execLine) return null
+    const clean = execLine.trim().replace(/%[a-zA-Z]/g, '').trim()
+    const tokens = clean.split(/\s+/).filter(Boolean)
+    if (!tokens.length) return null
+    let i = 0
+    while (i < tokens.length) {
+        const t = tokens[i]
+        if (['env', 'dbus-run-session', 'gdbus'].includes(t.toLowerCase())) { i++; continue }
+        if (/^[A-Za-z_][A-Za-z0-9_]*=/.test(t)) { i++; continue }
+        break
+    }
+    if (i >= tokens.length) return null
+    const cmd = tokens[i]
+    const base = cmd.includes('/') ? path.basename(cmd) : cmd
+    if (base === 'flatpak' || base === 'snap') return null
+    if (cmd.startsWith('/')) return cmd
+    try {
+        const r = spawnSync('which', [cmd], { encoding: 'utf8', timeout: 2000 })
+        const found = (r.stdout || '').trim()
+        if (found && found.startsWith('/')) return found
+    } catch { /* which not available */ }
+    return null
+}
+
+// Omit list entries only when we resolved a concrete path and the file is missing (keep flatpak/snap/unresolved).
+function desktopExecResolvedPathMissing(execLine) {
+    const full = execLineToFullPath(execLine)
+    if (!full) return false
+    try {
+        return !fs.existsSync(full)
+    } catch {
+        return false
+    }
+}
+
 /** Desktop entries only (no icons); same discovery order as App Control. */
 export function readAllDesktopApps() {
     const apps = []
@@ -305,6 +342,7 @@ export function readAllDesktopApps() {
             seen.add(file)
             const app = parseDesktopFile(path.join(dir, file))
             if (!app) continue
+            if (desktopExecResolvedPathMissing(app.exec)) continue
             apps.push({
                 id: file,
                 name: app.name,
@@ -342,42 +380,6 @@ export function refreshAppMonitorCatalog(configDir) {
 // --- AppArmor blocking ---
 
 const APPARMOR_PROFILE = '/etc/apparmor.d/life-parental-blocked'
-
-// Extract the real executable absolute path from a .desktop Exec= line.
-// Returns null for flatpak/snap (AppArmor can't reliably block them).
-function execLineToFullPath(execLine) {
-    if (!execLine) return null
-    // Strip field codes (%U, %F, %i, …)
-    const clean = execLine.trim().replace(/%[a-zA-Z]/g, '').trim()
-    const tokens = clean.split(/\s+/).filter(Boolean)
-    if (!tokens.length) return null
-
-    // Skip leading env, dbus-run-session, env-var assignments
-    let i = 0
-    while (i < tokens.length) {
-        const t = tokens[i]
-        if (['env', 'dbus-run-session', 'gdbus'].includes(t.toLowerCase())) { i++; continue }
-        if (/^[A-Za-z_][A-Za-z0-9_]*=/.test(t)) { i++; continue }
-        break
-    }
-    if (i >= tokens.length) return null
-    const cmd = tokens[i]
-
-    // Skip flatpak / snap — they use namespaces AppArmor can't cleanly block this way
-    const base = cmd.includes('/') ? path.basename(cmd) : cmd
-    if (base === 'flatpak' || base === 'snap') return null
-
-    // Absolute path → use directly
-    if (cmd.startsWith('/')) return cmd
-
-    // Relative name → resolve via `which`
-    try {
-        const r = spawnSync('which', [cmd], { encoding: 'utf8', timeout: 2000 })
-        const found = (r.stdout || '').trim()
-        if (found && found.startsWith('/')) return found
-    } catch { /* which not available */ }
-    return null
-}
 
 function buildApparmorProfile(entries) {
     // entries: Array of { execPath, appId }
