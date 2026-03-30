@@ -58,5 +58,6 @@ linux:
 deb:
   depends:
     - nodejs
+    - dnsmasq
   afterInstall: packaging/debian/postinst.sh
   afterRemove: packaging/debian/postrm.sh

@@ -31,6 +31,25 @@ export async function daemonWriteHosts(entries) {
     catch (e) { logErr('write-hosts', e.message); return { ok: false, error: e.message } }
 }
 
+/**
+ * Write /etc/dnsmasq.conf with blocked domains, write /etc/resolv.conf → 127.0.0.1,
+ * protect resolv.conf with chattr +i, restart dnsmasq. Awaitable.
+ * @param {Array<{domain:string,enabled:boolean}>} entries
+ * @param {boolean} [useProtectiveDns=true]  true = dns4eu protective (86.54.11.1), false = unprotected (86.54.11.100)
+ */
+export async function daemonWriteDnsmasq(entries, useProtectiveDns = true) {
+    if (!isDaemonConnected()) { logErr('write-dnsmasq', 'daemon not connected'); return { ok: false, error: 'daemon not connected' } }
+    try { return await daemonRequest({ type: 'write-dnsmasq', entries, useProtectiveDns }, 'write-dnsmasq-result', 60_000) }
+    catch (e) { logErr('write-dnsmasq', e.message); return { ok: false, error: e.message } }
+}
+
+/** Remove LiFE dnsmasq filter config and restore resolv.conf to direct upstream. Awaitable. */
+export async function daemonRemoveDnsmasq() {
+    if (!isDaemonConnected()) { logErr('remove-dnsmasq', 'daemon not connected'); return { ok: false, error: 'daemon not connected' } }
+    try { return await daemonRequest({ type: 'remove-dnsmasq' }, 'remove-dnsmasq-result', 30_000) }
+    catch (e) { logErr('remove-dnsmasq', e.message); return { ok: false, error: e.message } }
+}
+
 /** Write + reload AppArmor profile. Fire-and-forget. */
 export function daemonSyncAppArmorAsync(profileContent) {
     if (!isDaemonConnected()) { logErr('sync-apparmor', 'daemon not connected'); return }

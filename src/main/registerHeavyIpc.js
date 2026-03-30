@@ -114,6 +114,30 @@ export function registerHeavyIpc(ipcMain, { appConfigDir, hageziBundledDir, getM
         }
     })
 
+    ipcMain.handle('daemon:dnsmasqCheck', async () => {
+        try {
+            const { stdout } = await execFileAsync('dnsmasq', ['--version'], { timeout: 5000 })
+            const version = String(stdout || '').split('\n')[0].trim() // e.g. "Dnsmasq version 2.90  Copyright..."
+            const m = /(\d+\.\d+(?:\.\d+)?)/.exec(version)
+            const versionShort = m ? m[1] : version || null
+            // Check if the service is active
+            let running = false
+            try {
+                const { stdout: svcOut } = await execFileAsync('systemctl', ['is-active', 'dnsmasq.service'], { timeout: 3000 })
+                running = String(svcOut).trim() === 'active'
+            } catch { running = false }
+            return { ok: running, version: versionShort, running }
+        } catch {
+            return { ok: false, version: null, running: false }
+        }
+    })
+
+    ipcMain.handle('daemon:setupDnsmasq', async () => {
+        if (!isDaemonConnected()) return { ok: false, error: 'Daemon nicht verbunden.' }
+        try { return await daemonRequest({ type: 'setup-dnsmasq' }, 'setup-dnsmasq-result', 30_000) }
+        catch (e) { return { ok: false, error: e.message } }
+    })
+
     // Control and install the parental-control systemd service
     ipcMain.handle('daemon:serviceControl', async (_, { action } = {}) => {
         console.log(`[LiFE serviceControl] action=${action}`)

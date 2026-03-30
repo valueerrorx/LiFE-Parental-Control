@@ -84,4 +84,14 @@ if command -v systemctl >/dev/null 2>&1; then
     systemctl try-reload-or-restart polkit.service 2>/dev/null || true
 fi
 
+# Ensure dnsmasq is enabled and running
+if command -v systemctl >/dev/null 2>&1 && command -v dnsmasq >/dev/null 2>&1; then
+    systemctl enable dnsmasq.service 2>/dev/null || true
+    if systemctl is-active --quiet dnsmasq.service 2>/dev/null; then
+        systemctl restart dnsmasq.service 2>/dev/null || true
+    else
+        systemctl start dnsmasq.service 2>/dev/null || true
+    fi
+fi
+
 exit 0

@@ -114,6 +114,8 @@ contextBridge.exposeInMainWorld('api', {
         serviceControl: (payload) => ipcRenderer.invoke('daemon:serviceControl', payload),
         nodeCheck: () => ipcRenderer.invoke('daemon:nodeCheck'),
         apparmorCheck: () => ipcRenderer.invoke('daemon:apparmorCheck'),
+        dnsmasqCheck: () => ipcRenderer.invoke('daemon:dnsmasqCheck'),
+        setupDnsmasq: () => ipcRenderer.invoke('daemon:setupDnsmasq'),
         checkInstalledVersion: () => ipcRenderer.invoke('daemon:checkInstalledVersion')
     }
 })

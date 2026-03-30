@@ -1,5 +1,5 @@
 import fs from 'fs'
-import { daemonWriteHosts } from '../daemonPrivilegedOps.js'
+import { daemonWriteHosts, daemonWriteDnsmasq, daemonRemoveDnsmasq } from '../daemonPrivilegedOps.js'
 import {
     WEB_FILTER_STATIC_CATEGORIES,
     CATEGORY_TO_HAGEZI_FEED,
@@ -118,6 +118,14 @@ async function persistWebfilterAndHosts(configDir, wf) {
         return d
     })
     await writeHostsSectionAsync(combined)
+    // Also write dnsmasq config for subdomain filtering
+    if (full.enabled && combined.length > 0) {
+        const dnsResult = await daemonWriteDnsmasq(combined)
+        if (!dnsResult.ok) console.warn('[LiFE webfilter] write-dnsmasq failed:', dnsResult.error)
+    } else {
+        const dnsResult = await daemonRemoveDnsmasq()
+        if (!dnsResult.ok) console.warn('[LiFE webfilter] remove-dnsmasq failed:', dnsResult.error)
+    }
 }
 
 export function registerWebFilterIpc(ipcMain, configDir, opts = {}) {
