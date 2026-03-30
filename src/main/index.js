@@ -47,6 +47,8 @@ if (process.platform === 'linux' && !isWarningMode) {
         app.commandLine.appendSwitch('disable-gpu')
         app.commandLine.appendSwitch('disable-gpu-compositing')
     }
+    // Disable Wayland color management (wp-color-manager) — causes 3-4s startup delay on some compositors
+    app.commandLine.appendSwitch('disable-features', 'WaylandColorManagement')
 }
 
 // Warning window only: systemd daemon spawns with session env (deb/AppImage); must pick Ozone explicitly — main window path does not apply.
@@ -159,7 +161,8 @@ app.whenReady().then(async () => {
         height: 860,
         minWidth: 1100,
         minHeight: 700,
-        show: false,
+        // show:true + maximize() on dom-ready: on Wayland, ready-to-show fires 4s+ late due to GPU init.
+        show: true,
         title: 'LiFE Parental Control',
         ...(windowIconPath ? { icon: windowIconPath } : {}),
         webPreferences: {
@@ -170,11 +173,7 @@ app.whenReady().then(async () => {
             devTools: mainDevtools
         }
     })
-    // Main UI: maximized to work area (not fullscreen); show only after layout to avoid size flicker.
-    mainWindow.once('ready-to-show', () => {
-        mainWindow.maximize()
-        mainWindow.show()
-    })
+    
 
     mainWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription, validatedURL, isMainFrame) => {
         console.error('[LiFE Parental Control] did-fail-load', { errorCode, errorDescription, validatedURL, isMainFrame })
@@ -189,7 +188,7 @@ app.whenReady().then(async () => {
         rendererLoaded = true
         if (mainDevtools) {
             try {
-                mainWindow.webContents.openDevTools({ mode: 'detach' })
+                mainWindow.webContents.openDevTools()
             } catch {
                 /* ignore */
             }

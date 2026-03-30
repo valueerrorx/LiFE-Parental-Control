@@ -294,12 +294,12 @@ function saveBlocked(configDir, list) {
     })
 }
 
-// Extract the real executable absolute path from a .desktop Exec= line; null for flatpak/snap or unresolved.
+// Extract the real executable absolute path from a .desktop Exec= line; also returns resolution status.
 function execLineToFullPath(execLine) {
-    if (!execLine) return null
+    if (!execLine) return { fullPath: null, mode: 'empty' }
     const clean = execLine.trim().replace(/%[a-zA-Z]/g, '').trim()
     const tokens = clean.split(/\s+/).filter(Boolean)
-    if (!tokens.length) return null
+    if (!tokens.length) return { fullPath: null, mode: 'empty' }
     let i = 0
     while (i < tokens.length) {
         const t = tokens[i]
@@ -307,25 +307,27 @@ function execLineToFullPath(execLine) {
         if (/^[A-Za-z_][A-Za-z0-9_]*=/.test(t)) { i++; continue }
         break
     }
-    if (i >= tokens.length) return null
+    if (i >= tokens.length) return { fullPath: null, mode: 'empty' }
     const cmd = tokens[i]
     const base = cmd.includes('/') ? path.basename(cmd) : cmd
-    if (base === 'flatpak' || base === 'snap') return null
-    if (cmd.startsWith('/')) return cmd
+    if (base === 'flatpak' || base === 'snap') return { fullPath: null, mode: 'container' }
+    if (cmd.startsWith('/')) return { fullPath: cmd, mode: 'absolute' }
     try {
         const r = spawnSync('which', [cmd], { encoding: 'utf8', timeout: 2000 })
         const found = (r.stdout || '').trim()
-        if (found && found.startsWith('/')) return found
+        if (found && found.startsWith('/')) return { fullPath: found, mode: 'which' }
     } catch { /* which not available */ }
-    return null
+    return { fullPath: null, mode: 'which_failed' }
 }
 
-// Omit list entries only when we resolved a concrete path and the file is missing (keep flatpak/snap/unresolved).
+// Omit list entries only when we are sure the target binary doesn't exist in PATH or on disk.
 function desktopExecResolvedPathMissing(execLine) {
-    const full = execLineToFullPath(execLine)
-    if (!full) return false
+    const r = execLineToFullPath(execLine)
+    if (r.mode === 'container' || r.mode === 'empty') return false
+    if (r.mode === 'which_failed') return true
+    if (!r.fullPath) return false
     try {
-        return !fs.existsSync(full)
+        return !fs.existsSync(r.fullPath)
     } catch {
         return false
     }
@@ -404,7 +406,7 @@ export function syncAppArmor(configDir) {
     for (const id of blocked) {
         const app = appMap.get(id)
         if (!app) continue
-        const execPath = execLineToFullPath(app.exec)
+        const execPath = execLineToFullPath(app.exec).fullPath
         if (!execPath || seen.has(execPath)) continue
         seen.add(execPath)
         entries.push({ execPath, appId: id })
