@@ -14,7 +14,7 @@ SERVICE_DST=/etc/systemd/system/parental-control.service
 # Find package resource directory
 pkg_res=""
 if command -v dpkg >/dev/null 2>&1; then
-    pkg_res=$(dpkg -L "$PKG" 2>/dev/null | grep -E '/resources/polkit/.*\.policy$' | head -n1 | sed 's|/polkit/.*||') || true
+    pkg_res=$(dpkg -L "$PKG" 2>/dev/null | grep -E '/resources/polkit/' | head -n1 | sed 's|/polkit/.*||') || true
 fi
 if [ -z "$pkg_res" ]; then
     for base in "/opt/LiFE_Parental_Control" "/opt/life-parental-control" "/opt/LiFE Parental Control"; do
@@ -23,6 +23,10 @@ if [ -z "$pkg_res" ]; then
             break
         fi
     done
+fi
+if [ -z "$pkg_res" ]; then
+    echo "$PKG postinst: could not find resource directory" >&2
+    exit 1
 fi
 
 # Install PolicyKit files
@@ -40,6 +44,13 @@ if [ -d "$daemon_dir" ]; then
         [ -f "$f" ] || continue
         install -D -m 755 "$f" "$DAEMON_LIB/$(basename "$f")"
     done
+fi
+
+# Write installed-version marker (used by the UI to detect if daemon is up-to-date)
+APP_VERSION=$(dpkg-query -s life-parental-control 2>/dev/null | awk '/^Version:/{print $2}' || true)
+if [ -n "$APP_VERSION" ] && [ -d "$DAEMON_LIB" ]; then
+    echo "$APP_VERSION" > "$DAEMON_LIB/.installed-version"
+    chmod 0644 "$DAEMON_LIB/.installed-version"
 fi
 
 # Install lockdown script
@@ -62,7 +73,11 @@ if [ -f "$service_src" ] && command -v systemctl >/dev/null 2>&1; then
     install -D -m 644 "$service_src" "$SERVICE_DST"
     systemctl daemon-reload 2>/dev/null || true
     systemctl enable parental-control.service 2>/dev/null || true
-    systemctl start parental-control.service 2>/dev/null || true
+    if systemctl is-active --quiet parental-control.service 2>/dev/null; then
+        systemctl restart parental-control.service 2>/dev/null || true
+    else
+        systemctl start parental-control.service 2>/dev/null || true
+    fi
 fi
 
 if command -v systemctl >/dev/null 2>&1; then

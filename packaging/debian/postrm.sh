@@ -11,9 +11,13 @@ case "$1" in
         fi
         rm -f /etc/systemd/system/parental-control.service
         rm -f /usr/bin/life-parental-control
+        rm -f /usr/bin/life-parental-lockdown
         rm -rf /usr/lib/life-parental
         rm -f /etc/xdg/autostart/org.tuxfamily.life-parental-control.desktop
         rm -f /run/parental-control.sock
+        if [ "$1" = "purge" ]; then
+            rm -rf /etc/life-parental
+        fi
         ;;
 esac
 exit 0

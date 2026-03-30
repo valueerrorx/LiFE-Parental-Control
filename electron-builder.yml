@@ -37,6 +37,8 @@ extraResources:
     to: "systemd/parental-control.service"
   - from: "packaging/life-parental-install.sh"
     to: "life-parental-install.sh"
+  - from: "packaging/life-parental-lockdown.sh"
+    to: "life-parental-lockdown.sh"
 
 linux:
   executableName: life-parental-control
