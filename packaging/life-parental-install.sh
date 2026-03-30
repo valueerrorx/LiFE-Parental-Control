@@ -95,10 +95,11 @@ chmod 0755 "$CONFIG_DIR"
 find "$CONFIG_DIR" -maxdepth 1 -type f -exec chmod 0644 {} \; 2>/dev/null || true
 [ -f "$CONFIG_DIR/auth.json" ] && chmod 0600 "$CONFIG_DIR/auth.json" || true
 
-# --- App log (written by daemon; readable by non-root) ---
+# --- App logs (written by daemon; readable by non-root) ---
 mkdir -p /var/log/life-parental
-touch /var/log/life-parental.json
-chmod 0644 /var/log/life-parental.json
+touch /var/log/life-parental/daemon.log
+touch /var/log/life-parental/activity.json
+chmod 0644 /var/log/life-parental/daemon.log /var/log/life-parental/activity.json
 
 # --- Enable and start the daemon ---
 systemctl daemon-reload

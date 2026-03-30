@@ -255,7 +255,7 @@ async function writeHostsBlockedDomains(domains) {
     let content = '';
     try { content = fs.readFileSync(HOSTS_FILE, 'utf8'); } catch { return; }
 
-    const lines = domains.map(d => `192.0.2.1 ${d}`); // RFC 5737 TEST-NET-1 — avoids 0.0.0.0 → local bind quirks
+    const lines = domains.map(d => `0.0.0.0 ${d}`);
     const section = `\n${lines.join('\n')}\n`;
     const begin = content.indexOf(MARKER_BEGIN);
     const end = content.indexOf(MARKER_END);

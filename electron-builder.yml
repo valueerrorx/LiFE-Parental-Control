@@ -45,6 +45,7 @@ linux:
   desktop:
     entry:
       Name: "LiFE Parental Control"
+      Exec: /usr/bin/life-parental-control %U
   target:
     - target: AppImage
       arch: [x64]

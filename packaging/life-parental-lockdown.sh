@@ -124,9 +124,16 @@ if [ -d /etc/grub.d ] && [ -n "$GRUB_HASH" ]; then
     cat > /etc/grub.d/40_custom_life_parental << EOF
 #!/bin/sh
 exec tail -n +3 \$0
+# LiFE Parental Control — blocks GRUB edit/shell, booting remains unrestricted
 set superusers="$ADMIN_USER"
 password_pbkdf2 $ADMIN_USER $GRUB_HASH
 EOF
+    # Patch 10_linux so all menuentries get --unrestricted (boot without password)
+    if [ -f /etc/grub.d/10_linux ]; then
+        if ! grep -q '\-\-unrestricted' /etc/grub.d/10_linux; then
+            sed -i 's/^CLASS="--class/CLASS="--unrestricted --class/' /etc/grub.d/10_linux
+        fi
+    fi
     chmod 755 /etc/grub.d/40_custom_life_parental
     if command -v update-grub &>/dev/null; then
         update-grub 2>/dev/null || true

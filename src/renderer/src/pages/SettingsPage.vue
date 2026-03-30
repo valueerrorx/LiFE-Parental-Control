@@ -112,6 +112,46 @@
                 </div>
 
                 <div class="pc-card mt-3">
+                    <div class="pc-card-header"><h6><i class="bi bi-hdd-rack me-2" />{{ $t('settings.grub') }}</h6></div>
+                    <div class="pc-card-body">
+                        <div class="d-flex flex-wrap align-items-center gap-3 mb-3">
+                            <div>
+                                <div class="small text-muted mb-1">{{ $t('settings.grubPassword') }}</div>
+                                <span class="status-badge" :class="grubPasswordActive ? 'active' : 'inactive'">
+                                    <i class="bi bi-circle-fill" style="font-size:7px;" />
+                                    {{ grubPasswordActive ? $t('common.active') : $t('common.inactive') }}
+                                </span>
+                            </div>
+                            <div>
+                                <div class="small text-muted mb-1">{{ $t('settings.grubUnrestricted') }}</div>
+                                <span class="status-badge" :class="grubUnrestricted ? 'active' : 'warning'">
+                                    <i class="bi bi-circle-fill" style="font-size:7px;" />
+                                    {{ grubUnrestricted ? $t('common.active') : $t('settings.notFound') }}
+                                </span>
+                            </div>
+                            <button type="button" class="btn-pc-outline ms-auto" style="font-size:12px;" :disabled="grubRefreshing" @click="loadGrubInfo">
+                                <i class="bi bi-arrow-repeat me-1" :class="{ 'spin': grubRefreshing }" />{{ $t('settings.refresh') }}
+                            </button>
+                        </div>
+                        <p v-if="!grubUnrestricted" class="small text-warning mb-3" v-html="$t('settings.grubUnrestrictedHint')" />
+                        <p class="text-muted small mb-3" v-html="$t('settings.grubDesc')" />
+                        <div class="mb-3">
+                            <label class="form-label small text-muted">{{ $t('settings.grubPasswordLabel') }}</label>
+                            <input v-model="grubPassword" type="password" class="pc-input" :placeholder="$t('settings.grubPasswordPlaceholder')" />
+                        </div>
+                        <div class="d-flex flex-wrap gap-2">
+                            <button type="button" class="btn-pc-primary" :disabled="grubBusy || !grubPassword" @click="onGrubEnable">
+                                <i class="bi bi-lock me-1" />{{ $t('settings.grubEnable') }}
+                            </button>
+                            <button type="button" class="btn-pc-outline" :disabled="grubBusy || !grubPasswordActive" @click="onGrubDisable">
+                                <i class="bi bi-lock-open me-1" />{{ $t('settings.grubDisable') }}
+                            </button>
+                        </div>
+                        <p v-if="grubMsg" class="small mt-2 mb-0" :class="grubError ? 'text-danger' : 'text-success'">{{ grubMsg }}</p>
+                    </div>
+                </div>
+
+                <div class="pc-card mt-3">
                     <div class="pc-card-header"><h6><i class="bi bi-shield-lock me-2" />{{ $t('settings.sessionLock') }}</h6></div>
                     <div class="pc-card-body">
                         <p class="text-muted small mb-3">
@@ -168,6 +208,7 @@
                         <p v-if="maintMsg" class="small mt-2 mb-0" :class="maintError ? 'text-danger' : 'text-success'">{{ maintMsg }}</p>
                     </div>
                 </div>
+
             </div>
 
             <!-- About + danger zone -->
@@ -276,6 +317,14 @@ const dangerBusy = ref(false)
 const dangerMsg = ref('')
 const dangerError = ref(false)
 
+const grubPasswordActive = ref(false)
+const grubUnrestricted = ref(false)
+const grubRefreshing = ref(false)
+const grubBusy = ref(false)
+const grubMsg = ref('')
+const grubError = ref(false)
+const grubPassword = ref('')
+
 const daemonServiceStatus = ref(null)
 const daemonSocketConnected = ref(false)
 const nodeVersion = ref(null)
@@ -351,6 +400,49 @@ async function onSetupDnsmasq() {
     setTimeout(() => { dnsmasqSetupMsg.value = '' }, 8000)
 }
 
+async function loadGrubInfo() {
+    grubRefreshing.value = true
+    const r = await window.api.daemon.grubCheck()
+    grubPasswordActive.value = r?.passwordActive === true
+    grubUnrestricted.value = r?.unrestricted === true
+    grubRefreshing.value = false
+}
+
+async function onGrubEnable() {
+    grubMsg.value = ''
+    grubError.value = false
+    grubBusy.value = true
+    const r = await window.api.daemon.grubEnable(grubPassword.value)
+    grubPassword.value = ''
+    grubBusy.value = false
+    if (r?.ok) {
+        grubMsg.value = t('settings.grubEnableOk')
+        grubError.value = false
+        await loadGrubInfo()
+    } else {
+        grubMsg.value = r?.error || t('settings.grubFailed')
+        grubError.value = true
+    }
+    setTimeout(() => { grubMsg.value = '' }, 8000)
+}
+
+async function onGrubDisable() {
+    grubMsg.value = ''
+    grubError.value = false
+    grubBusy.value = true
+    const r = await window.api.daemon.grubDisable()
+    grubBusy.value = false
+    if (r?.ok) {
+        grubMsg.value = t('settings.grubDisableOk')
+        grubError.value = false
+        await loadGrubInfo()
+    } else {
+        grubMsg.value = r?.error || t('settings.grubFailed')
+        grubError.value = true
+    }
+    setTimeout(() => { grubMsg.value = '' }, 8000)
+}
+
 async function onDaemonControl(action) {
     daemonCtrlMsg.value = ''
     daemonCtrlBusy.value = true
@@ -389,6 +481,7 @@ onMounted(async () => {
     const cfg = await window.api.settings.getConfig()
     sessionPrefs.lockIdleMinutes = normalizedLockIdleMinutesOrUndefined(cfg.lockIdleMinutes) ?? 15
     await loadDaemonInfo()
+    await loadGrubInfo()
 })
 
 async function onSaveSessionPrefs() {

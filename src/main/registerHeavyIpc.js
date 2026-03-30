@@ -132,6 +132,29 @@ export function registerHeavyIpc(ipcMain, { appConfigDir, hageziBundledDir, getM
         }
     })
 
+    ipcMain.handle('daemon:grubCheck', () => {
+        const passwordActive = fs.existsSync('/etc/grub.d/40_custom_life_parental')
+        let unrestricted = false
+        try {
+            const content = fs.readFileSync('/etc/grub.d/10_linux', 'utf8')
+            unrestricted = content.includes('--unrestricted')
+        } catch { /* grub not installed */ }
+        return { passwordActive, unrestricted }
+    })
+
+    ipcMain.handle('daemon:grubEnable', async (_, password) => {
+        if (!isDaemonConnected()) return { ok: false, error: 'Daemon nicht verbunden.' }
+        if (!password || typeof password !== 'string') return { ok: false, error: 'Kein Passwort angegeben.' }
+        try { return await daemonRequest({ type: 'grub-enable', password }, 'grub-enable-result', 30_000) }
+        catch (e) { return { ok: false, error: e.message } }
+    })
+
+    ipcMain.handle('daemon:grubDisable', async () => {
+        if (!isDaemonConnected()) return { ok: false, error: 'Daemon nicht verbunden.' }
+        try { return await daemonRequest({ type: 'grub-disable' }, 'grub-disable-result', 30_000) }
+        catch (e) { return { ok: false, error: e.message } }
+    })
+
     ipcMain.handle('daemon:setupDnsmasq', async () => {
         if (!isDaemonConnected()) return { ok: false, error: 'Daemon nicht verbunden.' }
         try { return await daemonRequest({ type: 'setup-dnsmasq' }, 'setup-dnsmasq-result', 30_000) }

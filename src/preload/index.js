@@ -116,6 +116,9 @@ contextBridge.exposeInMainWorld('api', {
         apparmorCheck: () => ipcRenderer.invoke('daemon:apparmorCheck'),
         dnsmasqCheck: () => ipcRenderer.invoke('daemon:dnsmasqCheck'),
         setupDnsmasq: () => ipcRenderer.invoke('daemon:setupDnsmasq'),
+        grubCheck: () => ipcRenderer.invoke('daemon:grubCheck'),
+        grubEnable: (password) => ipcRenderer.invoke('daemon:grubEnable', password),
+        grubDisable: () => ipcRenderer.invoke('daemon:grubDisable'),
         checkInstalledVersion: () => ipcRenderer.invoke('daemon:checkInstalledVersion')
     }
 })
