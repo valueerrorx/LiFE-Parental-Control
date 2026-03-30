@@ -51,6 +51,10 @@ if (process.platform === 'linux' && !isWarningMode) {
     app.commandLine.appendSwitch('disable-features', 'WaylandColorManagement')
 }
 
+
+
+
+
 // Warning window only: systemd daemon spawns with session env (deb/AppImage); must pick Ozone explicitly — main window path does not apply.
 if (process.platform === 'linux' && isWarningMode) {
     applyWarningModeLinuxChromiumSwitches()
@@ -161,10 +165,9 @@ app.whenReady().then(async () => {
         height: 860,
         minWidth: 1100,
         minHeight: 700,
-        // show:true + maximize() on dom-ready: on Wayland, ready-to-show fires 4s+ late due to GPU init.
-        show: true,
+        show: false,
         title: 'LiFE Parental Control',
-       // ...(windowIconPath ? { icon: windowIconPath } : {}),
+        ...(windowIconPath ? { icon: windowIconPath } : {}),
         webPreferences: {
             preload: path.join(__dirname, '../preload/index.js'),
             contextIsolation: true,
@@ -173,7 +176,10 @@ app.whenReady().then(async () => {
             devTools: mainDevtools
         }
     })
-    
+    mainWindow.once('ready-to-show', () => {
+        mainWindow.show()
+    })
+
 
     mainWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription, validatedURL, isMainFrame) => {
         console.error('[LiFE Parental Control] did-fail-load', { errorCode, errorDescription, validatedURL, isMainFrame })
