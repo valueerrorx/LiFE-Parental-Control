@@ -164,7 +164,7 @@ app.whenReady().then(async () => {
         // show:true + maximize() on dom-ready: on Wayland, ready-to-show fires 4s+ late due to GPU init.
         show: true,
         title: 'LiFE Parental Control',
-        ...(windowIconPath ? { icon: windowIconPath } : {}),
+       // ...(windowIconPath ? { icon: windowIconPath } : {}),
         webPreferences: {
             preload: path.join(__dirname, '../preload/index.js'),
             contextIsolation: true,
