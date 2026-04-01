@@ -108,6 +108,7 @@
                                     <th>{{ $t('appControl.tableProcess') }}</th>
                                     <th>{{ $t('appControl.tableLimit') }}</th>
                                     <th>{{ $t('appControl.tableUsedToday') }}</th>
+                                    <th v-if="hasAnyExtra">{{ $t('appControl.tableExtra') }}</th>
                                     <th />
                                 </tr>
                             </thead>
@@ -122,6 +123,10 @@
                                         <input v-model.number="q.editLimit" type="number" min="1" max="1440" class="pc-input pc-input-sm" style="width:100%;" />
                                     </td>
                                     <td>{{ $t('appControl.usedMin', { min: quotaUsedForRow(q) }) }}</td>
+                                    <td v-if="hasAnyExtra" class="text-nowrap">
+                                        <span v-if="quotaExtraForRow(q) > 0" class="quota-extra-badge">+{{ quotaExtraForRow(q) }} min</span>
+                                        <span v-else class="text-muted">—</span>
+                                    </td>
                                     <td class="text-nowrap">
                                         <button type="button" class="btn btn-sm btn-outline-danger" :disabled="quotaBusy" @click="onRemoveQuota(q)">
                                             {{ $t('common.remove') }}
@@ -182,7 +187,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { confirm } from '../composables/useConfirm.js'
-import { normalizeQuotaLinuxUser, quotaUsedMinutes } from '@shared/quotaUsageKey.js'
+import { normalizeQuotaLinuxUser, quotaUsedMinutes, quotaBonusMinutes } from '@shared/quotaUsageKey.js'
 import { useAppStore } from '../stores/appStore.js'
 import { useDesktopLoginUsers, loadDesktopLoginUsers } from '../composables/useDesktopLoginUsers.js'
 import AppListItemIcon from '../components/AppListItemIcon.vue'
@@ -271,6 +276,12 @@ function quotaUsedForRow(q) {
     return quotaUsedMinutes(store.appQuotaUsage || {}, q.appId, q.linuxUser)
 }
 
+function quotaExtraForRow(q) {
+    return quotaBonusMinutes(store.appQuotaExtra || {}, q.appId, q.linuxUser)
+}
+
+const hasAnyExtra = computed(() => filteredQuotas.value.some(q => quotaExtraForRow(q) > 0))
+
 async function onQuotaViewUserChange(raw) {
     await store.setQuotaViewLinuxUser(typeof raw === 'string' ? raw : '')
 }
@@ -292,15 +303,16 @@ const canAddQuota = computed(() => {
 })
 
 onMounted(async () => {
-    // Wait for deferred heavy init so default-rollout state is fully applied before listing apps.
-    await window.api.app.deferredHeavyWork()
-    const ctl = await window.api.apps.getControlConfig()
+    const [ctl, appsResult] = await Promise.all([
+        window.api.apps.getControlConfig(),
+        store.loadInstalledApps(),
+        store.loadBlockedApps(),
+        loadDesktopLoginUsers(),
+        loadQuotas()
+    ])
     appControlEnabled.value = ctl?.enabled !== false
     savedAppControlEnabled.value = appControlEnabled.value
-    await store.loadBlockedApps()
-    await loadDesktopLoginUsers()
-    apps.value = await window.api.apps.list()
-    await loadQuotas()
+    apps.value = appsResult
     if (!addAppId.value) addAppId.value = appsForQuota.value[0]?.id ?? ''
     loading.value = false
 })
@@ -471,3 +483,14 @@ function onToggle(app) {
     pendingBlocked.value = new Set(pendingBlocked.value)
 }
 </script>
+
+<style scoped>
+.quota-extra-badge {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--pc-success, #2e7d32);
+    background: color-mix(in srgb, var(--pc-success, #2e7d32) 12%, transparent);
+    padding: 1px 6px;
+    border-radius: 4px;
+}
+</style>

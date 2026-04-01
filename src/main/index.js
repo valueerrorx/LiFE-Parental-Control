@@ -176,8 +176,11 @@ app.whenReady().then(async () => {
             devTools: mainDevtools
         }
     })
-    mainWindow.once('ready-to-show', () => {
-        mainWindow.show()
+    mainWindow.webContents.once('did-finish-load', () => {
+        mainWindow.webContents.insertCSS('body { opacity: 0; transition: opacity 0.35s ease; }').then(() => {
+            mainWindow.show()
+            mainWindow.webContents.executeJavaScript('requestAnimationFrame(() => document.body.style.opacity = "1")')
+        })
     })
 
 

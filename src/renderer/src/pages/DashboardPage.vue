@@ -384,8 +384,13 @@ const screenTimeCounts = computed(() => {
     const s = store.schedule
     if (!s?.enabled) return '0 / 0'
     const used = Number(store.todayUsageMinutes ?? 0)
-    const limit = s.dailyLimitEnabled ? Number(s.dailyLimitMinutes || 0) : 0
-    return `${used} / ${limit}`
+    const isWe = new Date().getDay() === 0 || new Date().getDay() === 6
+    const period = isWe ? s.weekend : s.weekday
+    const limit = period?.dailyLimitEnabled ? Number(period.dailyLimitMinutes || 0) : 0
+    const extra = Number(store.todayExtraAllowanceMinutes ?? 0)
+    const effectiveLimit = limit + extra
+    const extraStr = extra > 0 ? ` (+${extra}min)` : ''
+    return `${used}min / ${effectiveLimit}min${extraStr}`
 })
 const quotaSummaryRows = computed(() => {
     const usage = store.appQuotaUsage || {}
@@ -573,6 +578,8 @@ async function refreshScreenCharts() {
 
 onMounted(async () => {
     await refreshScreenCharts()
+    // Prefetch app list in background so AppControl/ProcessWhitelist pages open instantly
+    store.loadInstalledApps().catch(() => {})
 })
 </script>
 

@@ -177,14 +177,12 @@ const filteredApps = computed(() => {
 })
 
 onMounted(async () => {
-    // Ensure Heavy IPC + rollout/default.json are applied before reading blocked/exempt state.
-    await window.api.app.deferredHeavyWork()
-    const [apps, cfg] = await Promise.all([
-        window.api.apps.list(),
+    const [appsResult, cfg] = await Promise.all([
+        store.loadInstalledApps(),
         window.api.processWhitelist.get(),
         store.loadBlockedApps()
     ])
-    allApps.value = Array.isArray(apps) ? apps : []
+    allApps.value = appsResult
     config.value  = cfg ?? { enabled: false, allowedIds: [] }
     allowedIds.value = new Set(Array.isArray(cfg?.allowedIds) ? cfg.allowedIds : [])
     savedEnabled.value = config.value.enabled === true

@@ -165,9 +165,13 @@
                                 class="d-flex align-items-center justify-content-between gap-2 flex-wrap"
                             >
                                 <h6 class="mb-0 webfilter-hagezi-subhead">{{ $t('webFilter.hageziLists') }}</h6>
+                                <span
+                                    v-if="hageziLastUpdated"
+                                    class="webfilter-hagezi-date"
+                                >{{ hageziLastUpdated }}</span>
                                 <button
                                     type="button"
-                                    class="btn-pc-outline flex-shrink-0"
+                                    class="btn-pc-outline flex-shrink-0 ms-auto"
                                     :title="$t('webFilter.updateListsTitle')"
                                     :disabled="saving"
                                     @click="onSyncFeeds"
@@ -288,11 +292,28 @@ const feedOn = (fid) => Boolean(store.webFilterFeedState[fid])
 const staticQuickCats = computed(() => categories.value.filter((c) => !categoryFeedId(c)))
 const hageziQuickCats = computed(() => categories.value.filter((c) => categoryFeedId(c)))
 
+const feedsMeta = ref({})
+const hageziLastUpdated = computed(() => {
+    const dates = Object.values(feedsMeta.value)
+        .map(m => m?.cachedAt ? new Date(m.cachedAt) : null)
+        .filter(Boolean)
+    if (!dates.length) return null
+    const d = new Date(Math.max(...dates.map(x => x.getTime())))
+    return d.toLocaleString('de-DE', { dateStyle: 'short', timeStyle: 'short' })
+})
+
+function applyFeedsMeta(result) {
+    if (result?.feedsMeta && typeof result.feedsMeta === 'object') {
+        feedsMeta.value = result.feedsMeta
+    }
+}
+
 onMounted(async () => {
     const result = await store.loadWebFilter()
     categories.value = result.categories ?? []
     staticCategoryDomains.value = result.staticCategories ?? {}
     hostsBackupWarning.value = result.error || ''
+    applyFeedsMeta(result)
     takeSnapshot()
 })
 
@@ -391,7 +412,7 @@ async function onSyncFeeds() {
     saving.value = true
     saveMsg.value = ''
     const r = await window.api.webFilter.syncFeeds()
-    await store.loadWebFilter()
+    applyFeedsMeta(await store.loadWebFilter())
     saving.value = false
     if (r?.error) {
         saveMsg.value = `Update: ${r.error}`
@@ -412,6 +433,12 @@ async function onSyncFeeds() {
     font-size: 14px;
     font-weight: 600;
     color: var(--pc-text);
+}
+.webfilter-hagezi-date {
+    font-size: 12px;
+    color: var(--pc-text-muted, #888);
+    white-space: nowrap;
+    margin-right: auto;
 }
 
 </style>

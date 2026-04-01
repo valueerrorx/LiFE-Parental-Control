@@ -181,6 +181,7 @@
     "tableProcess": "Process",
     "tableLimit": "Limit (min/day)",
     "tableUsedToday": "Used today",
+    "tableExtra": "Bonus",
     "allAccountsOption": "\u2014 (all accounts)",
     "addLimitForApp": "Add limit for app",
     "chooseApp": "Choose application\u2026",

@@ -7,6 +7,8 @@ export const useAppStore = defineStore('app', () => {
     const webFilterHostRuleCount = ref(0)
     const webFilterAllowlist = ref([])
     const blockedApps = ref([])
+    const installedApps = ref(null) // null = not yet loaded; [] = loaded but empty
+    let installedAppsPromise = null // in-flight dedup
     const appControlEnabled = ref(true)
     const quotaExemptAllowedIds = ref([])
     const schedule = ref(null)
@@ -69,6 +71,17 @@ export const useAppStore = defineStore('app', () => {
         })
         if (!result?.error) await loadWebFilter()
         return result
+    }
+
+    async function loadInstalledApps() {
+        if (installedAppsPromise) return installedAppsPromise
+        installedAppsPromise = (async () => {
+            await window.api.app.deferredHeavyWork()
+            const list = await window.api.apps.list()
+            installedApps.value = Array.isArray(list) ? list : []
+            return installedApps.value
+        })()
+        return installedAppsPromise
     }
 
     async function loadBlockedApps() {
@@ -151,8 +164,8 @@ export const useAppStore = defineStore('app', () => {
         webFilterEntries, webFilterFeedState, webFilterHostRuleCount, webFilterAllowlist, blockedApps, appControlEnabled, quotaExemptAllowedIds, schedule, todayUsageMinutes, todayExtraAllowanceMinutes, kioskStatus,
         appQuotas, appQuotaUsage, appQuotaExtra, appMonitorUsage, appMonitorLabels, statusMessage, whitelistEnabled, runningAsRoot, xdgCurrentDesktop,
         invokingLinuxUser, quotaViewLinuxUser,
-        webFilterEnabled,
-        loadWebFilter, saveWebFilter, saveWebFilterAll, persistWebFilterAllowlist, loadAppControlConfig, loadBlockedApps, loadSchedule, loadKioskStatus, loadAppQuotas,
+        webFilterEnabled, installedApps,
+        loadWebFilter, saveWebFilter, saveWebFilterAll, persistWebFilterAllowlist, loadAppControlConfig, loadBlockedApps, loadInstalledApps, loadSchedule, loadKioskStatus, loadAppQuotas,
         loadProcessWhitelist, applyLifeMode, refreshProtectionsState, setQuotaViewLinuxUser
     }
 })

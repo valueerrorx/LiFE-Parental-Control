@@ -134,10 +134,11 @@
             <div class="pc-card mb-3" v-if="activePeriod.dailyLimitEnabled">
                 <div class="pc-card-header"><h6>{{ $t('schedules.todayUsage') }}</h6></div>
                 <div class="pc-card-body">
-                    <p v-if="todayExtraAllowance > 0" class="text-muted small mb-1" v-html="$t('schedules.todayAllowance', { min: todayExtraAllowance })" />
                     <div class="d-flex justify-content-between mb-1">
                         <span class="text-muted small">{{ $t('schedules.todayUsage') }}</span>
-                        <span class="small fw-semibold" :style="usageColor">{{ todayMinutes }}m / {{ effectiveDailyLimit }}m</span>
+                        <span class="small fw-semibold" :style="usageColor">
+                            {{ todayMinutes }}min / {{ effectiveDailyLimit }}min<template v-if="todayExtraAllowance > 0"> <span class="schedules-bonus-badge">(+{{ todayExtraAllowance }}min)</span></template>
+                        </span>
                     </div>
                     <div class="usage-bar-track mb-3">
                         <div class="usage-bar-fill" :style="{ width: usagePercent + '%', background: usageBarColor }" />
@@ -367,6 +368,14 @@ async function onSave() {
 </script>
 
 <style scoped>
+.schedules-bonus-badge {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--pc-success, #2e7d32);
+    background: color-mix(in srgb, var(--pc-success, #2e7d32) 12%, transparent);
+    padding: 1px 5px;
+    border-radius: 4px;
+}
 .usage-bar-wrap {
     padding-top: 4px;
 }
