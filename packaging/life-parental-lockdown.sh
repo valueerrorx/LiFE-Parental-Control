@@ -147,6 +147,28 @@ fi
 
 # --- PHASE 4: OPTIONAL PERMISSIONS ---
 
+# Always deny package removal for target user, regardless of install permissions.
+# Without this, PackageKit frontends (GNOME Software, Discover) fall back to their
+# default policy which may allow removal without admin auth.
+cat > /etc/polkit-1/rules.d/54-life-parental-deny-remove-"$TARGET_USER".rules << EOF
+polkit.addRule(function(action, subject) {
+    if (subject.user !== "$TARGET_USER") { return; }
+    var denied = [
+        "org.freedesktop.packagekit.package-remove",
+        "org.freedesktop.packagekit.packages-purge",
+        "org.freedesktop.packagekit.system-rollback",
+        "org.freedesktop.packagekit.upgrade-system",
+        "org.freedesktop.Flatpak.app-uninstall",
+        "org.freedesktop.Flatpak.runtime-uninstall",
+        "io.snapcraft.snapd.manage",
+    ];
+    if (denied.indexOf(action.id) !== -1) {
+        return polkit.Result.NO;
+    }
+});
+EOF
+chmod 644 /etc/polkit-1/rules.d/54-life-parental-deny-remove-"$TARGET_USER".rules
+
 # Allow package installation via PackageKit, Flatpak and pamac (no removal — child must not uninstall apps)
 # Rules are written for all known action IDs; polkit silently ignores actions that don't exist on this system.
 if [ "$ALLOW_INSTALL" = "true" ]; then
@@ -166,6 +188,22 @@ polkit.addRule(function(action, subject) {
         // Pamac (Manjaro/Garuda) — single action covers all package ops
         "org.manjaro.pamac.commit",
     ];
+    var denied = [
+        // PackageKit remove/uninstall — must never be allowed for child user
+        "org.freedesktop.packagekit.package-remove",
+        "org.freedesktop.packagekit.packages-purge",
+        // Flatpak remove
+        "org.freedesktop.Flatpak.app-uninstall",
+        "org.freedesktop.Flatpak.runtime-uninstall",
+        // Snap remove
+        "io.snapcraft.snapd.manage",
+        // System-level ops the child must not do
+        "org.freedesktop.packagekit.system-rollback",
+        "org.freedesktop.packagekit.upgrade-system",
+    ];
+    if (denied.indexOf(action.id) !== -1) {
+        return polkit.Result.NO;
+    }
     if (allowed.indexOf(action.id) !== -1) {
         return polkit.Result.AUTH_SELF_KEEP;
     }

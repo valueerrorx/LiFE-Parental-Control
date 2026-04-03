@@ -86,14 +86,12 @@ import { useI18n } from 'vue-i18n'
 import Swal from 'sweetalert2'
 import { useAppStore } from '../stores/appStore.js'
 import { useApplicationLogModal } from '../composables/useApplicationLogModal.js'
-import { useModal } from '../composables/useModal.js'
-import { quitWithParentPassword } from '../parentQuit.js'
+import { quitWithParentConfirm } from '../parentQuit.js'
 import { setLocale } from '../i18n.js'
 import ososSvg from '../../../../images/osos.svg?raw'
 import { version } from '../../../../package.json'
 
 const { t, locale } = useI18n()
-const { prompt } = useModal()
 const store = useAppStore()
 const { openApplicationLog } = useApplicationLogModal()
 const filterCount = computed(() => store.webFilterHostRuleCount)
@@ -118,7 +116,7 @@ function toggleLang() {
 }
 
 async function onExit() {
-    await quitWithParentPassword(prompt)
+    await quitWithParentConfirm()
 }
 
 async function onAbout() {

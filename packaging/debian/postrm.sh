@@ -14,6 +14,11 @@ case "$1" in
         rm -f /usr/bin/life-parental-lockdown
         rm -rf /usr/lib/life-parental
         rm -f /etc/xdg/autostart/org.tuxfamily.life-parental-control.desktop
+        rm -f /usr/share/icons/hicolor/1024x1024/apps/life-parental-control.png
+        rm -f /usr/share/icons/hicolor/256x256/apps/life-parental-control.png
+        if command -v gtk-update-icon-cache >/dev/null 2>&1; then
+            gtk-update-icon-cache -f -t /usr/share/icons/hicolor 2>/dev/null || true
+        fi
         rm -f /run/parental-control.sock
         if [ "$1" = "purge" ]; then
             rm -rf /etc/life-parental

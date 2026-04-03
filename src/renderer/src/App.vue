@@ -86,13 +86,11 @@ import { useI18n } from 'vue-i18n'
 import { normalizedLockIdleMinutesOrUndefined } from '@shared/lockIdleMinutes.js'
 import AppModal from './components/AppModal.vue'
 import LockdownWizard from './components/LockdownWizard.vue'
-import { useModal } from './composables/useModal.js'
-import { quitWithParentPassword } from './parentQuit.js'
+import { quitWithParentConfirm } from './parentQuit.js'
 
 const isDevRelaxSessionLock = import.meta.env.DEV
 
 const { t } = useI18n()
-const { prompt } = useModal()
 
 const unlocked = ref(false)
 const passwordSet = ref(false)
@@ -296,7 +294,7 @@ async function onUnlock() {
 }
 
 async function handleQuitRequest() {
-    await quitWithParentPassword(prompt)
+    await quitWithParentConfirm()
 }
 
 /** Check if lockdown wizard should be shown (only after the user is unlocked). */
