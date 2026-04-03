@@ -109,11 +109,9 @@ app.whenReady().then(async () => {
         ? path.join(process.resourcesPath, 'images')
         : path.join(__dirname, '../../images')
 
-    const profilesDir = (() => {
-        if (!app.isPackaged) return path.join(__dirname, '../../profiles')
-        if (process.env.APPIMAGE) return path.join(path.dirname(process.env.APPIMAGE), 'profiles')
-        return path.join(process.resourcesPath, 'profiles')
-    })()
+    const profilesDir = app.isPackaged
+        ? path.join(app.getPath('userData'), 'profiles')
+        : path.join(__dirname, '../../profiles')
 
     initWarningWindow(imagesDir)
     mkdirSync(profilesDir, { recursive: true })
