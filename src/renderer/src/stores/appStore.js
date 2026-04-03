@@ -26,6 +26,7 @@ export const useAppStore = defineStore('app', () => {
     const xdgCurrentDesktop = ref('')
     const invokingLinuxUser = ref('')
     const quotaViewLinuxUser = ref('')
+    const showLockdownWizard = ref(false)
 
     const webFilterEnabled = ref(true)
 
@@ -166,6 +167,7 @@ export const useAppStore = defineStore('app', () => {
         invokingLinuxUser, quotaViewLinuxUser,
         webFilterEnabled, installedApps,
         loadWebFilter, saveWebFilter, saveWebFilterAll, persistWebFilterAllowlist, loadAppControlConfig, loadBlockedApps, loadInstalledApps, loadSchedule, loadKioskStatus, loadAppQuotas,
-        loadProcessWhitelist, applyLifeMode, refreshProtectionsState, setQuotaViewLinuxUser
+        loadProcessWhitelist, applyLifeMode, refreshProtectionsState, setQuotaViewLinuxUser,
+        showLockdownWizard
     }
 })

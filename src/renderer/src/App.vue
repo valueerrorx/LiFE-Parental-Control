@@ -48,7 +48,7 @@
     </div>
 
     <!-- Lockdown wizard: shown after unlock until parent completes or dismisses it -->
-    <LockdownWizard v-else-if="passwordSet && showLockdownWizard" @close="onLockdownWizardClose" />
+    <LockdownWizard v-else-if="passwordSet && store.showLockdownWizard" @close="onLockdownWizardClose" />
 
     <!-- Password set: dashboard always mounted; session lock is a pale overlay -->
     <div v-else-if="passwordSet" class="pc-app-shell">
@@ -87,14 +87,15 @@ import { normalizedLockIdleMinutesOrUndefined } from '@shared/lockIdleMinutes.js
 import AppModal from './components/AppModal.vue'
 import LockdownWizard from './components/LockdownWizard.vue'
 import { quitWithParentConfirm } from './parentQuit.js'
+import { useAppStore } from './stores/appStore.js'
 
 const isDevRelaxSessionLock = import.meta.env.DEV
 
 const { t } = useI18n()
+const store = useAppStore()
 
 const unlocked = ref(false)
 const passwordSet = ref(false)
-const showLockdownWizard = ref(false)
 let lockdownWizardDismissedThisSession = false
 const password = ref('')
 const pw1 = ref('')
@@ -302,14 +303,14 @@ async function checkLockdownWizard() {
     if (lockdownWizardDismissedThisSession) return
     try {
         const finished = await window.api.lockdown.isFinished()
-        showLockdownWizard.value = !finished
+        store.showLockdownWizard = !finished
     } catch {
-        showLockdownWizard.value = false
+        store.showLockdownWizard = false
     }
 }
 
 function onLockdownWizardClose() {
-    showLockdownWizard.value = false
+    store.showLockdownWizard = false
     lockdownWizardDismissedThisSession = true
 }
 </script>

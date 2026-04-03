@@ -320,6 +320,7 @@
     "webFilterRestore": "Web-Filter-Wiederherstellung",
     "quotaExemptions": "Kontingentausnahmen",
     "usageLogsOld": "Nutzungsprotokolle (alt)",
+    "runLockdownWizard": "Absicherungs-Assistent",
     "usageArchiveCleanup": "Nutzungsarchiv-Bereinigung abgeschlossen.",
     "quotaScriptRedeployed": "Kontingentskript neu eingesetzt; Kontingentausnahmen von Disk geladen.",
     "webFilterRestored": "Web-Filter wiederhergestellt: /etc/hosts aus aktuellen Einstellungen neu aufgebaut.",

@@ -320,6 +320,7 @@
     "webFilterRestore": "Web filter restore",
     "quotaExemptions": "Quota exemptions",
     "usageLogsOld": "Usage logs (old)",
+    "runLockdownWizard": "Lockdown wizard",
     "usageArchiveCleanup": "Usage archive cleanup completed.",
     "quotaScriptRedeployed": "Quota script re-deployed; quota exemptions picked up from disk.",
     "webFilterRestored": "Web filter restored: /etc/hosts rebuilt from current settings.",

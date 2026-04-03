@@ -204,6 +204,9 @@
                             <button type="button" class="btn-pc-outline" :disabled="maintBusy" @click="onPruneUsageArchives">
                                 <i class="bi bi-trash me-1" />{{ $t('settings.usageLogsOld') }}
                             </button>
+                            <button type="button" class="btn-pc-outline" @click="appStore.showLockdownWizard = true">
+                                <i class="bi bi-shield-lock me-1" />{{ $t('settings.runLockdownWizard') }}
+                            </button>
                         </div>
                         <p v-if="maintMsg" class="small mt-2 mb-0" :class="maintError ? 'text-danger' : 'text-success'">{{ maintMsg }}</p>
                     </div>
