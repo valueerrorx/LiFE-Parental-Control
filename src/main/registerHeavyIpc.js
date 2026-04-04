@@ -100,23 +100,37 @@ export function registerHeavyIpc(ipcMain, { appConfigDir, hageziBundledDir, getM
             } catch { parser = false }
 
             const profileExists = fs.existsSync(profilePath)
-            const ok = Boolean(enabled && parser && profileExists)
+
+            // Check if the apparmor service is active via systemctl
+            let serviceActive = false
+            try {
+                const { stdout: svcOut } = await execFileAsync('systemctl', ['is-active', 'apparmor.service'], { timeout: 3000 })
+                serviceActive = String(svcOut).trim() === 'active'
+            } catch { serviceActive = false }
+
+            const ok = Boolean(enabled && parser && profileExists && serviceActive)
             const reason = ok
                 ? 'ok'
                 : !enabled
                     ? 'disabled'
                     : !parser
                         ? 'parser_missing'
-                        : 'profile_missing'
-            return { ok, enabled, parser, profileExists, reason }
+                        : !profileExists
+                            ? 'profile_missing'
+                            : 'profile_not_loaded'
+            return { ok, enabled, parser, profileExists, serviceActive, reason }
         } catch {
-            return { ok: false, enabled: false, parser: false, profileExists: false, reason: 'error' }
+            return { ok: false, enabled: false, parser: false, profileExists: false, serviceActive: false, reason: 'error' }
         }
     })
 
     ipcMain.handle('daemon:dnsmasqCheck', async () => {
+        // Resolve binary path — Electron may run without /usr/sbin in PATH (common on Debian)
+        const dnsmasqBin = ['/usr/bin/dnsmasq', '/usr/sbin/dnsmasq', '/sbin/dnsmasq']
+            .find(p => fs.existsSync(p))
+        if (!dnsmasqBin) return { ok: false, version: null, running: false, reason: 'not_installed' }
         try {
-            const { stdout } = await execFileAsync('dnsmasq', ['--version'], { timeout: 5000 })
+            const { stdout } = await execFileAsync(dnsmasqBin, ['--version'], { timeout: 5000 })
             const version = String(stdout || '').split('\n')[0].trim() // e.g. "Dnsmasq version 2.90  Copyright..."
             const m = /(\d+\.\d+(?:\.\d+)?)/.exec(version)
             const versionShort = m ? m[1] : version || null
@@ -126,9 +140,10 @@ export function registerHeavyIpc(ipcMain, { appConfigDir, hageziBundledDir, getM
                 const { stdout: svcOut } = await execFileAsync('systemctl', ['is-active', 'dnsmasq.service'], { timeout: 3000 })
                 running = String(svcOut).trim() === 'active'
             } catch { running = false }
-            return { ok: running, version: versionShort, running }
+            const reason = running ? 'ok' : 'not_running'
+            return { ok: running, version: versionShort, running, reason }
         } catch {
-            return { ok: false, version: null, running: false }
+            return { ok: false, version: null, running: false, reason: 'not_installed' }
         }
     })
 
@@ -182,8 +197,8 @@ export function registerHeavyIpc(ipcMain, { appConfigDir, hageziBundledDir, getM
             }
 
             // AppImage FUSE mounts (/tmp/.mount_*) are not accessible by root (squashfuse mounts without allow_root).
-            // Copy the script AND all required resources to /tmp before calling pkexec.
-            const tmpScript = '/tmp/life-parental-install.sh'
+            // Script is staged to /tmp/ (user-writable) — polkit rule matches by script name, not path.
+            const tmpScript = '/tmp/life-parental-install'
             const tmpResBase = '/tmp/life-parental-res'
             try {
                 // Copy install script

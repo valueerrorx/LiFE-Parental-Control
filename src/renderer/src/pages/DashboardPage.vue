@@ -125,6 +125,20 @@
                 <RouterLink to="/settings">{{ $t('dashboard.settingsLink') }}</RouterLink>.
             </span>
         </div>
+        <div v-if="!dnsmasqOk" class="alert alert-warning py-2 px-3 mb-3 d-flex align-items-center gap-2" style="font-size:13px;">
+            <i class="bi bi-exclamation-triangle-fill" />
+            <span>
+                <strong>{{ $t(`dashboard.dnsmasq_${dnsmasqReason}`) }}</strong> — {{ $t(`dashboard.dnsmasq_${dnsmasqReason}_msg`) }}
+                <RouterLink to="/settings">{{ $t('dashboard.settingsLink') }}</RouterLink>.
+            </span>
+        </div>
+        <div v-if="!apparmorOk" class="alert alert-warning py-2 px-3 mb-3 d-flex align-items-center gap-2" style="font-size:13px;">
+            <i class="bi bi-exclamation-triangle-fill" />
+            <span>
+                <strong>{{ $t(`dashboard.apparmor_${apparmorReason}`) }}</strong> — {{ $t(`dashboard.apparmor_${apparmorReason}_msg`) }}
+                <RouterLink to="/settings">{{ $t('dashboard.settingsLink') }}</RouterLink>.
+            </span>
+        </div>
 
         <!-- Screen time analytics -->
         <div class="pc-card mt-3">
@@ -311,6 +325,10 @@ const weekUsage = ref([])
 const selectedDonutDate = ref(null)
 const donutDayUsage = ref({})
 const daemonServiceActive = ref(null) // 'active' | 'inactive' | null
+const dnsmasqOk = ref(true) // true until loaded
+const dnsmasqReason = ref('ok')
+const apparmorOk = ref(true) // true until loaded
+const apparmorReason = ref('ok')
 
 function go(path) {
     router.push(path)
@@ -347,8 +365,16 @@ async function onWeekBarClick(d) {
 
 async function loadDaemonStatus() {
     try {
-        const svc = await window.api.daemon.serviceControl({ action: 'status' })
+        const [svc, dnsmasq, apparmor] = await Promise.all([
+            window.api.daemon.serviceControl({ action: 'status' }),
+            window.api.daemon.dnsmasqCheck(),
+            window.api.daemon.apparmorCheck(),
+        ])
         daemonServiceActive.value = svc?.status ?? null
+        dnsmasqOk.value = dnsmasq?.ok === true
+        dnsmasqReason.value = dnsmasq?.reason ?? 'ok'
+        apparmorOk.value = apparmor?.ok === true
+        apparmorReason.value = apparmor?.reason ?? 'ok'
     } catch {
         daemonServiceActive.value = null
     }
