@@ -22,12 +22,34 @@ Desktop parental control app for **Linux** (KDE Plasma, GNOME, others). Stack: *
 | File | Purpose |
 |------|---------|
 | `/etc/life-parental/default.json` | All settings (schedule, webfilter, quotas, etc.). **Can be pre-filled and distributed** — the systemd daemon reads it on every tick and applies changes automatically. |
-| `/etc/life-parental/auth.json` | Parent password (bcrypt hash). Root-only (`chmod 600`). |
-| `/var/log/life-parental.json` | Activity log (ring buffer). Not included in backup export. |
+| `/etc/life-parental/auth.json` | Parent password hash (`sha256(password + salt)`). Root-only (`chmod 600`). Kept separate from `default.json` so settings can be distributed without exposing the password hash. **Can be pre-filled for rollouts** — see below. |
+| `/var/log/life-parental/activity.json` | Activity log (ring buffer). Not included in backup export. |
+| `/var/log/life-parental/daemon.log` | Daemon runtime log. |
 
 ### Distributing settings via `default.json`
 
 Drop a pre-configured `default.json` into `/etc/life-parental/` before first start (e.g. via Ansible, deb postinst, or manual copy). The daemon picks it up automatically — no UI interaction needed to apply schedules, web filter rules, or quotas.
+
+### Pre-setting a parent password for rollouts
+
+To deploy with a pre-defined parent password, drop an `auth.json` into `/etc/life-parental/` before the daemon starts:
+
+```json
+{
+  "passwordHash": "<sha256(password + salt)>",
+  "salt": "<random hex string>"
+}
+```
+
+Generate the hash with any shell:
+
+```bash
+SALT=$(openssl rand -hex 16)
+HASH=$(echo -n "yourpassword${SALT}" | sha256sum | awk '{print $1}')
+echo "{\"passwordHash\": \"${HASH}\", \"salt\": \"${SALT}\"}"
+```
+
+Place the output as `/etc/life-parental/auth.json` with `chmod 600` and `chown root:root`. The daemon will not overwrite an existing `auth.json` on startup.
 
 ## Lockdown Wizard
 
