@@ -2249,6 +2249,21 @@ function handleClientCommand(client, cmd) {
         return;
     }
 
+    if (cmd.type === 'setup-apparmor') {
+        // Enable and start the apparmor systemd service.
+        try {
+            try { execFileSync('systemctl', ['reset-failed', 'apparmor.service'], { timeout: 5000 }); } catch { /* ignore */ }
+            execFileSync('systemctl', ['enable', 'apparmor.service'], { timeout: 10000 });
+            execFileSync('systemctl', ['start', 'apparmor.service'], { timeout: 10000 });
+            log.info('setup-apparmor: apparmor enabled and started');
+            client.write(JSON.stringify({ type: 'setup-apparmor-result', ok: true }) + '\n');
+        } catch (e) {
+            log.error('setup-apparmor: ' + e.message);
+            client.write(JSON.stringify({ type: 'setup-apparmor-result', ok: false, error: e.message }) + '\n');
+        }
+        return;
+    }
+
     if (cmd.type === 'sync-apparmor') {
         // Write /etc/apparmor.d/life-parental-blocked and reload it
         const APPARMOR_PROFILE = '/etc/apparmor.d/life-parental-blocked';

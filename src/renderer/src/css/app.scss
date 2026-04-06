@@ -580,3 +580,8 @@ html, body, #app {
     -webkit-backdrop-filter: blur(2px);
     pointer-events: auto;
 }
+
+// SweetAlert2 defaults to ~1060; must sit above session lock (100000) and AppModal (100100).
+.swal2-container {
+    z-index: 100200 !important;
+}

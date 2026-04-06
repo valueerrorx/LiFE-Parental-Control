@@ -89,8 +89,8 @@ setInterval(() => { s--; if (cd) cd.textContent = s; if (s <= 0) window.close() 
 <html><head><meta charset="utf-8"><title>LiFE Parental Control</title><style>${WARNING_PANEL_CSS}</style></head>
 <body><div class="card">
 <h2>${heading}</h2>
-<p class="info">${info} Eltern-Passwort eingeben, um ${isApp ? 'Bonuszeit für diese App' : 'Bonuszeit für heute'} hinzuzufügen.</p>
-<label>Eltern-Passwort</label>
+<p class="info">${info}<br><br>Elternkontroll-Passwort eingeben, um ${isApp ? 'Bonuszeit für diese App' : 'Bonuszeit für heute'} hinzuzufügen.</p>
+<label>Elternkontroll-Passwort</label>
 <div class="row">
   <div class="pw-wrap">
     <input type="password" id="pw" autocomplete="off" placeholder="Passwort"/>
@@ -150,7 +150,7 @@ export function showWarningWindow(payload) {
     const iconPath = _imagesDir ? resolveWindowIconPath(_imagesDir) : undefined
     warningWin = new BrowserWindow({
         width: 480,
-        height: 420,
+        height: 480,
         frame: true,
         fullscreen: false,
         resizable: true,

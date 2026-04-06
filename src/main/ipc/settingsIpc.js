@@ -1,7 +1,7 @@
 import { normalizedLockIdleMinutesOrUndefined } from '@shared/lockIdleMinutes.js'
 import { normalizeQuotaLinuxUser } from '@shared/quotaUsageKey.js'
 import { appendActivity } from './activityLog.js'
-import { readDefaultJson, patchDefaultJson } from '../defaultProfileStore.js'
+import { readDefaultJson, patchDefaultJson, invalidateDefaultJsonCache } from '../defaultProfileStore.js'
 import { daemonPruneArchives, daemonAuthIsSet, daemonAuthCheck, daemonAuthSet, daemonAuthChange } from '../daemonPrivilegedOps.js'
 
 export function readPreferencesForBackup(configDir) {
@@ -122,6 +122,7 @@ export function registerSettingsIpc(ipcMain, configDir) {
                 d.requestDaemonWarningTest = true
                 return d
             })
+            invalidateDefaultJsonCache()
             appendActivity(configDir, { action: 'daemon_warning_test_queued' })
             return { ok: true }
         } catch (e) {
