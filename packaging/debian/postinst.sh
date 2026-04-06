@@ -67,25 +67,19 @@ exec "/opt/LiFE_Parental_Control/life-parental-control" --no-sandbox "$@"
 WRAPPER
 chmod 755 /usr/bin/life-parental-control
 
-# Install icon into system icon theme so application menus can find it
-icon_src="/opt/LiFE_Parental_Control/resources/images/pc.png"
+# Icon: absolute path in .desktop (Freedesktop: theme-independent, works on any DE)
+ICON_DST=/usr/share/pixmaps/life-parental-control.png
+icon_src="${pkg_res}/images/pc.png"
+[ -f "$icon_src" ] || icon_src="/opt/LiFE_Parental_Control/resources/images/pc.png"
 if [ -f "$icon_src" ]; then
-    install -D -m 644 "$icon_src" /usr/share/icons/hicolor/1024x1024/apps/life-parental-control.png
-    # Also install a 256x256 symlink-friendly copy if convert is available
-    if command -v convert >/dev/null 2>&1; then
-        install -d /usr/share/icons/hicolor/256x256/apps
-        convert "$icon_src" -resize 256x256 /usr/share/icons/hicolor/256x256/apps/life-parental-control.png 2>/dev/null || true
-    fi
-    if command -v gtk-update-icon-cache >/dev/null 2>&1; then
-        gtk-update-icon-cache -f -t /usr/share/icons/hicolor 2>/dev/null || true
-    fi
+    install -D -m 644 "$icon_src" "$ICON_DST"
 fi
 
 # Patch .desktop file to use the /usr/bin wrapper instead of the /opt path
 DESKTOP_FILE="/usr/share/applications/life-parental-control.desktop"
 if [ -f "$DESKTOP_FILE" ]; then
     sed -i 's|^Exec=.*|Exec=/usr/bin/life-parental-control %U|' "$DESKTOP_FILE"
-    sed -i 's|^Icon=.*|Icon=life-parental-control|' "$DESKTOP_FILE"
+    sed -i "s|^Icon=.*|Icon=$ICON_DST|" "$DESKTOP_FILE"
 fi
 
 # Install and enable the systemd service

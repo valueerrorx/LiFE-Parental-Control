@@ -69,8 +69,17 @@
                     <h2>LiFE Parental Control</h2>
                     <p>{{ $t('app.enterToUnlock') }}</p>
                     <div class="text-start mb-3">
-                        <input v-model="password" type="password" class="pc-input" :placeholder="$t('app.passwordPlaceholder')"
-                               autofocus @keyup.enter="onUnlock" />
+                        <div class="pc-pw-wrap">
+                            <input id="session-unlock-pw" v-model="password"
+                                   :type="showSessionUnlockPw ? 'text' : 'password'" class="pc-input"
+                                   :placeholder="$t('app.passwordPlaceholder')" autocomplete="current-password"
+                                   autofocus @keyup.enter="onUnlock" />
+                            <button type="button" class="pc-pw-toggle"
+                                    :aria-label="showSessionUnlockPw ? $t('common.hidePassword') : $t('common.showPassword')"
+                                    :aria-pressed="showSessionUnlockPw" @click="showSessionUnlockPw = !showSessionUnlockPw">
+                                <i :class="showSessionUnlockPw ? 'bi bi-eye-slash' : 'bi bi-eye'" aria-hidden="true" />
+                            </button>
+                        </div>
                     </div>
                     <p v-if="error" class="text-danger small">{{ error }}</p>
                     <button class="btn-pc-primary w-100" @click="onUnlock" :disabled="busy">{{ $t('app.unlock') }}</button>
@@ -102,6 +111,7 @@ const pw1 = ref('')
 const pw2 = ref('')
 const error = ref('')
 const busy = ref(false)
+const showSessionUnlockPw = ref(false)
 const lockIdleMs = ref(0)
 let idleTimer = null
 
@@ -120,6 +130,7 @@ function sessionLockListener() {
     unlocked.value = false
     password.value = ''
     error.value = ''
+    showSessionUnlockPw.value = false
 }
 
 
@@ -143,6 +154,7 @@ function scheduleIdleLock() {
         unlocked.value = false
         password.value = ''
         error.value = ''
+        showSessionUnlockPw.value = false
     }, lockIdleMs.value)
 }
 
@@ -286,6 +298,7 @@ async function onUnlock() {
         unlocked.value = true
         error.value = ''
         password.value = ''
+        showSessionUnlockPw.value = false
         await applyUnlockIdlePolicy()
         await checkLockdownWizard()
     } else {

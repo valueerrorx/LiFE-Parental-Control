@@ -632,14 +632,28 @@ async function terminateSessionsForPolicy(sessions, targetUser) {
     const toTerminate = sessions.filter(({ user }) => !targetUser || user === targetUser);
     if (toTerminate.length === 0) return;
 
+    const terminatedUsers = new Set();
     for (const { user, sid } of toTerminate) {
         try {
             await execFileAsync('loginctl', ['terminate-session', String(sid)], { timeout: 5000 });
             log.info(`terminate-session sid=${sid} user=${user} OK`);
             appendActivityDaemon({ action: 'session_terminated', user, sessionId: String(sid) });
+            terminatedUsers.add(user);
         } catch (e) {
             log.error(`terminate-session sid=${sid} user=${user} FAILED: ${e.message}`);
             appendActivityDaemon({ action: 'session_terminate_failed', user, sessionId: String(sid), error: e.message });
+        }
+    }
+
+    // terminate-user cleans up /run/user/<uid>/ sockets/locks so the next GNOME
+    // login does not hit a login loop caused by stale wayland/dbus sockets.
+    await new Promise(r => setTimeout(r, 500));
+    for (const user of terminatedUsers) {
+        try {
+            await execFileAsync('loginctl', ['terminate-user', user], { timeout: 5000 });
+            log.info(`terminate-user user=${user} OK`);
+        } catch (e) {
+            log.warn(`terminate-user user=${user} FAILED: ${e.message}`);
         }
     }
 
@@ -647,7 +661,7 @@ async function terminateSessionsForPolicy(sessions, targetUser) {
     // On Wayland the session and greeter share the same VT — without a DM restart the
     // screen stays black. Try display-manager.service (distro-agnostic alias), then
     // fall back to sddm/gdm/lightdm by name.
-    await new Promise(r => setTimeout(r, 800));
+    await new Promise(r => setTimeout(r, 500));
     const dmServices = ['display-manager', 'sddm', 'gdm', 'lightdm'];
     for (const svc of dmServices) {
         try {
@@ -1473,20 +1487,41 @@ async function tickScreenTime(logMinute) {
             const blocked = await runExemptWatchdog(exemptProcs);
             if (!blocked) {
                 resetExemptWatchdogState();
-                await terminateSessionsForPolicy(sessions, limitLu);
                 if (!usage.warnedScreenTimeExhausted) {
                     usage.warnedScreenTimeExhausted = true;
                     broadcastWarn({ type: 'exhausted', effectiveLimit: limit, usedMinutes: minutes, remaining: 0 });
+                    writeUsage(usage);
+                    await new Promise(r => setTimeout(r, 15_000));
                 }
+                await terminateSessionsForPolicy(sessions, limitLu);
+                const userKey = limitLu || '';
+                if (usage.users && usage.users[userKey] && typeof usage.users[userKey].minutes === 'number') {
+                    usage.users[userKey].minutes = Math.max(0, usage.users[userKey].minutes - 2);
+                }
+                usage.warnedScreenTimeExhausted = false;
+                usage.warnedLowScreenTime = false;
+                delete usage.warnSnapLimit;
+                writeUsage(usage);
             }
         } else {
-            // No exempt apps: terminate immediately
-            await terminateSessionsForPolicy(sessions, limitLu);
             if (!usage.warnedScreenTimeExhausted) {
                 usage.warnedScreenTimeExhausted = true;
                 const warnPayload = { type: 'exhausted', effectiveLimit: limit, usedMinutes: minutes, remaining: 0 };
                 notifyOrSpawn(warnPayload, 'Bildschirmzeit aufgebraucht', `Tageslimit von ${limit} Min. erreicht.`, 'critical');
+                writeUsage(usage);
+                await new Promise(r => setTimeout(r, 15_000));
             }
+            await terminateSessionsForPolicy(sessions, limitLu);
+            // Grant 2 minutes by rolling back usage so the next login works cleanly.
+            // Using += on extraAllowance would grow the total limit on every cycle.
+            const userKey = limitLu || '';
+            if (usage.users && usage.users[userKey] && typeof usage.users[userKey].minutes === 'number') {
+                usage.users[userKey].minutes = Math.max(0, usage.users[userKey].minutes - 2);
+            }
+            usage.warnedScreenTimeExhausted = false;
+            usage.warnedLowScreenTime = false;
+            delete usage.warnSnapLimit;
+            writeUsage(usage);
         }
     } else {
         // Time still available: reset watchdog warning cycle so it fires fresh next expiry
@@ -1676,7 +1711,7 @@ function maybeHandleDaemonWarningTestRequest() {
     if (!want) return;
     clearRequestDaemonWarningTestFlag();
     log.info('default.json requestDaemonWarningTest: spawning daemon warning test window');
-    const payload = { type: 'low', effectiveLimit: 99, usedMinutes: 0, remaining: 99 };
+    const payload = { type: 'exhausted', effectiveLimit: 120, usedMinutes: 120, remaining: 0 };
     notifyOrSpawn(payload, 'LiFE Test', 'Warnfenster-Test (Systemd-Daemon).', 'normal');
 }
 

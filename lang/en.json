@@ -51,7 +51,9 @@
     "allAccounts": "All accounts",
     "optional": "optional",
     "on": "on",
-    "back": "Back"
+    "back": "Back",
+    "showPassword": "Show password",
+    "hidePassword": "Hide password"
   },
   "app": {
     "createPassword": "Create a password to protect parental control settings.",
@@ -481,6 +483,7 @@
     "analyzeError": "Analysis failed.",
     "todoTitle": "What will be done?",
     "todoIntro": "Based on the analysis, the following steps will be performed:",
+    "todoFirstUser": "Selected user \"{user}\" will be de-privileged.",
     "todoSuid": "Remove SUID bits ({count} files)",
     "todoRootPw": "Set root password",
     "todoCreateAdmin": "Create parent admin '{user}' with sudo rights",
@@ -489,7 +492,6 @@
     "adminModeExisting": "Use existing account",
     "adminUserExistingLabel": "Existing admin account",
     "adminUserConflict": "Username '{user}' already exists — choose a different name or switch to 'Use existing account'.",
-    "todoDemote": "Remove user '{user}' from sudo/wheel",
     "todoGrub": "Protect GRUB bootloader with password",
     "adminUserLabel": "New parent admin username",
     "adminUserPlaceholder": "e.g. parentadmin",
@@ -513,7 +515,7 @@
     "optionHintTerminalOnly": "terminal only (sudo) — no PackageKit",
     "todoFuseRestrict": "Disable AppImages for '{user}' (set up FUSE group)",
     "doneTitle": "System secured!",
-    "doneText": "The parent admin account was created and the restricted user has been de-privileged.",
+    "doneText": "The user \"{adminUser}\" is set as the administrator of this device. The account \"{targetUser}\" has been successfully restricted.",
     "doneBtn": "Done"
   }
 }

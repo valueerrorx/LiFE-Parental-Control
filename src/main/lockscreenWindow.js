@@ -1,10 +1,11 @@
-// Fullscreen enforcement overlay spawned by the daemon when no Electron client is connected.
-// Validates the parent password directly against the daemon socket; no dismiss without password.
+// Enforcement overlay spawned by the daemon when no Electron client is connected (warning-mode).
+// exhausted: final notice only (countdown, no password). allowed-hours: parent password to unlock.
 import { BrowserWindow, app, ipcMain } from 'electron'
 import net from 'net'
 import path from 'path'
 import { fileURLToPath } from 'url'
 import { resolveWindowIconPath } from './windowIcon.js'
+import { WARNING_PANEL_CSS } from './warningPanelTheme.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const SOCKET_PATH = '/run/parental-control.sock'
@@ -19,7 +20,6 @@ function connectToDaemon() {
     })
 }
 
-// Send a command and wait for a specific reply type from the daemon socket
 function daemonRequest(socket, cmd, replyType) {
     return new Promise((resolve) => {
         if (!socket) { resolve({ error: 'Daemon nicht verbunden.' }); return }
@@ -58,6 +58,7 @@ function makeLockscreenHtml(payload) {
     const p = payload || {}
     const type = p.type || 'exhausted'
     const isAllowedHours = type === 'allowed-hours'
+    const isExhausted = type === 'exhausted'
     const effectiveLimit = Number(p.effectiveLimit) || 0
     const usedMinutes = Number(p.usedMinutes) || 0
 
@@ -70,49 +71,49 @@ function makeLockscreenHtml(payload) {
         info = `Das Tageslimit von <strong>${effectiveLimit}</strong> Min. ist erreicht (${usedMinutes} Min. genutzt).`
     }
 
-    // Inline grant section only for time-exhausted (not for allowed-hours scheduling)
-    const showGrantSection = !isAllowedHours
+    // Final screen-time exhaustion: no password — session ends shortly (daemon enforces shutdown).
+    if (isExhausted) {
+        return `<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>LiFE – Zeitsperre</title><style>${WARNING_PANEL_CSS}</style></head>
+<body><div class="card">
+<div class="icon">⏱</div>
+<h1>${heading}</h1>
+<p class="info">${info}</p>
+<p class="info">Die Sitzung wird in <strong id="cd">15</strong> Sekunden beendet.</p>
+<button class="btn-block" id="btn">OK</button>
+</div>
+<script>
+const {ipcRenderer} = require('electron')
+const btn = document.getElementById('btn')
+let s = 15
+const cd = document.getElementById('cd')
+function done() { ipcRenderer.invoke('lockscreen:quit') }
+btn.addEventListener('click', () => done())
+setInterval(() => {
+  s--;
+  if (cd) cd.textContent = s
+  if (s <= 0) done()
+}, 1000)
+</script></body></html>`
+    }
 
+    // allowed-hours: unlock with parent password only (no bonus time grant here).
     return `<!DOCTYPE html>
-<html><head><meta charset="utf-8"><title>LiFE – Zeitsperre</title><style>
-*{box-sizing:border-box;margin:0;padding:0}
-html,body{width:100vw;height:100vh;overflow:hidden;background:rgba(12,16,35,0.98);
-  font-family:system-ui,sans-serif;color:#fff;display:flex;align-items:center;justify-content:center}
-.card{background:#151c30;border:1px solid #1e2d50;border-radius:18px;padding:52px 60px;
-  max-width:500px;width:90%;text-align:center;box-shadow:0 12px 60px rgba(0,0,0,0.7)}
-.icon{font-size:72px;margin-bottom:22px;user-select:none}
-h1{font-size:22px;font-weight:700;margin-bottom:14px;color:#ff6b6b}
-.info{color:#94a3b8;font-size:14px;line-height:1.7;margin-bottom:30px}
-.divider{border:none;border-top:1px solid #1e2d50;margin:24px 0}
-label{display:block;text-align:left;font-size:12px;font-weight:600;color:#64748b;margin-bottom:6px}
-.row{display:flex;gap:8px;align-items:center;margin-bottom:4px}
-input[type=password]{flex:1;padding:12px 16px;background:#0c1020;border:1.5px solid #1e2d50;
-  border-radius:8px;color:#fff;font-size:16px;outline:none;transition:border-color .2s}
-input[type=password]:focus{border-color:#3b82f6}
-select{padding:12px 10px;background:#0c1020;border:1.5px solid #1e2d50;border-radius:8px;
-  color:#fff;font-size:14px;outline:none}
-button{width:100%;padding:14px;background:#1d4ed8;color:#fff;border:none;border-radius:8px;
-  font-size:15px;font-weight:600;cursor:pointer;margin-top:14px;transition:background .2s}
-button:hover{background:#1e40af}
-button:disabled{background:#1e2d50;color:#475569;cursor:default}
-.err{color:#f87171;font-size:13px;min-height:18px;margin-top:6px;text-align:left}
-.ok{color:#4ade80;font-size:13px;min-height:18px;margin-top:6px}
-</style></head>
+<html><head><meta charset="utf-8"><title>LiFE – Zeitsperre</title><style>${WARNING_PANEL_CSS}</style></head>
 <body><div class="card">
 <div class="icon">🔒</div>
 <h1>${heading}</h1>
 <p class="info">${info}<br><br>Eltern-Passwort eingeben, um den Computer zu entsperren.</p>
-${showGrantSection ? '<hr class="divider"><label>Zeitverlängerung</label><div class="row"><input type="password" id="pw" placeholder="Eltern-Passwort" autocomplete="off"/><select id="mins"><option value="15">+15 Min.</option><option value="30" selected>+30 Min.</option><option value="60">+60 Min.</option></select></div>' : '<label>Eltern-Passwort</label><div class="row"><input type="password" id="pw" placeholder="Passwort" autocomplete="off"/></div>'}
+<label>Eltern-Passwort</label>
+<div class="row"><input type="password" id="pw" placeholder="Passwort" autocomplete="off"/></div>
 <div class="err" id="err"></div>
-<button id="btn">${showGrantSection ? 'Zeit verlängern &amp; entsperren' : 'Entsperren'}</button>
+<button class="btn-block" id="btn">Entsperren</button>
 </div>
 <script>
 const {ipcRenderer} = require('electron')
-const SHOW_GRANT = ${showGrantSection ? 'true' : 'false'}
 const pw = document.getElementById('pw')
 const btn = document.getElementById('btn')
 const err = document.getElementById('err')
-const minsEl = document.getElementById('mins')
 pw.addEventListener('keydown', e => { if (e.key === 'Enter') doUnlock() })
 btn.addEventListener('click', doUnlock)
 pw.focus()
@@ -121,44 +122,41 @@ async function doUnlock() {
   const password = pw.value
   if (!password) { err.textContent = 'Bitte Passwort eingeben.'; return }
   btn.disabled = true; btn.textContent = '…'; err.textContent = ''
-  const minutes = minsEl ? Number(minsEl.value) : 0
   try {
-    // Validate password via daemon; on success optionally also grant time
-    const r = await ipcRenderer.invoke('lockscreen:unlock', { password, minutes, showGrant: SHOW_GRANT })
+    const r = await ipcRenderer.invoke('lockscreen:unlock', { password })
     if (r && r.ok) {
       btn.textContent = '✓ Entsperrt'
       setTimeout(() => ipcRenderer.invoke('lockscreen:quit'), 500)
     } else {
       err.textContent = (r && r.error) || 'Falsches Passwort.'
       btn.disabled = false
-      btn.textContent = ${showGrantSection ? "'Zeit verlängern &amp; entsperren'" : "'Entsperren'"}
+      btn.textContent = 'Entsperren'
       pw.value = ''; pw.focus()
     }
   } catch(e) {
     err.textContent = 'Verbindungsfehler: ' + e.message
     btn.disabled = false
-    btn.textContent = ${showGrantSection ? "'Zeit verlängern &amp; entsperren'" : "'Entsperren'"}
+    btn.textContent = 'Entsperren'
   }
 }
 </script></body></html>`
 }
 
 export async function runLockscreen(payload) {
-    const daemonSocket = await connectToDaemon()
+    const type = payload?.type || 'exhausted'
+    const isExhausted = type === 'exhausted'
+    let daemonSocket = null
+    if (!isExhausted) {
+        daemonSocket = await connectToDaemon()
+    }
 
-    // Register IPC handlers used by the lockscreen renderer
-    ipcMain.handle('lockscreen:unlock', async (_, { password, minutes, showGrant } = {}) => {
-        if (showGrant && minutes > 0) {
-            // Validate + grant extra time in one step via daemon extend command
-            const result = await daemonRequest(daemonSocket, { type: 'extend', password, minutes }, 'extend-result')
+    if (!isExhausted) {
+        ipcMain.handle('lockscreen:unlock', async (_, { password } = {}) => {
+            const result = await daemonRequest(daemonSocket, { type: 'validate-password', password }, 'validate-password-result')
             if (!result.ok) return { error: result.error || 'Falsches Passwort.' }
             return { ok: true }
-        }
-        // Validate only (allowed-hours case: just check the password)
-        const result = await daemonRequest(daemonSocket, { type: 'validate-password', password }, 'validate-password-result')
-        if (!result.ok) return { error: result.error || 'Falsches Passwort.' }
-        return { ok: true }
-    })
+        })
+    }
 
     ipcMain.handle('lockscreen:quit', () => { app.quit() })
 
@@ -168,15 +166,18 @@ export async function runLockscreen(payload) {
     const iconPath = resolveWindowIconPath(imagesDir)
 
     const win = new BrowserWindow({
-        fullscreen: true,
+        width: 560,
+        height: 640,
+        fullscreen: false,
+        maximizable: false,
+        fullscreenable: false,
         alwaysOnTop: true,
-        frame: false,
-        resizable: false,
-        movable: false,
+        frame: true,
+        resizable: true,
+        movable: true,
         minimizable: false,
-        // closable: false prevents alt-F4; window can only be closed programmatically
         closable: false,
-        skipTaskbar: true,
+        skipTaskbar: false,
         title: 'LiFE Parental Control',
         ...(iconPath ? { icon: iconPath } : {}),
         webPreferences: {
@@ -185,10 +186,12 @@ export async function runLockscreen(payload) {
             devTools: false
         }
     })
+    win.removeMenu()
 
     try { win.setAlwaysOnTop(true, 'screen-saver') } catch { win.setAlwaysOnTop(true) }
-    try { win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true }) } catch { /* ignore */ }
+    try { win.setVisibleOnAllWorkspaces(true) } catch { /* ignore */ }
 
     win.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(makeLockscreenHtml(payload ?? {})))
+    win.once('ready-to-show', () => { try { win.center() } catch { /* ignore */ } })
     app.on('window-all-closed', () => { /* keep running until lockscreen:quit */ })
 }

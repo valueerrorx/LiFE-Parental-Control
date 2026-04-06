@@ -51,7 +51,9 @@
     "allAccounts": "Alle Benutzer",
     "optional": "optional",
     "on": "an",
-    "back": "Zurück"
+    "back": "Zurück",
+    "showPassword": "Passwort anzeigen",
+    "hidePassword": "Passwort verbergen"
   },
   "app": {
     "createPassword": "Erstelle ein Passwort, um die Elternkontrolle zu sch\u00fctzen.",
@@ -481,6 +483,7 @@
     "analyzeError": "Analyse fehlgeschlagen.",
     "todoTitle": "Was wird gemacht?",
     "todoIntro": "Basierend auf der Analyse werden folgende Schritte ausgeführt:",
+    "todoFirstUser": "Gewählter Benutzer „{user}“ wird de-privilegiert.",
     "todoSuid": "SUID-Bits entfernen ({count} Dateien)",
     "todoRootPw": "Root-Passwort setzen",
     "todoCreateAdmin": "Eltern-Admin '{user}' anlegen + sudo-Rechte",
@@ -489,7 +492,6 @@
     "adminModeExisting": "Vorhandenen Account wählen",
     "adminUserExistingLabel": "Vorhandener Admin-Account",
     "adminUserConflict": "Der Benutzername '{user}' existiert bereits – wähle einen anderen Namen oder wechsle zu 'Vorhandenen Account wählen'.",
-    "todoDemote": "Benutzer '{user}' aus sudo/wheel entfernen",
     "todoGrub": "GRUB-Bootloader mit Passwort schützen",
     "adminUserLabel": "Neuer Eltern-Admin-Benutzername",
     "adminUserPlaceholder": "z. B. parentadmin",
@@ -513,7 +515,7 @@
     "optionHintTerminalOnly": "nur Terminal (sudo) — kein PackageKit",
     "todoFuseRestrict": "AppImages für '{user}' deaktivieren (FUSE-Gruppe einrichten)",
     "doneTitle": "System abgesichert!",
-    "doneText": "Der Eltern-Admin wurde angelegt, der eingeschränkte Benutzer wurde de-priviligiert.",
+    "doneText": "Der Benutzer „{adminUser}“ ist als Administrator dieses Geräts festgelegt. Das Benutzerkonto „{targetUser}“ wurde erfolgreich eingeschränkt.",
     "doneBtn": "Fertig"
   }
 }

@@ -38,7 +38,6 @@ const HOSTS_FILE = '/etc/hosts';
 const MARKER_BEGIN = '# LiFE Parental Control - BEGIN';
 const MARKER_END = '# LiFE Parental Control - END';
 
-const HAGEZI_DIR = '/usr/share/life-parental/hagezi';
 
 const HAGEZI_FEEDS = [
     { id: 'social', file: 'social.txt' },
@@ -198,17 +197,17 @@ function parseDnsmasqDomains(text) {
     return domains;
 }
 
-function loadFeedFileText(feedId) {
+function loadFeedFileText(feedId, configDir) {
     const feed = HAGEZI_FEED_BY_ID.get(feedId);
     if (!feed) return null;
     try {
-        return fs.readFileSync(path.join(HAGEZI_DIR, feed.file), 'utf8');
+        return fs.readFileSync(path.join(configDir, 'blocklists', feed.file), 'utf8');
     } catch {
         return null;
     }
 }
 
-function buildWebBlockedDomains(defaultWebfilter) {
+function buildWebBlockedDomains(defaultWebfilter, configDir) {
     const wf = defaultWebfilter && typeof defaultWebfilter === 'object' && !Array.isArray(defaultWebfilter)
         ? defaultWebfilter
         : {};
@@ -233,7 +232,7 @@ function buildWebBlockedDomains(defaultWebfilter) {
 
     for (const [id, on] of Object.entries(feedState)) {
         if (!on) continue;
-        const text = loadFeedFileText(id);
+        const text = loadFeedFileText(id, configDir);
         if (!text) continue;
         for (const d of parseDnsmasqDomains(text)) blocked.add(d);
     }
@@ -516,7 +515,7 @@ async function applyFromDefault({ configDir, log }) {
 
     // Enforce webfilter runtime (respects enabled flag; reads entries/feedState/allowlist from default.json).
     const wf = data.webfilter && typeof data.webfilter === 'object' && !Array.isArray(data.webfilter) ? data.webfilter : {};
-    const blockedDomains = buildWebBlockedDomains(wf);
+    const blockedDomains = buildWebBlockedDomains(wf, configDir);
     await writeHostsBlockedDomains(blockedDomains);
 }
 

@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later; Copyright (c) 2026 Thomas Michael Weissel; Licensed under GPLv3+ (see http://www.gnu.org/licenses/). */
 import { BrowserWindow } from 'electron'
 import { resolveWindowIconPath } from './windowIcon.js'
+import { WARNING_PANEL_CSS } from './warningPanelTheme.js'
 
 let _imagesDir = null
 let warningWin = null
@@ -18,21 +19,14 @@ function makeHtml(payload) {
     const type = p.type || 'low'
 
     if (type === 'allowed-hours') {
-        const msg = String(p.message || 'Computer use is not allowed at this time.')
+        const msg = String(p.message || 'Die Computernutzung ist zu dieser Zeit nicht gestattet.')
         return `<!DOCTYPE html>
-<html><head><meta charset="utf-8"><title>LiFE Parental Control</title><style>
-*{box-sizing:border-box;margin:0;padding:0}
-body{font-family:system-ui,sans-serif;font-size:14px;background:#fff;color:#212529;padding:18px 20px}
-h2{font-size:15px;font-weight:600;margin-bottom:8px;color:#c62828}
-p{color:#555;font-size:13px;line-height:1.5;margin-bottom:14px}
-.btns{display:flex;gap:8px;justify-content:flex-end;margin-top:14px}
-button{padding:7px 18px;border:none;border-radius:6px;font-size:13px;cursor:pointer;font-weight:500}
-.primary{background:#1976d2;color:#fff}.primary:hover{background:#1565c0}
-</style></head><body>
-<h2>${String(p.heading || 'Computer use not allowed now')}</h2>
-<p>${msg}</p>
-<div class="btns">
-  <button class="primary" id="dismiss">OK</button>
+<html><head><meta charset="utf-8"><title>LiFE Parental Control</title><style>${WARNING_PANEL_CSS}</style></head>
+<body><div class="card">
+<div class="icon">🕐</div>
+<h1>${String(p.heading || 'Computer jetzt nicht erlaubt')}</h1>
+<p class="info">${msg}</p>
+<button class="btn-block" id="dismiss">OK</button>
 </div>
 <script>
 document.getElementById('dismiss').onclick = () => window.close()
@@ -40,32 +34,50 @@ document.getElementById('dismiss').onclick = () => window.close()
     }
 
     const isApp = String(type).startsWith('app-')
-    const isExhausted = type === 'exhausted' || type === 'app-exhausted'
+    const isExhausted = type === 'exhausted'
     const effectiveLimit = Number(p.effectiveLimit) || 0
     const usedMinutes = Number(p.usedMinutes) || 0
     const remaining = p.remaining != null ? Number(p.remaining) : Math.max(0, effectiveLimit - usedMinutes)
 
-    let heading = 'Screen time running low'
-    let info = `About <b>${remaining}</b> min left today (${usedMinutes} of <b>${effectiveLimit}</b> used).`
+    // Global screen time exhausted: final notice only (main UI path when daemon did not spawn lockscreen).
+    if (isExhausted) {
+        const info = `Das Tageslimit von <strong>${effectiveLimit}</strong> Min. ist erreicht (${usedMinutes} Min. genutzt).`
+        return `<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>LiFE Parental Control</title><style>${WARNING_PANEL_CSS}</style></head>
+<body><div class="card">
+<div class="icon">⏱</div>
+<h1>Bildschirmzeit aufgebraucht</h1>
+<p class="info">${info}</p>
+<p class="info">Die Sitzung wird in <strong id="cd">15</strong> Sekunden beendet.</p>
+<button class="btn-block" id="ok">OK</button>
+</div>
+<script>
+let s = 15
+const cd = document.getElementById('cd')
+const ok = document.getElementById('ok')
+ok.onclick = () => window.close()
+setInterval(() => { s--; if (cd) cd.textContent = s; if (s <= 0) window.close() }, 1000)
+</script></body></html>`
+    }
+
+    let heading = 'Wenig Bildschirmzeit übrig'
+    let info = `Noch etwa <strong>${remaining}</strong> Min. heute (${usedMinutes} von <strong>${effectiveLimit}</strong> Min. genutzt).`
 
     if (isApp) {
-        const name = String(p.appName || 'Application')
+        const name = String(p.appName || 'Anwendung')
         if (type === 'app-exhausted') {
-            heading = 'App time limit reached'
-            info = `Daily time for <b>${name}</b> is used up (${usedMinutes} of ${effectiveLimit} min).`
+            heading = 'App-Zeit aufgebraucht'
+            info = `Tageslimit für <strong>${name}</strong> ist erreicht (${usedMinutes} von ${effectiveLimit} Min.).`
         } else if (type === 'app-final') {
-            heading = 'Final minute'
-            info = `<b>${name}</b>: last minute before this app is closed for today. Save your work.`
+            heading = 'Letzte Minute'
+            info = `<strong>${name}</strong>: letzte Minute, bevor die App für heute beendet wird. Bitte speichern.`
         } else if (type === 'app-low') {
-            heading = 'App time running low'
-            info = `<b>${name}</b>: about two minutes of allowed time left today.`
+            heading = 'Wenig App-Zeit'
+            info = `<strong>${name}</strong>: nur noch etwa zwei Minuten erlaubte Zeit heute.`
         } else if (type === 'app-five') {
-            heading = 'App time running low'
-            info = `<b>${name}</b>: about five minutes of daily time remaining.`
+            heading = 'Wenig App-Zeit'
+            info = `<strong>${name}</strong>: nur noch etwa fünf Minuten erlaubte Zeit heute.`
         }
-    } else if (isExhausted) {
-        heading = 'Screen time limit reached'
-        info = `Today&#39;s limit of <b>${effectiveLimit}</b> min is used up (${usedMinutes} min logged).`
     }
 
     const payloadJson = escapeForInlineScriptJson(p)
@@ -74,44 +86,32 @@ document.getElementById('dismiss').onclick = () => window.close()
         : `ipcRenderer.invoke('schedules:grantBonusMinutes', { password: pw.value, minutes: +mins.value })`
 
     return `<!DOCTYPE html>
-<html><head><meta charset="utf-8"><title>LiFE Parental Control</title><style>
-*{box-sizing:border-box;margin:0;padding:0}
-body{font-family:system-ui,sans-serif;font-size:14px;background:#fff;color:#212529;padding:18px 20px}
-h2{font-size:15px;font-weight:600;margin-bottom:8px;color:#c62828}
-p{color:#555;font-size:13px;line-height:1.5;margin-bottom:10px}
-label{display:block;font-size:11px;font-weight:600;color:#616161;margin:10px 0 3px}
-input,select{width:100%;padding:6px 10px;border:1px solid #ccc;border-radius:6px;font-size:13px;outline:none}
-input:focus,select:focus{border-color:#1976d2}
-.pw-wrap{position:relative;flex:1}.pw-wrap input{padding-right:34px}
-.eye{position:absolute;right:8px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;padding:0;color:#888;font-size:15px;line-height:1}
-.eye:hover{color:#333}
-.row{display:flex;gap:8px}.sel{flex:0 0 110px}
-.btns{display:flex;gap:8px;justify-content:flex-end;margin-top:14px}
-button{padding:7px 18px;border:none;border-radius:6px;font-size:13px;cursor:pointer;font-weight:500}
-.primary{background:#1976d2;color:#fff}.primary:hover{background:#1565c0}
-.primary:disabled{background:#90caf9;cursor:default}
-.outline{background:#f5f5f5;color:#333}.outline:hover{background:#e0e0e0}
-.err{color:#c62828;font-size:12px;margin-top:6px;min-height:16px}
-</style></head><body>
+<html><head><meta charset="utf-8"><title>LiFE Parental Control</title><style>${WARNING_PANEL_CSS}</style></head>
+<body><div class="card">
 <h2>${heading}</h2>
-<p>${info} Enter the parent password to add bonus time for ${isApp ? 'this app' : 'today'}.</p>
-<label>Parent password</label>
+<p class="info">${info} Eltern-Passwort eingeben, um ${isApp ? 'Bonuszeit für diese App' : 'Bonuszeit für heute'} hinzuzufügen.</p>
+<label>Eltern-Passwort</label>
 <div class="row">
   <div class="pw-wrap">
-    <input type="password" id="pw" autocomplete="off" placeholder="Password"/>
-    <button class="eye" id="eye" tabindex="-1" title="Show/hide password">&#128065;</button>
+    <input type="password" id="pw" autocomplete="off" placeholder="Passwort"/>
+    <button class="eye" id="eye" tabindex="-1" title="Passwort anzeigen">&#128065;</button>
   </div>
   <select id="mins" class="sel">
-    <option value="5">+5 min</option>
-    <option value="15">+15 min</option>
-    <option value="30" selected>+30 min</option>
-    <option value="60">+60 min</option>
+    <option value="10">+10 Min.</option>
+    <option value="15">+15 Min.</option>
+    <option value="20">+20 Min.</option>
+    <option value="25">+25 Min.</option>
+    <option value="30" selected>+30 Min.</option>
+    <option value="40">+40 Min.</option>
+    <option value="50">+50 Min.</option>
+    <option value="60">+60 Min.</option>
   </select>
 </div>
 <p id="err" class="err"></p>
-<div class="btns">
-  <button class="outline" id="dismiss">Not now</button>
-  <button class="primary" id="grant">Add time</button>
+<div class="btn-row">
+  <button class="btn-outline" id="dismiss">Später</button>
+  <button id="grant">Zeit hinzufügen</button>
+</div>
 </div>
 <script>
 const {ipcRenderer} = require('electron')
@@ -132,7 +132,7 @@ async function doGrant() {
   if (r && r.error) {
     err.textContent = r.error
     grantBtn.disabled = false
-    grantBtn.textContent = 'Add time'
+    grantBtn.textContent = 'Zeit hinzufügen'
     return
   }
   window.close()
@@ -141,7 +141,6 @@ pw.focus()
 </script></body></html>`
 }
 
-// Shows (or focuses) the always-on-top warning window with a bonus-time form (or info-only for allowed-hours).
 export function showWarningWindow(payload) {
     if (warningWin && !warningWin.isDestroyed()) {
         warningWin.show()
@@ -150,9 +149,11 @@ export function showWarningWindow(payload) {
     }
     const iconPath = _imagesDir ? resolveWindowIconPath(_imagesDir) : undefined
     warningWin = new BrowserWindow({
-        width: 440,
-        height: 300,
-        resizable: false,
+        width: 480,
+        height: 420,
+        frame: true,
+        fullscreen: false,
+        resizable: true,
         maximizable: false,
         minimizable: false,
         fullscreenable: false,
@@ -165,5 +166,6 @@ export function showWarningWindow(payload) {
     try { warningWin.setAlwaysOnTop(true, 'screen-saver') } catch { warningWin.setAlwaysOnTop(true) }
     try { warningWin.setVisibleOnAllWorkspaces(true) } catch { /* ignore */ }
     warningWin.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(makeHtml(payload ?? {})))
+    warningWin.once('ready-to-show', () => { try { warningWin.center() } catch { /* ignore */ } })
     warningWin.on('closed', () => { warningWin = null })
 }

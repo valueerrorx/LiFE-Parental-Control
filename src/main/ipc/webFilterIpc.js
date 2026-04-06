@@ -22,18 +22,6 @@ const MARKER_END = '# LiFE Parental Control - END'
 /** Past sinkhole IPs still parsed when reading the LiFE hosts block (re-apply migrates to current IP). */
 const HOSTS_SINKHOLE_IPV4_RE = /^(?:192\.0\.2\.1|0\.0\.0\.0|127\.0\.0\.2)\s+(\S+)\s*$/
 
-/** @type {string|null} */
-let hageziBundledDir = null
-
-function setBundledDir(dir) {
-    hageziBundledDir = typeof dir === 'string' ? dir : null
-}
-
-function requireBundledDir() {
-    if (!hageziBundledDir) throw new Error('web filter: missing hagezi bundle path')
-    return hageziBundledDir
-}
-
 function normalizeAllowlist(raw) {
     if (!Array.isArray(raw)) return []
     const out = new Set()
@@ -59,13 +47,12 @@ function readWebfilterFromConfig(configDir) {
 }
 
 function buildCombinedEntries(configDir, wf) {
-    const bd = requireBundledDir()
     const blocked = new Set()
     for (const e of wf.entries) {
         if (e.enabled === false) continue
         blocked.add(String(e.domain).toLowerCase())
     }
-    for (const d of domainsForEnabledFeeds(bd, configDir, wf.feedState)) {
+    for (const d of domainsForEnabledFeeds(configDir, wf.feedState)) {
         blocked.add(d)
     }
     const allow = new Set(normalizeAllowlist(wf.listAllowlist))
@@ -140,13 +127,10 @@ async function persistWebfilterAndHosts(configDir, wf, { background = false } = 
     }
 }
 
-export function registerWebFilterIpc(ipcMain, configDir, opts = {}) {
-    setBundledDir(opts.hageziBundledDir ?? null)
-
+export function registerWebFilterIpc(ipcMain, configDir) {
     ipcMain.handle('webfilter:getList', () => {
         const wf = readWebfilterFromConfig(configDir)
-        const bd = hageziBundledDir
-        const feedsMeta = bd ? getFeedsMetaForUi(configDir, bd) : {}
+        const feedsMeta = getFeedsMetaForUi(configDir)
         let source = 'hosts'
         let error = ''
         try {
@@ -157,7 +141,7 @@ export function registerWebFilterIpc(ipcMain, configDir, opts = {}) {
         }
         // Use cached count from last persist — never call buildCombinedEntries here (multi-MB feeds block the main process for seconds).
         let hostRuleCount = wf.entries.filter(e => e.enabled !== false).length
-        if (hageziBundledDir && typeof wf.cachedHostRuleCount === 'number' && Number.isFinite(wf.cachedHostRuleCount)) {
+        if (typeof wf.cachedHostRuleCount === 'number' && Number.isFinite(wf.cachedHostRuleCount)) {
             hostRuleCount = Math.max(0, Math.floor(wf.cachedHostRuleCount))
         }
         return {
@@ -284,8 +268,7 @@ export function registerWebFilterIpc(ipcMain, configDir, opts = {}) {
 
     ipcMain.handle('webfilter:syncFeeds', async () => {
         try {
-            const bd = requireBundledDir()
-            const r = await syncHageziFeeds(bd, configDir)
+            const r = await syncHageziFeeds(configDir)
             try {
                 const wf = readWebfilterFromConfig(configDir)
                 await persistWebfilterAndHosts(configDir, wf)
@@ -310,8 +293,7 @@ export function registerWebFilterIpc(ipcMain, configDir, opts = {}) {
 }
 
 export function runStartupHageziSync(configDir) {
-    if (!hageziBundledDir) return Promise.resolve()
-    return syncHageziFeeds(hageziBundledDir, configDir)
+    return syncHageziFeeds(configDir)
         .then(async () => {
             try {
                 const wf = readWebfilterFromConfig(configDir)

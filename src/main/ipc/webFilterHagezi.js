@@ -66,11 +66,10 @@ function readFeedMeta(configDir) {
 }
 
 /**
- * @param {string} bundledDir
  * @param {string} configDir
  * @returns {Promise<{ updated: string[], errors: string[], notModified: string[] }>}
  */
-export async function syncHageziFeeds(bundledDir, configDir) {
+export async function syncHageziFeeds(configDir) {
     const updated = []
     const notModified = []
     const errors = []
@@ -135,57 +134,36 @@ export async function syncHageziFeeds(bundledDir, configDir) {
 // Version metadata lives in the file header — avoid reading multi‑MB lists into memory for UI metadata only.
 const VERSION_HEAD_BYTES = 65536
 
-export function readBundledFeedVersion(bundledDir, feed) {
-    try {
-        const p = path.join(bundledDir, feed.file)
-        const fd = fs.openSync(p, 'r')
-        try {
-            const buf = Buffer.alloc(VERSION_HEAD_BYTES)
-            const n = fs.readSync(fd, buf, 0, VERSION_HEAD_BYTES, 0)
-            return extractListVersion(buf.subarray(0, n).toString('utf8'))
-        } finally {
-            fs.closeSync(fd)
-        }
-    } catch {
-        return null
-    }
-}
-
-export function getFeedsMetaForUi(configDir, bundledDir) {
+export function getFeedsMetaForUi(configDir) {
     const diskMeta = readFeedMeta(configDir)
     const feeds = {}
     for (const feed of HAGEZI_FEEDS) {
         const m = diskMeta.feeds?.[feed.id]
         feeds[feed.id] = {
-            version: m?.version ?? readBundledFeedVersion(bundledDir, feed),
-            source: m?.version ? 'cache' : 'bundled',
+            version: m?.version ?? null,
+            source: 'blocklists',
             cachedAt: m?.cachedAt ?? null
         }
     }
     return feeds
 }
 
-export function loadFeedFileText(bundledDir, configDir, feedId) {
+export function loadFeedFileText(configDir, feedId) {
     const feed = HAGEZI_FEED_BY_ID.get(feedId)
     if (!feed) return null
-    const cached = path.join(configDir, 'blocklists', feed.file)
     try {
-        return fs.readFileSync(cached, 'utf8')
+        return fs.readFileSync(path.join(configDir, 'blocklists', feed.file), 'utf8')
     } catch {
-        try {
-            return fs.readFileSync(path.join(bundledDir, feed.file), 'utf8')
-        } catch {
-            return null
-        }
+        return null
     }
 }
 
-export function domainsForEnabledFeeds(bundledDir, configDir, feedState) {
+export function domainsForEnabledFeeds(configDir, feedState) {
     const set = new Set()
     if (!feedState || typeof feedState !== 'object') return set
     for (const [id, on] of Object.entries(feedState)) {
         if (!on) continue
-        const text = loadFeedFileText(bundledDir, configDir, id)
+        const text = loadFeedFileText(configDir, id)
         if (!text) continue
         for (const d of parseDnsmasqDomains(text)) set.add(d)
     }

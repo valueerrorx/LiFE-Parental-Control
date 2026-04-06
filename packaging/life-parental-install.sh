@@ -12,7 +12,7 @@ APP_VERSION="${2:-}"
 DAEMON_LIB="/usr/lib/life-parental"
 CONFIG_DIR="/etc/life-parental"
 SYSTEMD_UNIT="/etc/systemd/system/parental-control.service"
-HAGEZI_DST="/usr/share/life-parental/hagezi"
+HAGEZI_DST="/etc/life-parental/blocklists"
 
 if [ -z "$RES_BASE" ]; then
     echo "life-parental-install: missing resBase argument" >&2

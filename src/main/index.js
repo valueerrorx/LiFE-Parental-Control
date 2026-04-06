@@ -139,12 +139,8 @@ app.whenReady().then(async () => {
         globalThis.setImmediate(async () => {
             try {
                 const { registerHeavyIpc } = await import('./registerHeavyIpc.js')
-                const hageziBundledDir = app.isPackaged
-                    ? path.join(process.resourcesPath, 'hagezi')
-                    : path.resolve(path.join(__dirname, '../../hagezi'))
                 registerHeavyIpc(ipcMain, {
                     appConfigDir: APP_CONFIG_DIR,
-                    hageziBundledDir,
                     getMainWindow: () => mainWindow
                 })
             } catch (e) {

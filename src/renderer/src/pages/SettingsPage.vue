@@ -95,16 +95,43 @@
                     </div>
                     <div class="pc-card-body">
                         <div class="mb-3">
-                            <label class="form-label small text-muted">{{ $t('settings.currentPassword') }}</label>
-                            <input v-model="changePw.current" type="password" class="pc-input" :placeholder="$t('settings.currentPasswordPlaceholder')" />
+                            <label class="form-label small text-muted" for="settings-pw-current">{{ $t('settings.currentPassword') }}</label>
+                            <div class="pc-pw-wrap">
+                                <input id="settings-pw-current" v-model="changePw.current"
+                                       :type="showPwCurrent ? 'text' : 'password'" class="pc-input"
+                                       :placeholder="$t('settings.currentPasswordPlaceholder')" autocomplete="current-password" />
+                                <button type="button" class="pc-pw-toggle"
+                                        :aria-label="showPwCurrent ? $t('common.hidePassword') : $t('common.showPassword')"
+                                        :aria-pressed="showPwCurrent" @click="showPwCurrent = !showPwCurrent">
+                                    <i :class="showPwCurrent ? 'bi bi-eye-slash' : 'bi bi-eye'" aria-hidden="true" />
+                                </button>
+                            </div>
                         </div>
                         <div class="mb-3">
-                            <label class="form-label small text-muted">{{ $t('settings.newPassword') }}</label>
-                            <input v-model="changePw.new1" type="password" class="pc-input" :placeholder="$t('settings.newPasswordPlaceholder')" />
+                            <label class="form-label small text-muted" for="settings-pw-new1">{{ $t('settings.newPassword') }}</label>
+                            <div class="pc-pw-wrap">
+                                <input id="settings-pw-new1" v-model="changePw.new1"
+                                       :type="showPwNew1 ? 'text' : 'password'" class="pc-input"
+                                       :placeholder="$t('settings.newPasswordPlaceholder')" autocomplete="new-password" />
+                                <button type="button" class="pc-pw-toggle"
+                                        :aria-label="showPwNew1 ? $t('common.hidePassword') : $t('common.showPassword')"
+                                        :aria-pressed="showPwNew1" @click="showPwNew1 = !showPwNew1">
+                                    <i :class="showPwNew1 ? 'bi bi-eye-slash' : 'bi bi-eye'" aria-hidden="true" />
+                                </button>
+                            </div>
                         </div>
                         <div class="mb-3">
-                            <label class="form-label small text-muted">{{ $t('settings.confirmNewPassword') }}</label>
-                            <input v-model="changePw.new2" type="password" class="pc-input" :placeholder="$t('settings.repeatPasswordPlaceholder')" />
+                            <label class="form-label small text-muted" for="settings-pw-new2">{{ $t('settings.confirmNewPassword') }}</label>
+                            <div class="pc-pw-wrap">
+                                <input id="settings-pw-new2" v-model="changePw.new2"
+                                       :type="showPwNew2 ? 'text' : 'password'" class="pc-input"
+                                       :placeholder="$t('settings.repeatPasswordPlaceholder')" autocomplete="new-password" />
+                                <button type="button" class="pc-pw-toggle"
+                                        :aria-label="showPwNew2 ? $t('common.hidePassword') : $t('common.showPassword')"
+                                        :aria-pressed="showPwNew2" @click="showPwNew2 = !showPwNew2">
+                                    <i :class="showPwNew2 ? 'bi bi-eye-slash' : 'bi bi-eye'" aria-hidden="true" />
+                                </button>
+                            </div>
                         </div>
                         <p v-if="pwMsg" :class="pwError ? 'text-danger' : 'text-success'" class="small">{{ pwMsg }}</p>
                         <button class="btn-pc-primary" @click="onChangePassword">{{ $t('settings.updatePassword') }}</button>
@@ -136,8 +163,17 @@
                         <p v-if="!grubUnrestricted" class="small text-warning mb-3" v-html="$t('settings.grubUnrestrictedHint')" />
                         <p class="text-muted small mb-3" v-html="$t('settings.grubDesc')" />
                         <div class="mb-3">
-                            <label class="form-label small text-muted">{{ $t('settings.grubPasswordLabel') }}</label>
-                            <input v-model="grubPassword" type="password" class="pc-input" :placeholder="$t('settings.grubPasswordPlaceholder')" />
+                            <label class="form-label small text-muted" for="settings-grub-pw">{{ $t('settings.grubPasswordLabel') }}</label>
+                            <div class="pc-pw-wrap">
+                                <input id="settings-grub-pw" v-model="grubPassword"
+                                       :type="showGrubPw ? 'text' : 'password'" class="pc-input"
+                                       :placeholder="$t('settings.grubPasswordPlaceholder')" autocomplete="new-password" />
+                                <button type="button" class="pc-pw-toggle"
+                                        :aria-label="showGrubPw ? $t('common.hidePassword') : $t('common.showPassword')"
+                                        :aria-pressed="showGrubPw" @click="showGrubPw = !showGrubPw">
+                                    <i :class="showGrubPw ? 'bi bi-eye-slash' : 'bi bi-eye'" aria-hidden="true" />
+                                </button>
+                            </div>
                         </div>
                         <div class="d-flex flex-wrap gap-2">
                             <button type="button" class="btn-pc-primary" :disabled="grubBusy || !grubPassword" @click="onGrubEnable">
@@ -327,6 +363,10 @@ const grubBusy = ref(false)
 const grubMsg = ref('')
 const grubError = ref(false)
 const grubPassword = ref('')
+const showPwCurrent = ref(false)
+const showPwNew1 = ref(false)
+const showPwNew2 = ref(false)
+const showGrubPw = ref(false)
 
 const daemonServiceStatus = ref(null)
 const daemonSocketConnected = ref(false)
@@ -417,6 +457,7 @@ async function onGrubEnable() {
     grubBusy.value = true
     const r = await window.api.daemon.grubEnable(grubPassword.value)
     grubPassword.value = ''
+    showGrubPw.value = false
     grubBusy.value = false
     if (r?.ok) {
         grubMsg.value = t('settings.grubEnableOk')
@@ -513,6 +554,7 @@ async function onChangePassword() {
     } else {
         pwMsg.value = t('settings.passwordUpdated'); pwError.value = false
         changePw.current = changePw.new1 = changePw.new2 = ''
+        showPwCurrent.value = showPwNew1.value = showPwNew2.value = false
     }
 }
 

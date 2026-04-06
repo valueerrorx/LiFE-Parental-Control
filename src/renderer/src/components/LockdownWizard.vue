@@ -36,6 +36,10 @@
 
                     <!-- Findings checklist (informational, dynamic) -->
                     <div class="lockdown-todo-list mb-3">
+                        <div class="lockdown-todo-item">
+                            <i class="bi bi-person-dash-fill text-warning me-2" />
+                            {{ $t('lockdown.todoFirstUser', { user: findings.targetUser || targetUser }) }}
+                        </div>
                         <div v-if="findings.suidFiles?.length" class="lockdown-todo-item">
                             <i class="bi bi-exclamation-triangle-fill text-warning me-2" />
                             {{ $t('lockdown.todoSuid', { count: findings.suidFiles.length }) }}
@@ -47,10 +51,6 @@
                         <div class="lockdown-todo-item">
                             <i class="bi bi-person-plus-fill text-info me-2" />
                             {{ $t(useExistingAdmin ? 'lockdown.todoUseAdmin' : 'lockdown.todoCreateAdmin', { user: adminUser || '…' }) }}
-                        </div>
-                        <div v-if="findings.targetIsAdmin" class="lockdown-todo-item">
-                            <i class="bi bi-person-dash-fill text-warning me-2" />
-                            {{ $t('lockdown.todoDemote', { user: findings.targetUser }) }}
                         </div>
                         <div v-if="!findings.grubPasswordSet" class="lockdown-todo-item">
                             <i class="bi bi-hdd-fill text-secondary me-2" />
@@ -103,15 +103,31 @@
                             </select>
                         </template>
 
-                        <label class="form-label small text-muted">
+                        <label class="form-label small text-muted" for="lockdown-admin-pw">
                             {{ $t(useExistingAdmin ? 'lockdown.adminPwLabelRootOnly' : 'lockdown.adminPwLabel') }}
                         </label>
-                        <input v-model="adminPw" type="password" class="pc-input mb-2"
-                               :placeholder="$t('lockdown.adminPwPlaceholder')" />
+                        <div class="pc-pw-wrap mb-2">
+                            <input id="lockdown-admin-pw" v-model="adminPw"
+                                   :type="showAdminPw ? 'text' : 'password'" class="pc-input"
+                                   :placeholder="$t('lockdown.adminPwPlaceholder')" autocomplete="new-password" />
+                            <button type="button" class="pc-pw-toggle"
+                                    :aria-label="showAdminPw ? $t('common.hidePassword') : $t('common.showPassword')"
+                                    :aria-pressed="showAdminPw" @click="showAdminPw = !showAdminPw">
+                                <i :class="showAdminPw ? 'bi bi-eye-slash' : 'bi bi-eye'" aria-hidden="true" />
+                            </button>
+                        </div>
 
-                        <label class="form-label small text-muted">{{ $t('lockdown.adminPwConfirmLabel') }}</label>
-                        <input v-model="adminPwConfirm" type="password" class="pc-input"
-                               :placeholder="$t('lockdown.adminPwConfirmPlaceholder')" />
+                        <label class="form-label small text-muted" for="lockdown-admin-pw2">{{ $t('lockdown.adminPwConfirmLabel') }}</label>
+                        <div class="pc-pw-wrap">
+                            <input id="lockdown-admin-pw2" v-model="adminPwConfirm"
+                                   :type="showAdminPwConfirm ? 'text' : 'password'" class="pc-input"
+                                   :placeholder="$t('lockdown.adminPwConfirmPlaceholder')" autocomplete="new-password" />
+                            <button type="button" class="pc-pw-toggle"
+                                    :aria-label="showAdminPwConfirm ? $t('common.hidePassword') : $t('common.showPassword')"
+                                    :aria-pressed="showAdminPwConfirm" @click="showAdminPwConfirm = !showAdminPwConfirm">
+                                <i :class="showAdminPwConfirm ? 'bi bi-eye-slash' : 'bi bi-eye'" aria-hidden="true" />
+                            </button>
+                        </div>
                     </div>
 
                     <!-- Optional permissions for the restricted user -->
@@ -166,7 +182,7 @@
                 <template v-else-if="step === 2">
                     <div class="lock-icon"><i class="bi bi-shield-check-fill text-success" /></div>
                     <h2>{{ $t('lockdown.doneTitle') }}</h2>
-                    <p class="small text-muted mb-3">{{ $t('lockdown.doneText') }}</p>
+                    <p class="small text-muted mb-3">{{ $t('lockdown.doneText', { adminUser, targetUser }) }}</p>
                     <button class="btn-pc-primary w-100" @click="onClose">{{ $t('lockdown.doneBtn') }}</button>
                 </template>
 
@@ -197,6 +213,8 @@ const useExistingAdmin = ref(false)
 const allowInstall = ref(false)
 const allowUpdate = ref(false)
 const allowFuse = ref(false)
+const showAdminPw = ref(false)
+const showAdminPwConfirm = ref(false)
 
 // Existing sudo/wheel members minus the target user
 const existingAdmins = computed(() => findings.value.adminGroupMembers ?? [])
@@ -264,6 +282,8 @@ async function onExecute() {
         busy.value = false
         adminPw.value = ''
         adminPwConfirm.value = ''
+        showAdminPw.value = false
+        showAdminPwConfirm.value = false
     }
 }
 
