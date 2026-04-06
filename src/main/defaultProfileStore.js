@@ -100,7 +100,6 @@ function buildFromRaw(raw) {
         next.quotaExemptions.allowedIds = qeOn && Array.isArray(q.allowedIds) ? q.allowedIds.filter(s => typeof s === 'string') : []
     }
     if (Array.isArray(raw.quota)) next.quota = raw.quota
-    next.requestDaemonWarningTest = raw.requestDaemonWarningTest === true
     if (raw.finishedLockdownWizard === true) next.finishedLockdownWizard = true
     return next
 }

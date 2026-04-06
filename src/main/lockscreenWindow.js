@@ -97,46 +97,56 @@ setInterval(() => {
 </script></body></html>`
     }
 
-    // allowed-hours: unlock with parent password only (no bonus time grant here).
+    // allowed-hours: countdown then logout unless parent grants calendar-day bypass via password.
+    const graceEndsAt = Number(p.graceEndsAt) > 0 ? Number(p.graceEndsAt) : (Date.now() + 60_000)
     return `<!DOCTYPE html>
 <html><head><meta charset="utf-8"><title>LiFE – Zeitsperre</title><style>${WARNING_PANEL_CSS}</style></head>
 <body><div class="card">
 <div class="icon">🔒</div>
 <h1>${heading}</h1>
-<p class="info">${info}<br><br>Eltern-Passwort eingeben, um den Computer zu entsperren.</p>
-<label>Eltern-Passwort</label>
+<p class="info">${info}</p>
+<p class="info">Ausloggen in <strong id="cd">60</strong> Sekunden, sofern kein Elternpasswort eingegeben wird.</p>
+<label>Eltern-Passwort (heute erlaubte Zeiten aussetzen)</label>
 <div class="row"><input type="password" id="pw" placeholder="Passwort" autocomplete="off"/></div>
 <div class="err" id="err"></div>
-<button class="btn-block" id="btn">Entsperren</button>
+<button class="btn-block" id="btn">Passwort bestätigen</button>
 </div>
 <script>
 const {ipcRenderer} = require('electron')
+const graceEndsAt = ${graceEndsAt}
 const pw = document.getElementById('pw')
 const btn = document.getElementById('btn')
 const err = document.getElementById('err')
-pw.addEventListener('keydown', e => { if (e.key === 'Enter') doUnlock() })
-btn.addEventListener('click', doUnlock)
+const cd = document.getElementById('cd')
+function tickCd() {
+  const s = Math.max(0, Math.ceil((graceEndsAt - Date.now()) / 1000))
+  if (cd) cd.textContent = s
+}
+setInterval(tickCd, 500)
+tickCd()
+pw.addEventListener('keydown', e => { if (e.key === 'Enter') doBypass() })
+btn.addEventListener('click', doBypass)
 pw.focus()
 
-async function doUnlock() {
+async function doBypass() {
   const password = pw.value
   if (!password) { err.textContent = 'Bitte Passwort eingeben.'; return }
   btn.disabled = true; btn.textContent = '…'; err.textContent = ''
   try {
-    const r = await ipcRenderer.invoke('lockscreen:unlock', { password })
+    const r = await ipcRenderer.invoke('lockscreen:allowed-hours-bypass', { password })
     if (r && r.ok) {
-      btn.textContent = '✓ Entsperrt'
+      btn.textContent = '✓ Gespeichert'
       setTimeout(() => ipcRenderer.invoke('lockscreen:quit'), 500)
     } else {
       err.textContent = (r && r.error) || 'Falsches Passwort.'
       btn.disabled = false
-      btn.textContent = 'Entsperren'
+      btn.textContent = 'Passwort bestätigen'
       pw.value = ''; pw.focus()
     }
   } catch(e) {
     err.textContent = 'Verbindungsfehler: ' + e.message
     btn.disabled = false
-    btn.textContent = 'Entsperren'
+    btn.textContent = 'Passwort bestätigen'
   }
 }
 </script></body></html>`
@@ -144,16 +154,16 @@ async function doUnlock() {
 
 export async function runLockscreen(payload) {
     const type = payload?.type || 'exhausted'
-    const isExhausted = type === 'exhausted'
+    const isAllowedHours = type === 'allowed-hours'
     let daemonSocket = null
-    if (!isExhausted) {
+    if (isAllowedHours) {
         daemonSocket = await connectToDaemon()
     }
 
-    if (!isExhausted) {
-        ipcMain.handle('lockscreen:unlock', async (_, { password } = {}) => {
-            const result = await daemonRequest(daemonSocket, { type: 'validate-password', password }, 'validate-password-result')
-            if (!result.ok) return { error: result.error || 'Falsches Passwort.' }
+    if (isAllowedHours) {
+        ipcMain.handle('lockscreen:allowed-hours-bypass', async (_, { password } = {}) => {
+            const result = await daemonRequest(daemonSocket, { type: 'allowed-hours-bypass', password }, 'allowed-hours-bypass-result')
+            if (result.ok !== true) return { error: result.error || 'Falsches Passwort.' }
             return { ok: true }
         })
     }

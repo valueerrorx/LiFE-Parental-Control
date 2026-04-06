@@ -21,7 +21,7 @@ const ACTIVITY_LOG_MAX = 400;
 const LOG_MAX_BYTES = 2 * 1024 * 1024; // rotate at 2 MB
 const TICK_MS = 10_000;
 const TICKS_PER_LOGGED_MINUTE = 60_000 / TICK_MS; // 6 ticks = 1 minute
-const ALLOWED_HOURS_WARN_INTERVAL_MS = 5 * 60 * 1000;
+const ALLOWED_HOURS_GRACE_MS = 60_000;
 
 const NOTIFY_SEND_BIN = (() => {
     try {
@@ -81,7 +81,7 @@ const appQuotaWarnOnce = new Set();
 const quotaLinuxUserNoSessionWarnOnce = new Set(); // one warn per appId+linuxUser until next calendar day
 let quotaTickSkippedAppControlWarned = false;
 let quotaTickSkippedNoGraphicalSessionsWarned = false;
-let lastAllowedHoursWarnAt = 0;
+let allowedHoursGraceStartMs = 0;
 
 // Exempt-app watchdog state
 let lastInputTimestamp = 0;   // last hardware input event seen by the input monitor
@@ -412,7 +412,7 @@ function readSchedule() {
 }
 
 function emptyUsage(today) {
-    return { date: today, users: {}, extraAllowanceMinutes: 0, warnedLowScreenTime: false, warnedScreenTimeExhausted: false };
+    return { date: today, users: {}, extraAllowanceMinutes: 0, warnedLowScreenTime: false, warnedScreenTimeExhausted: false, allowedHoursBypassDate: undefined };
 }
 
 function readUsage() {
@@ -433,7 +433,8 @@ function readUsage() {
             extraAllowanceMinutes: Math.max(0, Number(data.extraAllowanceMinutes) || 0),
             warnedLowScreenTime: data.warnedLowScreenTime === true,
             warnSnapLimit: data.warnSnapLimit != null ? Number(data.warnSnapLimit) : undefined,
-            warnedScreenTimeExhausted: data.warnedScreenTimeExhausted === true
+            warnedScreenTimeExhausted: data.warnedScreenTimeExhausted === true,
+            allowedHoursBypassDate: typeof data.allowedHoursBypassDate === 'string' ? data.allowedHoursBypassDate : undefined
         };
     } catch { return emptyUsage(today); }
 }
@@ -1446,17 +1447,35 @@ async function tickScreenTime(logMinute) {
         return;
     }
 
-    // Enforce allowed hours window; terminate session if outside allowed hours
+    // Enforce allowed hours: grace period, optional parent bypass for calendar day, then terminate
     if (period.allowedHoursEnabled) {
-        if (!isWithinAllowedHours(period, now)) {
+        const bypassForToday = typeof usage.allowedHoursBypassDate === 'string' && usage.allowedHoursBypassDate === today;
+        if (bypassForToday) {
+            if (allowedHoursGraceStartMs !== 0) allowedHoursGraceStartMs = 0;
+        } else if (!isWithinAllowedHours(period, now)) {
+            if (allowedHoursGraceStartMs === 0) {
+                allowedHoursGraceStartMs = Date.now();
+                const graceEndsAt = allowedHoursGraceStartMs + ALLOWED_HOURS_GRACE_MS;
+                const warnPayload = {
+                    type: 'allowed-hours',
+                    heading: 'Computer jetzt nicht erlaubt',
+                    message: 'Die Computernutzung ist zu dieser Zeit nicht gestattet.',
+                    graceEndsAt
+                };
+                writeUsage(usage);
+                notifyOrSpawn(warnPayload, 'Computer jetzt nicht erlaubt', 'Die Computernutzung ist zu dieser Zeit nicht gestattet.', 'critical');
+                return;
+            }
+            if (Date.now() - allowedHoursGraceStartMs < ALLOWED_HOURS_GRACE_MS) {
+                writeUsage(usage);
+                return;
+            }
             writeUsage(usage);
             await terminateSessionsForPolicy(sessions, limitLu);
-            if (Date.now() - lastAllowedHoursWarnAt >= ALLOWED_HOURS_WARN_INTERVAL_MS) {
-                lastAllowedHoursWarnAt = Date.now();
-                const warnPayload = { type: 'allowed-hours', heading: 'Computer jetzt nicht erlaubt', message: 'Die Computernutzung ist zu dieser Zeit nicht gestattet.' };
-                notifyOrSpawn(warnPayload, 'Computer jetzt nicht erlaubt', 'Die Computernutzung ist zu dieser Zeit nicht gestattet.', 'critical');
-            }
+            allowedHoursGraceStartMs = 0;
             return;
+        } else if (allowedHoursGraceStartMs !== 0) {
+            allowedHoursGraceStartMs = 0;
         }
     }
 
@@ -1783,6 +1802,26 @@ function handleClientCommand(client, cmd) {
             client.write(JSON.stringify({ type: 'extend-app-result', ok: true, appId, minutes }) + '\n');
         } catch (e) {
             client.write(JSON.stringify({ type: 'extend-app-result', ok: false, error: e.message }) + '\n');
+        }
+        return;
+    }
+
+    if (cmd.type === 'allowed-hours-bypass') {
+        const gate = checkParentPassword(cmd.password);
+        if (!gate.ok) {
+            const err = gate.reason === 'no_password' ? 'Kein Eltern-Passwort gesetzt.' : 'Falsches Passwort.';
+            client.write(JSON.stringify({ type: 'allowed-hours-bypass-result', ok: false, error: err }) + '\n');
+            return;
+        }
+        try {
+            const usage = readUsage();
+            usage.allowedHoursBypassDate = localIsoDate();
+            allowedHoursGraceStartMs = 0;
+            writeUsage(usage);
+            appendActivityDaemon({ action: 'allowed_hours_bypass_granted', date: usage.allowedHoursBypassDate });
+            client.write(JSON.stringify({ type: 'allowed-hours-bypass-result', ok: true }) + '\n');
+        } catch (e) {
+            client.write(JSON.stringify({ type: 'allowed-hours-bypass-result', ok: false, error: e.message }) + '\n');
         }
         return;
     }
