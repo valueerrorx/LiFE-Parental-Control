@@ -38,8 +38,6 @@ function activityLabel(e) {
         })
     case 'process_whitelist_redeploy':
         return t('activityLog.processWhitelistRedeploy')
-    case 'life_mode_apply':
-        return t('activityLog.lifeModeApply', { label: e.label ?? e.modeKey ?? '?' })
     case 'kiosk_apply':
         return t('activityLog.kioskApply')
     case 'kiosk_strip':

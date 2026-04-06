@@ -257,38 +257,6 @@
             </div>
         </div>
 
-        <div class="pc-card mt-3">
-            <div class="pc-card-header">
-                <h6>{{ $t('dashboard.quickActions') }}</h6>
-            </div>
-            <div class="pc-card-body d-flex flex-wrap gap-2">
-                <RouterLink to="/webfilter">
-                    <button class="btn-pc-outline">
-                        <i class="bi bi-shield-plus me-2" />{{ $t('dashboard.addWebFilterRule') }}
-                    </button>
-                </RouterLink>
-                <RouterLink to="/apps">
-                    <button class="btn-pc-outline">
-                        <i class="bi bi-app-indicator me-2" />{{ $t('dashboard.manageApps') }}
-                    </button>
-                </RouterLink>
-                <RouterLink to="/schedules">
-                    <button class="btn-pc-outline">
-                        <i class="bi bi-clock me-2" />{{ $t('dashboard.setScreenTime') }}
-                    </button>
-                </RouterLink>
-                <RouterLink v-if="isKDE" to="/kiosk">
-                    <button class="btn-pc-outline">
-                        <i class="bi bi-lock me-2" />{{ $t('dashboard.kdeKioskMode') }}
-                    </button>
-                </RouterLink>
-                <RouterLink v-if="daemonServiceActive !== 'active'" to="/settings">
-                    <button class="btn-pc-outline" style="border-color:#FFA726; color:#E65100;">
-                        <i class="bi bi-cpu me-2" />{{ $t('dashboard.setupDaemon') }}
-                    </button>
-                </RouterLink>
-            </div>
-        </div>
     </div>
 </template>
 

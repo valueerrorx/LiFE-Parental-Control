@@ -61,10 +61,6 @@ contextBridge.exposeInMainWorld('api', {
         resetTodayUsage: () => ipcRenderer.invoke('schedules:resetTodayUsage'),
         grantBonusMinutes: (payload) => ipcRenderer.invoke('schedules:grantBonusMinutes', payload)
     },
-    lifeMode: {
-        list: () => ipcRenderer.invoke('lifeMode:list'),
-        apply: (modeKey) => ipcRenderer.invoke('lifeMode:apply', modeKey)
-    },
     quota: {
         getList: () => ipcRenderer.invoke('quota:getList'),
         getUsage: () => ipcRenderer.invoke('quota:getUsage'),
@@ -116,6 +112,7 @@ contextBridge.exposeInMainWorld('api', {
         apparmorCheck: () => ipcRenderer.invoke('daemon:apparmorCheck'),
         dnsmasqCheck: () => ipcRenderer.invoke('daemon:dnsmasqCheck'),
         setupDnsmasq: () => ipcRenderer.invoke('daemon:setupDnsmasq'),
+        setupApparmor: () => ipcRenderer.invoke('daemon:setupApparmor'),
         grubCheck: () => ipcRenderer.invoke('daemon:grubCheck'),
         grubEnable: (password) => ipcRenderer.invoke('daemon:grubEnable', password),
         grubDisable: () => ipcRenderer.invoke('daemon:grubDisable'),

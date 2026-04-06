@@ -9,11 +9,9 @@ import { readProcessWhitelistConfig, replaceProcessWhitelistFromBackup } from '.
 import { readPreferencesForBackup, mergePreferencesFromBackup, clearSessionLockPreference } from './settingsIpc.js'
 import { appendActivity } from './activityLog.js'
 import { readDefaultJson } from '../defaultProfileStore.js'
-import { daemonWriteLifeModes } from '../daemonPrivilegedOps.js'
 
 // Single-file bundle: no password hash, no usage history, no /etc/hosts aside from apply step below.
 const BUNDLE_VERSION = 1
-const LIFE_MODES_FILE = 'life-modes.json'
 
 function readScheduleFromDisk(configDir) {
     const def = readDefaultJson(configDir)
@@ -24,16 +22,6 @@ function readBlockedFromDisk(configDir) {
     const def = readDefaultJson(configDir)
     const raw = Array.isArray(def?.blockedDesktopIds) ? def.blockedDesktopIds : []
     return raw.map(x => (typeof x === 'string' ? x : x?.id)).filter(Boolean)
-}
-
-function readLifeModesFromDisk(configDir) {
-    try {
-        const raw = JSON.parse(fs.readFileSync(path.join(configDir, LIFE_MODES_FILE), 'utf8'))
-        if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) return null
-        return raw
-    } catch {
-        return null
-    }
 }
 
 export function registerBackupIpc(ipcMain, configDir, getWindow) {
@@ -53,7 +41,6 @@ export function registerBackupIpc(ipcMain, configDir, getWindow) {
                 schedules: readScheduleFromDisk(configDir),
                 webFilter: (({ entries, feedState, listAllowlist }) => ({ entries, feedState, listAllowlist }))(readDefaultJson(configDir)?.webfilter || {}),
                 blockedApps: readBlockedFromDisk(configDir),
-                lifeModes: readLifeModesFromDisk(configDir),
                 quotas: readQuotaEntries(configDir),
                 processWhitelist: readProcessWhitelistConfig(configDir),
                 preferences: readPreferencesForBackup(configDir)
@@ -107,13 +94,6 @@ export function registerBackupIpc(ipcMain, configDir, getWindow) {
                     .map(x => (typeof x === 'string' ? x : x?.id))
                     .filter(id => typeof id === 'string' && id.endsWith('.desktop'))
                 replaceBlockedDesktopIds(configDir, ids)
-            }
-            if (Object.hasOwn(raw, 'lifeModes')) {
-                const lm = raw.lifeModes
-                const content = (lm != null && typeof lm === 'object' && !Array.isArray(lm))
-                    ? JSON.stringify(lm, null, 2)
-                    : null // null = delete
-                await daemonWriteLifeModes(content)
             }
             if (Object.hasOwn(raw, 'quotas')) {
                 const list = Array.isArray(raw.quotas) ? raw.quotas : []

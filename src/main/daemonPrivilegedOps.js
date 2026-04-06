@@ -162,9 +162,3 @@ export async function daemonAuthChange(oldPassword, newPassword) {
     catch (e) { return { ok: false, error: e.message } }
 }
 
-/** Write or delete /etc/life-parental/life-modes.json. Awaitable. */
-export async function daemonWriteLifeModes(content) {
-    if (!isDaemonConnected()) return { ok: false, error: 'Daemon nicht verbunden.' }
-    try { return await daemonRequest({ type: 'write-life-modes', content: content ?? null }, 'write-life-modes-result', 15_000) }
-    catch (e) { return { ok: false, error: e.message } }
-}

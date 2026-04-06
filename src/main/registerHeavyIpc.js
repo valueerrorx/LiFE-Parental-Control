@@ -7,7 +7,6 @@ import { app } from 'electron'
 import { registerWebFilterIpc, runStartupHageziSync } from './ipc/webFilterIpc.js'
 import { registerAppBlockerIpc, refreshAppMonitorCatalog, syncAppArmor } from './ipc/appBlockerIpc.js'
 import { registerSchedulesIpc } from './ipc/schedulesIpc.js'
-import { registerLifeModeIpc } from './ipc/lifeModeIpc.js'
 import { registerQuotaIpc } from './ipc/quotaIpc.js'
 import { registerProcessWhitelistIpc } from './ipc/processWhitelistIpc.js'
 import { registerActivityIpc } from './ipc/activityIpc.js'
@@ -38,7 +37,6 @@ export function registerHeavyIpc(ipcMain, { appConfigDir, getMainWindow }) {
     registerAppBlockerIpc(ipcMain, appConfigDir)
     syncAppArmor(appConfigDir)  // restore AppArmor profile on every app start
     registerSchedulesIpc(ipcMain, appConfigDir)
-    registerLifeModeIpc(ipcMain, appConfigDir)
     registerQuotaIpc(ipcMain, appConfigDir)
     registerProcessWhitelistIpc(ipcMain, appConfigDir)
     registerActivityIpc(ipcMain, appConfigDir)
@@ -173,6 +171,12 @@ export function registerHeavyIpc(ipcMain, { appConfigDir, getMainWindow }) {
     ipcMain.handle('daemon:setupDnsmasq', async () => {
         if (!isDaemonConnected()) return { ok: false, error: 'Daemon nicht verbunden.' }
         try { return await daemonRequest({ type: 'setup-dnsmasq' }, 'setup-dnsmasq-result', 30_000) }
+        catch (e) { return { ok: false, error: e.message } }
+    })
+
+    ipcMain.handle('daemon:setupApparmor', async () => {
+        if (!isDaemonConnected()) return { ok: false, error: 'Daemon nicht verbunden.' }
+        try { return await daemonRequest({ type: 'setup-apparmor' }, 'setup-apparmor-result', 30_000) }
         catch (e) { return { ok: false, error: e.message } }
     })
 

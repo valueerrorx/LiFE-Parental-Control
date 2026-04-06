@@ -2460,23 +2460,6 @@ function handleClientCommand(client, cmd) {
         return;
     }
 
-    if (cmd.type === 'write-life-modes') {
-        // Write or delete /etc/life-parental/life-modes.json
-        const LM_FILE = path.join(CONFIG_DIR, 'life-modes.json');
-        try {
-            if (cmd.content != null) {
-                fs.writeFileSync(LM_FILE, typeof cmd.content === 'string' ? cmd.content : JSON.stringify(cmd.content, null, 2), 'utf8');
-                try { fs.chmodSync(LM_FILE, 0o644); } catch { /* ignore */ }
-            } else {
-                try { fs.unlinkSync(LM_FILE); } catch { /* already gone */ }
-            }
-            client.write(JSON.stringify({ type: 'write-life-modes-result', ok: true }) + '\n');
-        } catch (e) {
-            client.write(JSON.stringify({ type: 'write-life-modes-result', ok: false, error: e.message }) + '\n');
-        }
-        return;
-    }
-
     if (cmd.type === 'prune-archives') {
         // Delete usage/quota/app-usage files older than 90 days
         try {

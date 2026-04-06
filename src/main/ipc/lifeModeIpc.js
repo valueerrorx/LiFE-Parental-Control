@@ -8,45 +8,10 @@ import {
 import { DEFAULT_SCHEDULE, persistSchedule } from './schedulesIpc.js'
 import { readWebFilterConfig, persistWebFilterEntries } from './webFilterIpc.js'
 import { replaceBlockedDesktopIds } from './appBlockerIpc.js'
-import { appendActivity } from './activityLog.js'
 import { redeployQuotaFromDisk, replaceQuotaEntries } from './quotaIpc.js'
 import { patchDefaultJson } from '../defaultProfileStore.js'
 
-const LIFE_MODES_FILE = 'life-modes.json'
 const DEFAULT_MODE_FILE = 'default.json'
-const RESERVED_KEYS = new Set(['school', 'leisure', 'default'])
-
-const BUILTIN_LABELS = { school: 'School', leisure: 'Leisure', default: 'Default' }
-
-const BUILTIN_LIFE_MODES = {
-    school: {
-        schedule: {
-            enabled: true,
-            dailyLimitEnabled: true,
-            dailyLimitMinutes: 90,
-            allowedHoursEnabled: true,
-            allowedHoursStart: '16:00',
-            allowedHoursEnd: '20:00',
-            allowedDays: [1, 2, 3, 4, 5]
-        },
-        mergeCategories: ['Social Media', 'Gaming'],
-        blockedDesktopIds: []
-    },
-    leisure: {
-        schedule: {
-            enabled: true,
-            dailyLimitEnabled: true,
-            dailyLimitMinutes: 180,
-            allowedHoursEnabled: true,
-            allowedHoursStart: '09:00',
-            allowedHoursEnd: '21:00',
-            allowedDays: [1, 2, 3, 4, 5, 6, 7]
-        },
-        mergeCategories: [],
-        stripCategories: ['Social Media', 'Gaming'],
-        blockedDesktopIds: []
-    }
-}
 
 const BUILTIN_DEFAULT_MODE = {
     label: 'Default',
@@ -76,16 +41,6 @@ function normalizeCustomMode(modeId, def) {
             ? def.blockedDesktopIds.filter(id => typeof id === 'string' && id.endsWith('.desktop'))
             : [],
         label: typeof def.label === 'string' && def.label.trim() ? def.label.trim() : modeId
-    }
-}
-
-function readCustomLifeModes(configDir) {
-    try {
-        const raw = JSON.parse(fs.readFileSync(path.join(configDir, LIFE_MODES_FILE), 'utf8'))
-        if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) return {}
-        return raw
-    } catch {
-        return {}
     }
 }
 
@@ -127,11 +82,10 @@ function readDefaultMode(configDir) {
             label: normalized.label || 'Default',
             webfilterMirror,
             quotaExemptions,
-            // normalizeCustomMode omits quota; without this, applyLifeModeDirect(default) replaces disk with [] on every app start.
+            // normalizeCustomMode omits quota; without this, applyDefaultMergedState replaces disk with [] on every app start.
             quota: Array.isArray(raw.quota) ? raw.quota : []
         }
     } catch {
-        // fallback to built-in empty default mode
         if (!defaultModeReadOnceLogged) {
             defaultModeReadOnceLogged = true
             console.warn('[LiFE Parental Control] default.json could not be parsed, using built-in empty default mode')
@@ -183,16 +137,6 @@ function persistQuotaExemptions(configDir, quotaExemptions) {
     })
 }
 
-function getAllLifeModes(configDir) {
-    const out = { ...BUILTIN_LIFE_MODES, default: readDefaultMode(configDir) }
-    for (const [key, def] of Object.entries(readCustomLifeModes(configDir))) {
-        if (RESERVED_KEYS.has(key)) continue
-        const norm = normalizeCustomMode(key, def)
-        if (norm) out[key] = norm
-    }
-    return out
-}
-
 function mergeCategoriesIntoMirror(mirror, categoryNames) {
     const entries = [...mirror.entries]
     const feedState = { ...mirror.feedState }
@@ -229,11 +173,9 @@ function stripCategoriesFromMirror(mirror, categoryNames) {
     return { entries, feedState }
 }
 
-export async function applyLifeModeDirect(configDir, modeKey, { quiet = false, background = false } = {}) {
-    const all = getAllLifeModes(configDir)
-    const mode = all[modeKey]
-    if (!mode) return { error: `Unknown mode: ${modeKey}` }
-
+/** Merge `default.json` into live enforcement (schedule, webfilter mirror, blocked apps, quotas) — used at app startup. */
+export async function applyDefaultMergedState(configDir, { background = false } = {}) {
+    const mode = readDefaultMode(configDir)
     const errs = []
     try {
         persistSchedule(configDir, mode.schedule)
@@ -241,108 +183,65 @@ export async function applyLifeModeDirect(configDir, modeKey, { quiet = false, b
         errs.push(`schedule: ${e.message}`)
     }
 
-    if (modeKey === 'default') {
-        // webfilter mirror: apply if present; otherwise clear (empty default = everything off).
-        console.info('[LiFE Parental Control] applying default life mode', {
-            scheduleEnabled: Boolean(mode.schedule?.enabled),
-            dailyLimitEnabled: Boolean(mode.schedule?.dailyLimitEnabled)
+    console.info('[LiFE Parental Control] applying default merged state from default.json', {
+        scheduleEnabled: Boolean(mode.schedule?.enabled),
+        dailyLimitEnabled: Boolean(mode.schedule?.dailyLimitEnabled)
+    })
+    try {
+        if (mode.webfilterMirror?.entries) {
+            const { entries, feedState, listAllowlist } = mode.webfilterMirror
+            await persistWebFilterEntries(configDir, entries, feedState, listAllowlist, { background })
+            console.info('[LiFE Parental Control] default webfilter mirror applied', {
+                entryCount: entries?.length ?? 0
+            })
+        } else if (mode.mergeCategories?.length) {
+            const cur = readWebFilterConfig(configDir)
+            const next = mergeCategoriesIntoMirror(cur, mode.mergeCategories)
+            await persistWebFilterEntries(configDir, next.entries, next.feedState, undefined, { background })
+        } else if (mode.stripCategories?.length) {
+            const cur = readWebFilterConfig(configDir)
+            const next = stripCategoriesFromMirror(cur, mode.stripCategories)
+            await persistWebFilterEntries(configDir, next.entries, next.feedState, undefined, { background })
+        } else {
+            await persistWebFilterEntries(configDir, [], {}, [], { background })
+            console.info('[LiFE Parental Control] default webfilter mirror cleared (empty default)')
+        }
+    } catch (e) {
+        errs.push(`webfilter: ${e.message}`)
+    }
+
+    try {
+        replaceBlockedDesktopIds(configDir, mode.blockedDesktopIds ?? [])
+        console.info('[LiFE Parental Control] default blocked apps set', {
+            blockedCount: (mode.blockedDesktopIds ?? []).length
         })
-        try {
-            if (mode.webfilterMirror?.entries) {
-                const { entries, feedState, listAllowlist } = mode.webfilterMirror
-                await persistWebFilterEntries(configDir, entries, feedState, listAllowlist, { background })
-                console.info('[LiFE Parental Control] default webfilter mirror applied', {
-                    entryCount: entries?.length ?? 0
-                })
-            } else if (mode.mergeCategories?.length) {
-                const cur = readWebFilterConfig(configDir)
-                const next = mergeCategoriesIntoMirror(cur, mode.mergeCategories)
-                await persistWebFilterEntries(configDir, next.entries, next.feedState, undefined, { background })
-            } else if (mode.stripCategories?.length) {
-                const cur = readWebFilterConfig(configDir)
-                const next = stripCategoriesFromMirror(cur, mode.stripCategories)
-                await persistWebFilterEntries(configDir, next.entries, next.feedState, undefined, { background })
-            } else {
-                await persistWebFilterEntries(configDir, [], {}, [], { background })
-                console.info('[LiFE Parental Control] default webfilter mirror cleared (empty default)')
-            }
-        } catch (e) {
-            errs.push(`webfilter: ${e.message}`)
-        }
-
-        try {
-            replaceBlockedDesktopIds(configDir, mode.blockedDesktopIds ?? [])
-            console.info('[LiFE Parental Control] default blocked apps set', {
-                blockedCount: (mode.blockedDesktopIds ?? []).length
-            })
-        } catch (e) {
-            errs.push(`apps: ${e.message}`)
-        }
-
-        try {
-            const q = mode.quotaExemptions ?? { enabled: false, allowedIds: [] }
-            persistQuotaExemptions(configDir, q)
-            console.info('[LiFE Parental Control] default quota exemptions written', {
-                enabled: Boolean(q?.enabled),
-                allowedIdsCount: Array.isArray(q?.allowedIds) ? q.allowedIds.length : 0
-            })
-        } catch (e) {
-            errs.push(`quota_exemptions: ${e.message}`)
-        }
-
-        try {
-            const quotaEntries = Array.isArray(mode.quota) ? mode.quota : []
-            replaceQuotaEntries(configDir, quotaEntries)
-        } catch (e) {
-            errs.push(`quota_entries: ${e.message}`)
-        }
-
-        try {
-            await redeployQuotaFromDisk(configDir)
-        } catch (e) {
-            errs.push(`quota_redeploy: ${e.message}`)
-        }
-    } else {
-        try {
-            if (mode.mergeCategories?.length) {
-                const cur = readWebFilterConfig(configDir)
-                const next = mergeCategoriesIntoMirror(cur, mode.mergeCategories)
-                await persistWebFilterEntries(configDir, next.entries, next.feedState)
-            } else if (mode.stripCategories?.length) {
-                const cur = readWebFilterConfig(configDir)
-                const next = stripCategoriesFromMirror(cur, mode.stripCategories)
-                await persistWebFilterEntries(configDir, next.entries, next.feedState)
-            }
-        } catch (e) {
-            errs.push(`webfilter: ${e.message}`)
-        }
-
-        try {
-            replaceBlockedDesktopIds(configDir, mode.blockedDesktopIds ?? [])
-        } catch (e) {
-            errs.push(`apps: ${e.message}`)
-        }
+    } catch (e) {
+        errs.push(`apps: ${e.message}`)
     }
 
-    if (!errs.length && !quiet) {
-        const label = BUILTIN_LABELS[modeKey] ?? mode.label ?? modeKey
-        appendActivity(configDir, { action: 'life_mode_apply', modeKey, label })
+    try {
+        const q = mode.quotaExemptions ?? { enabled: false, allowedIds: [] }
+        persistQuotaExemptions(configDir, q)
+        console.info('[LiFE Parental Control] default quota exemptions written', {
+            enabled: Boolean(q?.enabled),
+            allowedIdsCount: Array.isArray(q?.allowedIds) ? q.allowedIds.length : 0
+        })
+    } catch (e) {
+        errs.push(`quota_exemptions: ${e.message}`)
     }
+
+    try {
+        const quotaEntries = Array.isArray(mode.quota) ? mode.quota : []
+        replaceQuotaEntries(configDir, quotaEntries)
+    } catch (e) {
+        errs.push(`quota_entries: ${e.message}`)
+    }
+
+    try {
+        await redeployQuotaFromDisk(configDir)
+    } catch (e) {
+        errs.push(`quota_redeploy: ${e.message}`)
+    }
+
     return errs.length ? { error: errs.join(' — ') } : { ok: true }
-}
-
-export function registerLifeModeIpc(ipcMain, configDir) {
-    ipcMain.handle('lifeMode:list', () => {
-        const merged = getAllLifeModes(configDir)
-        const modes = Object.keys(merged)
-        const labels = {}
-        for (const k of modes) {
-            labels[k] = BUILTIN_LABELS[k] ?? merged[k].label ?? k
-        }
-        return { modes, labels, customPath: path.join(configDir, LIFE_MODES_FILE) }
-    })
-
-    ipcMain.handle('lifeMode:apply', async (_, modeKey) => {
-        return applyLifeModeDirect(configDir, modeKey)
-    })
 }

@@ -10,11 +10,10 @@ Desktop parental control app for **Linux** (KDE Plasma, GNOME, others). Stack: *
 |--------|-------------|
 | **Lockdown Wizard** | First-run wizard: creates parent admin, sets root + GRUB password, de-privileges child account, sets up FUSE restrictions |
 | **Web filter** | Custom domains + HaGeZi blocklists → `/etc/hosts`; allowlist; category packs |
-| **Screen time** | Daily limit + allowed hours (overnight windows supported); bonus minutes via parent password |
+| **Screen time** | Daily limit + allowed hours (overnight windows supported); quick presets (e.g. school week / holidays) on the Schedules page; bonus minutes via parent password |
 | **App blocking** | `.desktop` overrides under `/usr/local/share/applications/` |
 | **App quotas** | Per-app daily cap; process tracking via `pgrep`; quota exemptions |
 | **KDE kiosk** | Restrictions via `/etc/xdg/kdeglobals`; optional Plasma layout hard lock |
-| **Family profiles** | School / Leisure presets + custom modes via `life-modes.json` |
 | **Backup** | Export/import JSON bundle (v1); excludes password and usage history |
 
 ## Configuration files

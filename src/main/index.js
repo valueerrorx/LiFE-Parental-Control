@@ -246,8 +246,8 @@ app.whenReady().then(async () => {
 
             try {
                 if (process.platform === 'linux') {
-                    const { applyLifeModeDirect } = await import('./ipc/lifeModeIpc.js')
-                    await applyLifeModeDirect(APP_CONFIG_DIR, 'default', { quiet: true, background: true })
+                    const { applyDefaultMergedState } = await import('./ipc/lifeModeIpc.js')
+                    await applyDefaultMergedState(APP_CONFIG_DIR, { background: true })
                 }
             } catch {
                 // best-effort

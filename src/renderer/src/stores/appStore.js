@@ -131,10 +131,6 @@ export const useAppStore = defineStore('app', () => {
         appMonitorLabels.value = mon?.labels && typeof mon.labels === 'object' ? mon.labels : {}
     }
 
-    async function applyLifeMode(modeKey) {
-        return window.api.lifeMode.apply(modeKey)
-    }
-
     async function loadProcessWhitelist() {
         const cfg = await window.api.processWhitelist.get()
         whitelistEnabled.value = cfg?.enabled === true
@@ -167,7 +163,7 @@ export const useAppStore = defineStore('app', () => {
         invokingLinuxUser, quotaViewLinuxUser,
         webFilterEnabled, installedApps,
         loadWebFilter, saveWebFilter, saveWebFilterAll, persistWebFilterAllowlist, loadAppControlConfig, loadBlockedApps, loadInstalledApps, loadSchedule, loadKioskStatus, loadAppQuotas,
-        loadProcessWhitelist, applyLifeMode, refreshProtectionsState, setQuotaViewLinuxUser,
+        loadProcessWhitelist, refreshProtectionsState, setQuotaViewLinuxUser,
         showLockdownWizard
     }
 })

@@ -11,6 +11,31 @@
                 <div class="pc-card">
                     <div class="pc-card-header"><h6><i class="bi bi-cpu me-2" />{{ $t('settings.systemdDaemon') }}</h6></div>
                     <div class="pc-card-body">
+                        <!-- Daemon control buttons -->
+                        <div class="d-flex flex-wrap gap-2 mb-3">
+                            <button type="button" class="btn-pc-primary" :disabled="daemonCtrlBusy" @click="onDaemonControl('install')" :title="$t('settings.installAndStart')">
+                                <i class="bi bi-download me-1" />{{ $t('settings.installAndStart') }}
+                            </button>
+                            <button type="button" class="btn-pc-outline" :disabled="daemonCtrlBusy" @click="onDaemonControl('start')">
+                                <i class="bi bi-play me-1" />{{ $t('settings.start') }}
+                            </button>
+                            <button type="button" class="btn-pc-outline" :disabled="daemonCtrlBusy" @click="onDaemonControl('stop')">
+                                <i class="bi bi-stop me-1" />{{ $t('settings.stop') }}
+                            </button>
+                            <button type="button" class="btn-pc-outline" :disabled="daemonCtrlBusy" @click="onDaemonControl('restart')">
+                                <i class="bi bi-arrow-repeat me-1" />{{ $t('settings.restart') }}
+                            </button>
+                            <button type="button" class="btn-pc-outline" :disabled="warningTestBusy" @click="onQueueDaemonWarningTest">
+                                <i class="bi bi-window-stack me-1" />{{ $t('settings.warningTestBtn') }}
+                            </button>
+                        </div>
+                        <p v-if="warningTestMsg" class="small mb-2" :class="warningTestError ? 'text-danger' : 'text-muted'">{{ warningTestMsg }}</p>
+                        <p v-if="daemonCtrlMsg" class="small mb-2" :class="daemonCtrlError ? 'text-danger' : 'text-success'">{{ daemonCtrlMsg }}</p>
+                        <p class="text-muted small mb-0" v-html="$t('settings.installDesc')" />
+
+                        <hr class="my-3" />
+
+                        <!-- Status badges -->
                         <div class="d-flex flex-wrap align-items-center gap-3 mb-3">
                             <div>
                                 <div class="small text-muted mb-1">{{ $t('settings.service') }}</div>
@@ -51,9 +76,18 @@
                                 <i class="bi bi-arrow-repeat me-1" :class="{ 'spin': daemonRefreshing }" />{{ $t('settings.refresh') }}
                             </button>
                         </div>
+
+                        <!-- Status warnings + fix buttons -->
                         <p v-if="nodeCheckReason === 'missing'" class="small text-danger mb-3" v-html="$t('settings.nodeNotFound')" />
                         <p v-else-if="nodeCheckReason === 'too_old'" class="small text-warning mb-3" v-html="$t('settings.nodeTooOld', { version: nodeVersion, required: nodeRequiredVersion })" />
                         <p v-if="appArmorReason !== 'ok'" class="small text-warning mb-3" v-html="$t(`settings.appArmor_${appArmorReason}`)" />
+                        <div v-if="appArmorReason === 'profile_not_loaded'" class="border-top pt-3 mt-1 mb-3">
+                            <div class="small text-muted mb-2" v-html="$t('settings.apparmorSetupHint')" />
+                            <button type="button" class="btn-pc-primary" :disabled="apparmorSetupBusy" @click="onSetupApparmor">
+                                <i class="bi bi-arrow-repeat me-1" :class="{ 'spin': apparmorSetupBusy }" />{{ $t('settings.apparmorSetupBtn') }}
+                            </button>
+                            <p v-if="apparmorSetupMsg" class="small mb-0 mt-2" :class="apparmorSetupError ? 'text-danger' : 'text-success'">{{ apparmorSetupMsg }}</p>
+                        </div>
                         <p v-if="!dnsmasqOk" class="small text-warning mb-3" v-html="$t('settings.dnsmasqNotFound')" />
                         <div v-if="!dnsmasqOk" class="border-top pt-3 mt-1 mb-3">
                             <div class="small text-muted mb-2" v-html="$t('settings.dnsmasqSetupHint')" />
@@ -62,79 +96,8 @@
                             </button>
                             <p v-if="dnsmasqSetupMsg" class="small mb-0 mt-2" :class="dnsmasqSetupError ? 'text-danger' : 'text-success'">{{ dnsmasqSetupMsg }}</p>
                         </div>
-                        <div class="d-flex flex-wrap gap-2 mb-3">
-                            <button type="button" class="btn-pc-primary" :disabled="daemonCtrlBusy" @click="onDaemonControl('install')" :title="$t('settings.installAndStart')">
-                                <i class="bi bi-download me-1" />{{ $t('settings.installAndStart') }}
-                            </button>
-                            <button type="button" class="btn-pc-outline" :disabled="daemonCtrlBusy" @click="onDaemonControl('start')">
-                                <i class="bi bi-play me-1" />{{ $t('settings.start') }}
-                            </button>
-                            <button type="button" class="btn-pc-outline" :disabled="daemonCtrlBusy" @click="onDaemonControl('stop')">
-                                <i class="bi bi-stop me-1" />{{ $t('settings.stop') }}
-                            </button>
-                            <button type="button" class="btn-pc-outline" :disabled="daemonCtrlBusy" @click="onDaemonControl('restart')">
-                                <i class="bi bi-arrow-repeat me-1" />{{ $t('settings.restart') }}
-                            </button>
-                        </div>
-                        <p v-if="daemonCtrlMsg" class="small mb-2" :class="daemonCtrlError ? 'text-danger' : 'text-success'">{{ daemonCtrlMsg }}</p>
-                        <p class="text-muted small mb-2" v-html="$t('settings.installDesc')" />
-                        <div class="border-top pt-3 mt-2">
-                            <div class="small text-muted mb-2" v-html="$t('settings.warningTestHint')" />
-                            <button type="button" class="btn-pc-outline" :disabled="warningTestBusy" @click="onQueueDaemonWarningTest">
-                                <i class="bi bi-window-stack me-1" />{{ $t('settings.warningTestBtn') }}
-                            </button>
-                            <p v-if="warningTestMsg" class="small mb-0 mt-2" :class="warningTestError ? 'text-danger' : 'text-muted'">{{ warningTestMsg }}</p>
-                        </div>
 
-                    </div>
-                </div>
 
-                <div class="pc-card mt-3">
-                    <div class="pc-card-header">
-                        <h6><i class="bi bi-key me-2" />{{ $t('settings.changePassword') }}</h6>
-                    </div>
-                    <div class="pc-card-body">
-                        <div class="mb-3">
-                            <label class="form-label small text-muted" for="settings-pw-current">{{ $t('settings.currentPassword') }}</label>
-                            <div class="pc-pw-wrap">
-                                <input id="settings-pw-current" v-model="changePw.current"
-                                       :type="showPwCurrent ? 'text' : 'password'" class="pc-input"
-                                       :placeholder="$t('settings.currentPasswordPlaceholder')" autocomplete="current-password" />
-                                <button type="button" class="pc-pw-toggle"
-                                        :aria-label="showPwCurrent ? $t('common.hidePassword') : $t('common.showPassword')"
-                                        :aria-pressed="showPwCurrent" @click="showPwCurrent = !showPwCurrent">
-                                    <i :class="showPwCurrent ? 'bi bi-eye-slash' : 'bi bi-eye'" aria-hidden="true" />
-                                </button>
-                            </div>
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label small text-muted" for="settings-pw-new1">{{ $t('settings.newPassword') }}</label>
-                            <div class="pc-pw-wrap">
-                                <input id="settings-pw-new1" v-model="changePw.new1"
-                                       :type="showPwNew1 ? 'text' : 'password'" class="pc-input"
-                                       :placeholder="$t('settings.newPasswordPlaceholder')" autocomplete="new-password" />
-                                <button type="button" class="pc-pw-toggle"
-                                        :aria-label="showPwNew1 ? $t('common.hidePassword') : $t('common.showPassword')"
-                                        :aria-pressed="showPwNew1" @click="showPwNew1 = !showPwNew1">
-                                    <i :class="showPwNew1 ? 'bi bi-eye-slash' : 'bi bi-eye'" aria-hidden="true" />
-                                </button>
-                            </div>
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label small text-muted" for="settings-pw-new2">{{ $t('settings.confirmNewPassword') }}</label>
-                            <div class="pc-pw-wrap">
-                                <input id="settings-pw-new2" v-model="changePw.new2"
-                                       :type="showPwNew2 ? 'text' : 'password'" class="pc-input"
-                                       :placeholder="$t('settings.repeatPasswordPlaceholder')" autocomplete="new-password" />
-                                <button type="button" class="pc-pw-toggle"
-                                        :aria-label="showPwNew2 ? $t('common.hidePassword') : $t('common.showPassword')"
-                                        :aria-pressed="showPwNew2" @click="showPwNew2 = !showPwNew2">
-                                    <i :class="showPwNew2 ? 'bi bi-eye-slash' : 'bi bi-eye'" aria-hidden="true" />
-                                </button>
-                            </div>
-                        </div>
-                        <p v-if="pwMsg" :class="pwError ? 'text-danger' : 'text-success'" class="small">{{ pwMsg }}</p>
-                        <button class="btn-pc-primary" @click="onChangePassword">{{ $t('settings.updatePassword') }}</button>
                     </div>
                 </div>
 
@@ -277,27 +240,51 @@
                 </div>
 
                 <div class="pc-card mb-3">
-                    <div class="pc-card-header"><h6><i class="bi bi-sliders me-2" />{{ $t('settings.customFamilyProfiles') }}</h6></div>
-                    <div class="pc-card-body text-muted" style="font-size:12px;line-height:1.65;">
-                        <p class="mb-2" v-html="$t('settings.customFamilyDesc')" />
-                        <p class="mb-2 small" v-html="$t('settings.customFamilyFields')" />
-                        <pre class="bg-light border rounded p-2 mb-0" style="font-size:11px;max-height:220px;overflow:auto;">{
-  "homework": {
-    "label": "Homework",
-    "schedule": {
-      "enabled": true,
-      "dailyLimitEnabled": true,
-      "dailyLimitMinutes": 60,
-      "allowedHoursEnabled": true,
-      "allowedHoursStart": "17:00",
-      "allowedHoursEnd": "20:00",
-      "allowedDays": [1, 2, 3, 4, 5]
-    },
-    "mergeCategories": ["Video Streaming"],
-    "stripCategories": [],
-    "blockedDesktopIds": []
-  }
-}</pre>
+                    <div class="pc-card-header">
+                        <h6><i class="bi bi-key me-2" />{{ $t('settings.changePassword') }}</h6>
+                    </div>
+                    <div class="pc-card-body">
+                        <div class="mb-3">
+                            <label class="form-label small text-muted" for="settings-pw-current">{{ $t('settings.currentPassword') }}</label>
+                            <div class="pc-pw-wrap">
+                                <input id="settings-pw-current" v-model="changePw.current"
+                                       :type="showPwCurrent ? 'text' : 'password'" class="pc-input"
+                                       :placeholder="$t('settings.currentPasswordPlaceholder')" autocomplete="current-password" />
+                                <button type="button" class="pc-pw-toggle"
+                                        :aria-label="showPwCurrent ? $t('common.hidePassword') : $t('common.showPassword')"
+                                        :aria-pressed="showPwCurrent" @click="showPwCurrent = !showPwCurrent">
+                                    <i :class="showPwCurrent ? 'bi bi-eye-slash' : 'bi bi-eye'" aria-hidden="true" />
+                                </button>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label small text-muted" for="settings-pw-new1">{{ $t('settings.newPassword') }}</label>
+                            <div class="pc-pw-wrap">
+                                <input id="settings-pw-new1" v-model="changePw.new1"
+                                       :type="showPwNew1 ? 'text' : 'password'" class="pc-input"
+                                       :placeholder="$t('settings.newPasswordPlaceholder')" autocomplete="new-password" />
+                                <button type="button" class="pc-pw-toggle"
+                                        :aria-label="showPwNew1 ? $t('common.hidePassword') : $t('common.showPassword')"
+                                        :aria-pressed="showPwNew1" @click="showPwNew1 = !showPwNew1">
+                                    <i :class="showPwNew1 ? 'bi bi-eye-slash' : 'bi bi-eye'" aria-hidden="true" />
+                                </button>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label small text-muted" for="settings-pw-new2">{{ $t('settings.confirmNewPassword') }}</label>
+                            <div class="pc-pw-wrap">
+                                <input id="settings-pw-new2" v-model="changePw.new2"
+                                       :type="showPwNew2 ? 'text' : 'password'" class="pc-input"
+                                       :placeholder="$t('settings.repeatPasswordPlaceholder')" autocomplete="new-password" />
+                                <button type="button" class="pc-pw-toggle"
+                                        :aria-label="showPwNew2 ? $t('common.hidePassword') : $t('common.showPassword')"
+                                        :aria-pressed="showPwNew2" @click="showPwNew2 = !showPwNew2">
+                                    <i :class="showPwNew2 ? 'bi bi-eye-slash' : 'bi bi-eye'" aria-hidden="true" />
+                                </button>
+                            </div>
+                        </div>
+                        <p v-if="pwMsg" :class="pwError ? 'text-danger' : 'text-success'" class="small">{{ pwMsg }}</p>
+                        <button class="btn-pc-primary" @click="onChangePassword">{{ $t('settings.updatePassword') }}</button>
                     </div>
                 </div>
 
@@ -381,6 +368,9 @@ const dnsmasqVersion = ref(null)
 const dnsmasqSetupBusy = ref(false)
 const dnsmasqSetupMsg = ref('')
 const dnsmasqSetupError = ref(false)
+const apparmorSetupBusy = ref(false)
+const apparmorSetupMsg = ref('')
+const apparmorSetupError = ref(false)
 const daemonRefreshing = ref(false)
 const daemonCtrlBusy = ref(false)
 const daemonCtrlMsg = ref('')
@@ -424,6 +414,23 @@ async function loadDaemonInfo() {
         dnsmasqVersion.value = null
     }
     daemonRefreshing.value = false
+}
+
+async function onSetupApparmor() {
+    apparmorSetupMsg.value = ''
+    apparmorSetupError.value = false
+    apparmorSetupBusy.value = true
+    const r = await window.api.daemon.setupApparmor()
+    apparmorSetupBusy.value = false
+    if (r?.ok) {
+        apparmorSetupMsg.value = t('settings.apparmorSetupOk')
+        apparmorSetupError.value = false
+        await loadDaemonInfo()
+    } else {
+        apparmorSetupMsg.value = r?.error || t('settings.apparmorSetupFailed')
+        apparmorSetupError.value = true
+    }
+    setTimeout(() => { apparmorSetupMsg.value = '' }, 8000)
 }
 
 async function onSetupDnsmasq() {
