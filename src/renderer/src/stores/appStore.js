@@ -29,6 +29,7 @@ export const useAppStore = defineStore('app', () => {
     const showLockdownWizard = ref(false)
 
     const webFilterEnabled = ref(true)
+    const webFilterDnsMode = ref('dhcp')
 
     async function loadWebFilter() {
         const result = await window.api.webFilter.getList()
@@ -39,6 +40,7 @@ export const useAppStore = defineStore('app', () => {
             : {}
         webFilterHostRuleCount.value = typeof result.hostRuleCount === 'number' ? result.hostRuleCount : 0
         webFilterAllowlist.value = Array.isArray(result.listAllowlist) ? [...result.listAllowlist] : []
+        webFilterDnsMode.value = typeof result.dnsMode === 'string' ? result.dnsMode : 'dhcp'
         return result
     }
 
@@ -68,7 +70,8 @@ export const useAppStore = defineStore('app', () => {
             enabled: webFilterEnabled.value,
             entries,
             feedState: { ...toRaw(webFilterFeedState.value) },
-            listAllowlist: webFilterAllowlist.value.map(d => String(d))
+            listAllowlist: webFilterAllowlist.value.map(d => String(d)),
+            dnsMode: webFilterDnsMode.value
         })
         if (!result?.error) await loadWebFilter()
         return result
@@ -161,7 +164,7 @@ export const useAppStore = defineStore('app', () => {
         webFilterEntries, webFilterFeedState, webFilterHostRuleCount, webFilterAllowlist, blockedApps, appControlEnabled, quotaExemptAllowedIds, schedule, todayUsageMinutes, todayExtraAllowanceMinutes, kioskStatus,
         appQuotas, appQuotaUsage, appQuotaExtra, appMonitorUsage, appMonitorLabels, statusMessage, whitelistEnabled, runningAsRoot, xdgCurrentDesktop,
         invokingLinuxUser, quotaViewLinuxUser,
-        webFilterEnabled, installedApps,
+        webFilterEnabled, webFilterDnsMode, installedApps,
         loadWebFilter, saveWebFilter, saveWebFilterAll, persistWebFilterAllowlist, loadAppControlConfig, loadBlockedApps, loadInstalledApps, loadSchedule, loadKioskStatus, loadAppQuotas,
         loadProcessWhitelist, refreshProtectionsState, setQuotaViewLinuxUser,
         showLockdownWizard

@@ -203,9 +203,6 @@
                             <button type="button" class="btn-pc-outline" :disabled="maintBusy" @click="onPruneUsageArchives">
                                 <i class="bi bi-trash me-1" />{{ $t('settings.usageLogsOld') }}
                             </button>
-                            <button type="button" class="btn-pc-outline" @click="appStore.showLockdownWizard = true">
-                                <i class="bi bi-shield-lock me-1" />{{ $t('settings.runLockdownWizard') }}
-                            </button>
                         </div>
                         <p v-if="maintMsg" class="small mt-2 mb-0" :class="maintError ? 'text-danger' : 'text-success'">{{ maintMsg }}</p>
                     </div>
@@ -285,6 +282,19 @@
                         </div>
                         <p v-if="pwMsg" :class="pwError ? 'text-danger' : 'text-success'" class="small">{{ pwMsg }}</p>
                         <button class="btn-pc-primary" @click="onChangePassword">{{ $t('settings.updatePassword') }}</button>
+                    </div>
+                </div>
+
+                <div class="pc-card mb-3">
+                    <div class="pc-card-header">
+                        <h6><i class="bi bi-shield-exclamation me-2" />{{ $t('lockdown.title') }}</h6>
+                    </div>
+                    <div class="pc-card-body">
+                        <p class="text-muted small mb-2">{{ $t('settings.lockdownIntroLead') }}</p>
+                        <p class="text-muted small mb-3">{{ $t('settings.lockdownIntroSystem') }}</p>
+                        <button type="button" class="btn btn-success" @click="appStore.showLockdownWizard = true">
+                            <i class="bi bi-shield-lock me-1" />{{ $t('settings.runLockdownWizard') }}
+                        </button>
                     </div>
                 </div>
 

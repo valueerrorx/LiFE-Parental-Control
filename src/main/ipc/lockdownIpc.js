@@ -49,8 +49,14 @@ export function registerLockdownIpc(ipcMain, configDir) {
         return result
     })
 
-    /** Mark the wizard as skipped/dismissed without executing (parent's choice). */
+    /** Persist finishedLockdownWizard=true (wizard was shown once); idempotent — no duplicate activity if already true. */
     ipcMain.handle('lockdown:markFinished', (_, skipped = false) => {
+        try {
+            const cfg = readDefaultJson(configDir)
+            if (cfg?.finishedLockdownWizard === true) return { ok: true }
+        } catch {
+            /* proceed to patch */
+        }
         patchDefaultJson(configDir, (d) => {
             d.finishedLockdownWizard = true
             return d

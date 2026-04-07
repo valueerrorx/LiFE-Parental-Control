@@ -7,7 +7,9 @@
                 <template v-if="step === 0">
                     <div class="lock-icon"><i class="bi bi-shield-exclamation" /></div>
                     <h2>{{ $t('lockdown.title') }}</h2>
-                    <p class="text-muted small mb-3">{{ $t('lockdown.intro') }}</p>
+                    <p class="text-muted small mb-2">{{ $t('lockdown.introLead') }}</p>
+                    <p class="text-muted small mb-2">{{ $t('lockdown.introDefer') }}</p>
+                    <p class="small mb-3 lockdown-intro-settings-hint">{{ $t('lockdown.introSettingsHint') }}</p>
 
                     <div class="text-start mb-3">
                         <label class="form-label small text-muted">{{ $t('lockdown.targetUserLabel') }}</label>
@@ -287,12 +289,22 @@ async function onExecute() {
     }
 }
 
-function onSkip() {
-    emit('close') // skip: don't persist, wizard reappears next unlock
+async function onSkip() {
+    try {
+        await window.api.lockdown.markFinished(true)
+    } catch {
+        /* best-effort */
+    }
+    emit('close', { skipped: true })
 }
 
-function onClose() {
-    emit('close')
+async function onClose() {
+    try {
+        await window.api.lockdown.markFinished(false)
+    } catch {
+        /* best-effort */
+    }
+    emit('close', { skipped: false })
 }
 </script>
 
@@ -301,8 +313,12 @@ function onClose() {
     z-index: 9000;
 }
 
+.lockdown-intro-settings-hint {
+    color: #1b5e20;
+}
+
 .lockdown-card {
-    max-width: 520px;
+    max-width: 440px;
     width: 100%;
     max-height: 90vh;
     overflow-y: auto;

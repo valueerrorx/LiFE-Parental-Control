@@ -33,6 +33,8 @@ function normalizeAllowlist(raw) {
     return [...out].sort()
 }
 
+const VALID_DNS_MODES = ['dns4eu_protective', 'dns4eu_child', 'dns4eu_ads', 'dns4eu_child_ads', 'dns4eu_unfiltered', 'dhcp']
+
 function readWebfilterFromConfig(configDir) {
     const wf = readDefaultJson(configDir)?.webfilter || {}
     return {
@@ -42,7 +44,8 @@ function readWebfilterFromConfig(configDir) {
             ? { ...wf.feedState }
             : {},
         listAllowlist: Array.isArray(wf.listAllowlist) ? wf.listAllowlist : [],
-        cachedHostRuleCount: typeof wf.cachedHostRuleCount === 'number' ? wf.cachedHostRuleCount : undefined
+        cachedHostRuleCount: typeof wf.cachedHostRuleCount === 'number' ? wf.cachedHostRuleCount : undefined,
+        dnsMode: VALID_DNS_MODES.includes(wf.dnsMode) ? wf.dnsMode : 'dhcp'
     }
 }
 
@@ -90,7 +93,8 @@ async function persistWebfilterAndHosts(configDir, wf, { background = false } = 
         enabled: wf.enabled !== false,
         entries: wf.entries,
         feedState: wf.feedState || {},
-        listAllowlist: wf.listAllowlist ?? []
+        listAllowlist: wf.listAllowlist ?? [],
+        dnsMode: VALID_DNS_MODES.includes(wf.dnsMode) ? wf.dnsMode : 'dhcp'
     }
     await new Promise((resolve) => globalThis.setImmediate(resolve))
     const combined = full.enabled ? buildCombinedEntries(configDir, full) : []
@@ -100,7 +104,8 @@ async function persistWebfilterAndHosts(configDir, wf, { background = false } = 
             entries: full.entries,
             feedState: full.feedState,
             listAllowlist: full.listAllowlist,
-            cachedHostRuleCount: combined.length
+            cachedHostRuleCount: combined.length,
+            dnsMode: full.dnsMode
         }
         return d
     })
@@ -109,7 +114,7 @@ async function persistWebfilterAndHosts(configDir, wf, { background = false } = 
     if (background) {
         writeHostsSectionAsync(combined).catch(e => console.warn('[LiFE webfilter] write-hosts (bg):', e.message))
         if (full.enabled && combined.length > 0) {
-            daemonWriteDnsmasq(combined).catch(e => console.warn('[LiFE webfilter] write-dnsmasq (bg):', e.message))
+            daemonWriteDnsmasq(combined, full.dnsMode).catch(e => console.warn('[LiFE webfilter] write-dnsmasq (bg):', e.message))
         } else {
             daemonRemoveDnsmasq().catch(e => console.warn('[LiFE webfilter] remove-dnsmasq (bg):', e.message))
         }
@@ -119,7 +124,7 @@ async function persistWebfilterAndHosts(configDir, wf, { background = false } = 
     await writeHostsSectionAsync(combined)
     // Also write dnsmasq config for subdomain filtering
     if (full.enabled && combined.length > 0) {
-        const dnsResult = await daemonWriteDnsmasq(combined)
+        const dnsResult = await daemonWriteDnsmasq(combined, full.dnsMode)
         if (!dnsResult.ok) console.warn('[LiFE webfilter] write-dnsmasq failed:', dnsResult.error)
     } else {
         const dnsResult = await daemonRemoveDnsmasq()
@@ -149,6 +154,7 @@ export function registerWebFilterIpc(ipcMain, configDir) {
             entries: wf.entries,
             feedState: wf.feedState,
             listAllowlist: wf.listAllowlist,
+            dnsMode: wf.dnsMode,
             categories: WEB_FILTER_QUICK_ADD_ORDER,
             staticCategories: WEB_FILTER_STATIC_CATEGORIES,
             feedsMeta,
@@ -256,6 +262,9 @@ export function registerWebFilterIpc(ipcMain, configDir) {
             }
             if (Array.isArray(data.listAllowlist)) {
                 wf.listAllowlist = normalizeAllowlist(data.listAllowlist)
+            }
+            if (VALID_DNS_MODES.includes(data.dnsMode)) {
+                wf.dnsMode = data.dnsMode
             }
             await persistWebfilterAndHosts(configDir, wf)
             appendActivity(configDir, { action: 'webfilter_saved', enabled: wf.enabled, manualCount: wf.entries.filter(e => e.enabled !== false).length, feedCount: Object.values(wf.feedState).filter(Boolean).length, allowlistCount: wf.listAllowlist.length })

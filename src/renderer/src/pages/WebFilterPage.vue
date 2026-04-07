@@ -138,9 +138,10 @@
                     </div>
                 </div>
 
-                <!-- Quick add categories -->
+                <!-- Quick add categories + DNS selection -->
                 <div class="col-4">
-                    <div class="pc-card">
+             
+                    <div class="pc-card mb-3">
                         <div class="pc-card-header">
                             <h6>{{ $t('webFilter.quickAddCategories') }}</h6>
                         </div>
@@ -203,6 +204,34 @@
                             </button>
                         </div>
                     </div>
+
+                    <!-- DNS upstream selection -->
+                    <div class="pc-card mb-3">
+                        <div class="pc-card-header">
+                            <h6>{{ $t('webFilter.dnsUpstream') }}</h6>
+                        </div>
+                        <div class="pc-card-body d-flex flex-column gap-1">
+                            <label
+                                v-for="opt in dnsOptions"
+                                :key="opt.value"
+                                class="dns-option"
+                                :class="{ 'dns-option--active': store.webFilterDnsMode === opt.value }"
+                            >
+                                <input
+                                    type="radio"
+                                    :value="opt.value"
+                                    v-model="store.webFilterDnsMode"
+                                    class="visually-hidden"
+                                />
+                                <div class="dns-option-content">
+                                    <div class="dns-option-label">{{ opt.label }}</div>
+                                    <div class="dns-option-sub">{{ opt.sub }}</div>
+                                </div>
+                            </label>
+                        </div>
+                    </div>
+
+
                 </div>
             </div>
         </div>
@@ -217,6 +246,15 @@ import { useAppStore } from '../stores/appStore.js'
 
 const { t } = useI18n()
 const store = useAppStore()
+
+const dnsOptions = computed(() => [
+    { value: 'dns4eu_protective',  label: t('webFilter.dns_protective'),       sub: '86.54.11.1' },
+    { value: 'dns4eu_child',       label: t('webFilter.dns_child'),             sub: '86.54.11.12' },
+    { value: 'dns4eu_ads',         label: t('webFilter.dns_ads'),               sub: '86.54.11.13' },
+    { value: 'dns4eu_child_ads',   label: t('webFilter.dns_child_ads'),         sub: '86.54.11.11' },
+    { value: 'dns4eu_unfiltered',  label: t('webFilter.dns_unfiltered'),        sub: '86.54.11.100' },
+    { value: 'dhcp',               label: t('webFilter.dns_dhcp'),              sub: t('webFilter.dns_dhcp_sub') },
+])
 const entries = computed(() => store.webFilterEntries)
 const categories = ref([])
 const staticCategoryDomains = ref({})
@@ -248,7 +286,8 @@ function takeSnapshot() {
         enabled: store.webFilterEnabled,
         entries: store.webFilterEntries.map(e => ({ domain: e.domain, enabled: e.enabled })),
         feedState: Object.fromEntries(Object.entries(store.webFilterFeedState).sort()),
-        allowlist: [...store.webFilterAllowlist]
+        allowlist: [...store.webFilterAllowlist],
+        dnsMode: store.webFilterDnsMode
     })
 }
 
@@ -258,7 +297,8 @@ const isDirty = computed(() => {
         enabled: store.webFilterEnabled,
         entries: store.webFilterEntries.map(e => ({ domain: e.domain, enabled: e.enabled })),
         feedState: Object.fromEntries(Object.entries(store.webFilterFeedState).sort()),
-        allowlist: [...store.webFilterAllowlist]
+        allowlist: [...store.webFilterAllowlist],
+        dnsMode: store.webFilterDnsMode
     })
     return cur !== savedSnapshot.value
 })
@@ -428,6 +468,41 @@ async function onSyncFeeds() {
 </script>
 
 <style scoped>
+.dns-option {
+    display: flex;
+    align-items: center;
+    padding: 7px 10px;
+    border-radius: 6px;
+    cursor: pointer;
+    border: 1px solid transparent;
+    transition: background 0.15s, border-color 0.15s;
+}
+.dns-option:hover {
+    background: var(--pc-hover, rgba(255,255,255,0.05));
+}
+.dns-option--active {
+    background: var(--pc-accent-subtle, rgba(99,102,241,0.12));
+    border-color: var(--pc-accent, #6366f1);
+}
+.dns-option-content {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+}
+.dns-option-label {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--pc-text);
+}
+.dns-option--active .dns-option-label {
+    color: var(--pc-accent, #6366f1);
+}
+.dns-option-sub {
+    font-size: 11px;
+    color: var(--pc-text-muted, #888);
+    font-family: monospace;
+}
+
 /* Subhead beside Update lists; aligns visually with pc-card-header h6. */
 .webfilter-hagezi-subhead {
     font-size: 14px;

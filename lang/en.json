@@ -174,7 +174,15 @@
     "alreadyAllowed": "\"{host}\" is already allowed",
     "listsSynced": "List files synced.",
     "listsUpdated": " updated {list}",
-    "listsWarnings": " \u2014 warnings: {list}"
+    "listsWarnings": " \u2014 warnings: {list}",
+    "dnsUpstream": "DNS Server",
+    "dns_protective": "Protective",
+    "dns_child": "Protective + Child Protection",
+    "dns_ads": "Protective + Ad Blocking",
+    "dns_child_ads": "Protective + Child Protection + Ad Blocking",
+    "dns_unfiltered": "Unfiltered",
+    "dns_dhcp": "Local Network (DHCP)",
+    "dns_dhcp_sub": "DNS from router"
   },
   "appControl": {
     "title": "App Control",
@@ -342,6 +350,8 @@
     "quotaExemptions": "Quota exemptions",
     "usageLogsOld": "Usage logs (old)",
     "runLockdownWizard": "Lockdown wizard",
+    "lockdownIntroLead": "This assistant guides you through advanced system lockdown: the selected user is downgraded in privileges so that settings you make in this app cannot be disabled by them under any circumstances.",
+    "lockdownIntroSystem": "It prevents this application from being removed and system services that are important for lockdown from being disabled.",
     "usageArchiveCleanup": "Usage archive cleanup completed.",
     "quotaScriptRedeployed": "Quota script re-deployed; quota exemptions picked up from disk.",
     "webFilterRestored": "Web filter restored: /etc/hosts rebuilt from current settings.",
@@ -476,7 +486,9 @@
   },
   "lockdown": {
     "title": "Secure the system",
-    "intro": "This wizard helps you lock down the system. You can run it now or skip it — it will appear again on the next start.",
+    "introLead": "This assistant makes deep changes to the system and is intended for experienced users.",
+    "introDefer": "You can skip this process!",
+    "introSettingsHint": "In the app settings you will find more information and the option to start the assistant again if needed.",
     "targetUserLabel": "User to restrict (child account)",
     "selectUser": "Select user …",
     "analyzeBtn": "Analyze",

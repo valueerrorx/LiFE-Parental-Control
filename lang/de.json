@@ -174,7 +174,15 @@
     "alreadyAllowed": "\u201e{host}\u201c ist bereits erlaubt",
     "listsSynced": "Listendateien synchronisiert.",
     "listsUpdated": " aktualisiert {list}",
-    "listsWarnings": " \u2014 Warnungen: {list}"
+    "listsWarnings": " \u2014 Warnungen: {list}",
+    "dnsUpstream": "DNS-Server",
+    "dns_protective": "Schutz",
+    "dns_child": "Schutz + Kinderschutz",
+    "dns_ads": "Schutz + Werbeblocker",
+    "dns_child_ads": "Schutz + Kinderschutz + Werbeblocker",
+    "dns_unfiltered": "Ungefiltert",
+    "dns_dhcp": "Lokales Netzwerk (DHCP)",
+    "dns_dhcp_sub": "DNS vom Router"
   },
   "appControl": {
     "title": "App-Kontrolle",
@@ -342,6 +350,8 @@
     "quotaExemptions": "Kontingentausnahmen",
     "usageLogsOld": "Nutzungsprotokolle (alt)",
     "runLockdownWizard": "Absicherungs-Assistent",
+    "lockdownIntroLead": "Dieser Assistent f\u00fchrt Sie durch eine fortgeschrittene System-Absicherung: Der ausgew\u00e4hlte Benutzer wird in seinen Rechten herabgestuft, damit Einstellungen, die Sie in dieser Software vornehmen, von diesem unter keinen Umst\u00e4nden deaktiviert werden k\u00f6nnen.",
+    "lockdownIntroSystem": "Er verhindert, dass die Applikation selbst entfernt bzw. f\u00fcr die Absicherung wichtige Systemdienste deaktiviert werden k\u00f6nnen.",
     "usageArchiveCleanup": "Nutzungsarchiv-Bereinigung abgeschlossen.",
     "quotaScriptRedeployed": "Kontingentskript neu eingesetzt; Kontingentausnahmen von Disk geladen.",
     "webFilterRestored": "Web-Filter wiederhergestellt: /etc/hosts aus aktuellen Einstellungen neu aufgebaut.",
@@ -476,7 +486,9 @@
   },
   "lockdown": {
     "title": "System absichern",
-    "intro": "Dieser Assistent hilft dir, das System zu sichern. Du kannst ihn jetzt ausführen oder überspringen – er erscheint beim nächsten Start erneut.",
+    "introLead": "Dieser Assistent nimmt tiefgreifende Änderungen am System vor und richtet sich an erfahrene Anwender.",
+    "introDefer": "Sie können den Vorgang überspringen!",
+    "introSettingsHint": "In den App-Einstellungen erhalten Sie weitere Informationen sowie die Möglichkeit, den Assistenten bei Bedarf erneut zu starten.",
     "targetUserLabel": "Einzuschränkender Benutzer (Kind)",
     "selectUser": "Benutzer wählen …",
     "analyzeBtn": "Analysieren",

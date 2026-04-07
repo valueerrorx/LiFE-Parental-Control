@@ -30,9 +30,18 @@ html, body, #app {
     background: var(--pc-bg);
 }
 
-// Fills viewport and lets .pc-lockscreen flex-center immediately (avoids card stuck top-left before layout settles).
-#app:has(.pc-lockscreen),
+// Logged-in shell: viewport height capped so scroll stays in .pc-main (sidebar does not move with body).
 #app:has(.pc-app-shell) {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    max-height: 100vh;
+    min-height: 0;
+    overflow: hidden;
+}
+
+// First-run / daemon / lock cards: min-height keeps vertical centering when no shell.
+#app:has(.pc-lockscreen):not(:has(.pc-app-shell)) {
     display: flex;
     flex-direction: column;
     min-height: 100vh;
@@ -168,12 +177,15 @@ html, body, #app {
 // --- Main layout ---
 .pc-layout {
     display: flex;
-    height: 100vh;
+    flex: 1;
+    min-height: 0;
+    width: 100%;
     overflow: hidden;
 }
 
 .pc-main {
     flex: 1;
+    min-height: 0;
     overflow-y: auto;
     background: var(--pc-bg);
 }
@@ -338,9 +350,10 @@ html, body, #app {
     .item-name { font-size: 13px; font-weight: 500; }
 }
 
-// Web Filter: both list panes share one fixed height so the cards align visually.
+// Web Filter: both list panes use a capped height so they scroll internally without
+// creating a second outer scrollbar when the window is small.
 .pc-scroll-list {
-    height: 380px;
+    max-height: clamp(180px, 38vh, 420px);
     min-height: 0;
     overflow-x: hidden;
     overflow-y: auto;
@@ -546,7 +559,8 @@ html, body, #app {
     }
 
     h2 { font-size: 20px; font-weight: 700; margin-bottom: 6px; }
-    p  { font-size: 13.5px; color: var(--pc-text-secondary); margin-bottom: 24px; }
+    p  { font-size: 13.5px; margin-bottom: 24px; }
+    p:not(.lockdown-intro-settings-hint) { color: var(--pc-text-secondary); } // hint paragraph sets its own color in LockdownWizard.vue
 }
 
 // Session lock: dashboard stays visible behind a pale overlay (see App.vue).
@@ -561,6 +575,9 @@ html, body, #app {
 .pc-app-shell-main {
     flex: 1;
     min-height: 0;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
 }
 
 .pc-app-shell-main--locked {
