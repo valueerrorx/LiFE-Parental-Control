@@ -1,0 +1,52 @@
+#!/bin/sh
+# LiFE Parental Control — NetworkManager dispatcher script
+# Triggered by NM on every network event. Writes the current DHCP DNS
+# into default.json so the daemon picks it up and uses it as dnsmasq fallback.
+#
+# SPDX-License-Identifier: GPL-3.0-or-later; Copyright (c) 2026 Thomas Michael Weissel
+
+INTERFACE="$1"
+ACTION="$2"
+CONFIG="/etc/life-parental/default.json"
+
+case "$ACTION" in
+    up|dhcp4-change) ;;
+    *) exit 0 ;;
+esac
+
+case "$INTERFACE" in
+    lo) exit 0 ;;
+esac
+
+# NM passes DNS servers as space-separated list in IP4_NAMESERVERS
+DNS=$(echo "$IP4_NAMESERVERS" | awk '{print $1}')
+
+# Fallback: read from NM's own resolv.conf if variable was empty
+if [ -z "$DNS" ] && [ -f /run/NetworkManager/resolv.conf ]; then
+    DNS=$(awk '/^nameserver/{print $2; exit}' /run/NetworkManager/resolv.conf)
+fi
+
+[ -z "$DNS" ] && exit 0
+
+# Validate: must look like an IPv4 address (no injection possible after this)
+echo "$DNS" | grep -qE '^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$' || exit 0
+
+[ -f "$CONFIG" ] || exit 0
+
+# Pass DNS via environment variable — avoids any shell quoting issues in the JS string
+LIFE_DHCP_DNS="$DNS" node -e "
+const fs = require('fs');
+const CONFIG = '/etc/life-parental/default.json';
+const dns = process.env.LIFE_DHCP_DNS;
+try {
+    const obj = JSON.parse(fs.readFileSync(CONFIG, 'utf8'));
+    if (!obj.webfilter) obj.webfilter = {};
+    if (obj.webfilter.dhcpFallbackDns === dns) process.exit(0);
+    obj.webfilter.dhcpFallbackDns = dns;
+    const tmp = CONFIG + '.tmp';
+    fs.writeFileSync(tmp, JSON.stringify(obj, null, 2) + '\n', 'utf8');
+    fs.renameSync(tmp, CONFIG);
+} catch(e) { process.exit(1); }
+" 2>/dev/null || true
+
+exit 0
