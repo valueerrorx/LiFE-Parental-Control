@@ -187,6 +187,7 @@ html, body, #app {
     flex: 1;
     min-height: 0;
     overflow-y: auto;
+    overflow-anchor: none;
     background: var(--pc-bg);
 }
 

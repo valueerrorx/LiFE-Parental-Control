@@ -58,6 +58,21 @@ if [ -d "$HAGEZI_SRC" ]; then
     cp -r "$HAGEZI_SRC/." "$HAGEZI_DST/"
 fi
 
+# --- NetworkManager dispatcher script ---
+NM_DISPATCHER_DST="/etc/NetworkManager/dispatcher.d/99-life-parental-dns"
+NM_DISPATCHER_SRC=""
+if [ -f "$RES_BASE/packaging/99-life-parental-dns" ]; then
+    NM_DISPATCHER_SRC="$RES_BASE/packaging/99-life-parental-dns"
+elif [ -f "$RES_BASE/99-life-parental-dns" ]; then
+    NM_DISPATCHER_SRC="$RES_BASE/99-life-parental-dns"
+fi
+if [ -n "$NM_DISPATCHER_SRC" ]; then
+    mkdir -p /etc/NetworkManager/dispatcher.d
+    cp "$NM_DISPATCHER_SRC" "$NM_DISPATCHER_DST"
+    chmod 755 "$NM_DISPATCHER_DST"
+    echo "life-parental-install: NM dispatcher script installed"
+fi
+
 # --- Lockdown script ---
 LOCKDOWN_SRC=""
 if [ -f "$RES_BASE/packaging/life-parental-lockdown.sh" ]; then

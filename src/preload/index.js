@@ -43,7 +43,8 @@ contextBridge.exposeInMainWorld('api', {
         clearAll: () => ipcRenderer.invoke('webfilter:clearAll'),
         syncFeeds: () => ipcRenderer.invoke('webfilter:syncFeeds'),
         reapplyMirror: () => ipcRenderer.invoke('webfilter:reapplyMirror'),
-        saveAll: (data) => ipcRenderer.invoke('webfilter:saveAll', data)
+        saveAll: (data) => ipcRenderer.invoke('webfilter:saveAll', data),
+        getDhcpDns: () => ipcRenderer.invoke('webfilter:getDhcpDns')
     },
     apps: {
         list: () => ipcRenderer.invoke('apps:list'),

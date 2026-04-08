@@ -53,6 +53,14 @@ if [ -n "$APP_VERSION" ] && [ -d "$DAEMON_LIB" ]; then
     chmod 0644 "$DAEMON_LIB/.installed-version"
 fi
 
+# Install NetworkManager dispatcher script
+nm_dispatcher_src="${pkg_res}/packaging/99-life-parental-dns"
+[ -f "$nm_dispatcher_src" ] || nm_dispatcher_src="${pkg_res}/99-life-parental-dns"
+if [ -f "$nm_dispatcher_src" ]; then
+    mkdir -p /etc/NetworkManager/dispatcher.d
+    install -D -m 755 "$nm_dispatcher_src" /etc/NetworkManager/dispatcher.d/99-life-parental-dns
+fi
+
 # Install lockdown script
 lockdown_src="${pkg_res}/packaging/life-parental-lockdown.sh"
 [ -f "$lockdown_src" ] || lockdown_src="${pkg_res}/life-parental-lockdown.sh"

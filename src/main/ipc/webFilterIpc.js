@@ -1,5 +1,5 @@
 import fs from 'fs'
-import { daemonWriteHosts, daemonWriteDnsmasq, daemonRemoveDnsmasq } from '../daemonPrivilegedOps.js'
+import { daemonWriteHosts, daemonWriteDnsmasq, daemonRemoveDnsmasq, daemonGetDhcpDns } from '../daemonPrivilegedOps.js'
 import {
     WEB_FILTER_STATIC_CATEGORIES,
     CATEGORY_TO_HAGEZI_FEED,
@@ -45,7 +45,8 @@ function readWebfilterFromConfig(configDir) {
             : {},
         listAllowlist: Array.isArray(wf.listAllowlist) ? wf.listAllowlist : [],
         cachedHostRuleCount: typeof wf.cachedHostRuleCount === 'number' ? wf.cachedHostRuleCount : undefined,
-        dnsMode: VALID_DNS_MODES.includes(wf.dnsMode) ? wf.dnsMode : 'dhcp'
+        dnsMode: VALID_DNS_MODES.includes(wf.dnsMode) ? wf.dnsMode : 'dhcp',
+        dhcpFallbackDns: typeof wf.dhcpFallbackDns === 'string' ? wf.dhcpFallbackDns : null
     }
 }
 
@@ -94,7 +95,8 @@ async function persistWebfilterAndHosts(configDir, wf, { background = false } = 
         entries: wf.entries,
         feedState: wf.feedState || {},
         listAllowlist: wf.listAllowlist ?? [],
-        dnsMode: VALID_DNS_MODES.includes(wf.dnsMode) ? wf.dnsMode : 'dhcp'
+        dnsMode: VALID_DNS_MODES.includes(wf.dnsMode) ? wf.dnsMode : 'dhcp',
+        dhcpFallbackDns: typeof wf.dhcpFallbackDns === 'string' ? wf.dhcpFallbackDns : null
     }
     await new Promise((resolve) => globalThis.setImmediate(resolve))
     const combined = full.enabled ? buildCombinedEntries(configDir, full) : []
@@ -105,7 +107,8 @@ async function persistWebfilterAndHosts(configDir, wf, { background = false } = 
             feedState: full.feedState,
             listAllowlist: full.listAllowlist,
             cachedHostRuleCount: combined.length,
-            dnsMode: full.dnsMode
+            dnsMode: full.dnsMode,
+            ...(full.dhcpFallbackDns ? { dhcpFallbackDns: full.dhcpFallbackDns } : {})
         }
         return d
     })
@@ -114,7 +117,7 @@ async function persistWebfilterAndHosts(configDir, wf, { background = false } = 
     if (background) {
         writeHostsSectionAsync(combined).catch(e => console.warn('[LiFE webfilter] write-hosts (bg):', e.message))
         if (full.enabled && combined.length > 0) {
-            daemonWriteDnsmasq(combined, full.dnsMode).catch(e => console.warn('[LiFE webfilter] write-dnsmasq (bg):', e.message))
+            daemonWriteDnsmasq(combined, full.dnsMode, full.dhcpFallbackDns).catch(e => console.warn('[LiFE webfilter] write-dnsmasq (bg):', e.message))
         } else {
             daemonRemoveDnsmasq().catch(e => console.warn('[LiFE webfilter] remove-dnsmasq (bg):', e.message))
         }
@@ -124,7 +127,7 @@ async function persistWebfilterAndHosts(configDir, wf, { background = false } = 
     await writeHostsSectionAsync(combined)
     // Also write dnsmasq config for subdomain filtering
     if (full.enabled && combined.length > 0) {
-        const dnsResult = await daemonWriteDnsmasq(combined, full.dnsMode)
+        const dnsResult = await daemonWriteDnsmasq(combined, full.dnsMode, full.dhcpFallbackDns)
         if (!dnsResult.ok) console.warn('[LiFE webfilter] write-dnsmasq failed:', dnsResult.error)
     } else {
         const dnsResult = await daemonRemoveDnsmasq()
@@ -290,6 +293,10 @@ export function registerWebFilterIpc(ipcMain, configDir) {
             appendActivity(configDir, { action: 'webfilter_feeds_sync_error', error: e.message })
             return { error: e.message, updated: [], notModified: [], errors: [e.message] }
         }
+    })
+
+    ipcMain.handle('webfilter:getDhcpDns', async () => {
+        return daemonGetDhcpDns()
     })
 
     ipcMain.handle('webfilter:reapplyMirror', async () => {

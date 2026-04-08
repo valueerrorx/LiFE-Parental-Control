@@ -37,9 +37,9 @@ export async function daemonWriteHosts(entries) {
  * @param {Array<{domain:string,enabled:boolean}>} entries
  * @param {string} [dnsMode='dns4eu_protective']  dns4eu_protective|dns4eu_child|dns4eu_ads|dns4eu_child_ads|dns4eu_unfiltered|dhcp
  */
-export async function daemonWriteDnsmasq(entries, dnsMode = 'dns4eu_protective') {
+export async function daemonWriteDnsmasq(entries, dnsMode = 'dns4eu_protective', dhcpFallbackDns = null) {
     if (!isDaemonConnected()) { logErr('write-dnsmasq', 'daemon not connected'); return { ok: false, error: 'daemon not connected' } }
-    try { return await daemonRequest({ type: 'write-dnsmasq', entries, dnsMode }, 'write-dnsmasq-result', 60_000) }
+    try { return await daemonRequest({ type: 'write-dnsmasq', entries, dnsMode, dhcpFallbackDns }, 'write-dnsmasq-result', 60_000) }
     catch (e) { logErr('write-dnsmasq', e.message); return { ok: false, error: e.message } }
 }
 
@@ -48,6 +48,13 @@ export async function daemonRemoveDnsmasq() {
     if (!isDaemonConnected()) { logErr('remove-dnsmasq', 'daemon not connected'); return { ok: false, error: 'daemon not connected' } }
     try { return await daemonRequest({ type: 'remove-dnsmasq' }, 'remove-dnsmasq-result', 30_000) }
     catch (e) { logErr('remove-dnsmasq', e.message); return { ok: false, error: e.message } }
+}
+
+/** Query the DHCP-assigned DNS server IP from the daemon. Awaitable. Returns { ok, ip } */
+export async function daemonGetDhcpDns() {
+    if (!isDaemonConnected()) return { ok: false, ip: null }
+    try { return await daemonRequest({ type: 'get-dhcp-dns' }, 'get-dhcp-dns-result', 10_000) }
+    catch (e) { return { ok: false, ip: null } }
 }
 
 /** Write + reload AppArmor profile. Fire-and-forget. */

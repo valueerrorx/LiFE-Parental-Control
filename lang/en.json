@@ -182,7 +182,8 @@
     "dns_child_ads": "Protective + Child Protection + Ad Blocking",
     "dns_unfiltered": "Unfiltered",
     "dns_dhcp": "Local Network (DHCP)",
-    "dns_dhcp_sub": "DNS from router"
+    "dns_dhcp_sub": "DNS from router",
+    "dns_dhcp_unknown": "IP not detected"
   },
   "appControl": {
     "title": "App Control",

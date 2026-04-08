@@ -20,6 +20,7 @@ case "$1" in
         if command -v gtk-update-icon-cache >/dev/null 2>&1; then
             gtk-update-icon-cache -f -t /usr/share/icons/hicolor 2>/dev/null || true
         fi
+        rm -f /etc/NetworkManager/dispatcher.d/99-life-parental-dns
         rm -f /run/parental-control.sock
         if [ "$1" = "purge" ]; then
             rm -rf /etc/life-parental

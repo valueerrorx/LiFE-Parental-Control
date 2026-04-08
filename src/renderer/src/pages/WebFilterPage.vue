@@ -221,7 +221,7 @@
                                     type="radio"
                                     :value="opt.value"
                                     v-model="store.webFilterDnsMode"
-                                    class="visually-hidden"
+                                    class="dns-option-input"
                                 />
                                 <div class="dns-option-content">
                                     <div class="dns-option-label">{{ opt.label }}</div>
@@ -247,13 +247,19 @@ import { useAppStore } from '../stores/appStore.js'
 const { t } = useI18n()
 const store = useAppStore()
 
+const dhcpDnsIp = ref(null)
+async function fetchDhcpDns() {
+    const r = await window.api.webFilter.getDhcpDns()
+    dhcpDnsIp.value = (r?.ok && r.ip) ? r.ip : null
+}
+
 const dnsOptions = computed(() => [
     { value: 'dns4eu_protective',  label: t('webFilter.dns_protective'),       sub: '86.54.11.1' },
     { value: 'dns4eu_child',       label: t('webFilter.dns_child'),             sub: '86.54.11.12' },
     { value: 'dns4eu_ads',         label: t('webFilter.dns_ads'),               sub: '86.54.11.13' },
     { value: 'dns4eu_child_ads',   label: t('webFilter.dns_child_ads'),         sub: '86.54.11.11' },
     { value: 'dns4eu_unfiltered',  label: t('webFilter.dns_unfiltered'),        sub: '86.54.11.100' },
-    { value: 'dhcp',               label: t('webFilter.dns_dhcp'),              sub: t('webFilter.dns_dhcp_sub') },
+    { value: 'dhcp',               label: t('webFilter.dns_dhcp'),              sub: dhcpDnsIp.value ?? t('webFilter.dns_dhcp_unknown') },
 ])
 const entries = computed(() => store.webFilterEntries)
 const categories = ref([])
@@ -355,6 +361,7 @@ onMounted(async () => {
     hostsBackupWarning.value = result.error || ''
     applyFeedsMeta(result)
     takeSnapshot()
+    fetchDhcpDns()
 })
 
 function onAdd() {
@@ -469,6 +476,7 @@ async function onSyncFeeds() {
 
 <style scoped>
 .dns-option {
+    position: relative;
     display: flex;
     align-items: center;
     padding: 7px 10px;
@@ -476,6 +484,18 @@ async function onSyncFeeds() {
     cursor: pointer;
     border: 1px solid transparent;
     transition: background 0.15s, border-color 0.15s;
+}
+/* Full-row hit target: visually-hidden clips the focus box to a tiny rect off-flow, so scroll-into-view jumps main; absolute inset matches the row. */
+.dns-option-input {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    opacity: 0;
+    cursor: pointer;
 }
 .dns-option:hover {
     background: var(--pc-hover, rgba(255,255,255,0.05));
@@ -485,6 +505,8 @@ async function onSyncFeeds() {
     border-color: var(--pc-accent, #6366f1);
 }
 .dns-option-content {
+    position: relative;
+    z-index: 0;
     display: flex;
     flex-direction: column;
     gap: 1px;
