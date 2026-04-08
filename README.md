@@ -14,6 +14,7 @@ Desktop parental control app for **Linux** (KDE Plasma, GNOME, others). Stack: *
 | **App blocking** | Blocks apps via **AppArmor** profiles; additionally overrides `.desktop` files under `/usr/local/share/applications/` to hide blocked apps from launchers |
 | **App quotas** | Per-app daily cap; process tracking via `pgrep`; **quota exemptions** (whitelisted apps): exempt apps keep the session alive beyond the daily screentime limit as long as they are actively used — logout is deferred until the user is inactive in the exempt app for the grace period |
 | **KDE kiosk** | Restrictions via `/etc/xdg/kdeglobals`; optional Plasma layout hard lock |
+| **Dashboard** | Live overview of today's screen time usage (daily total + per-app breakdown); activity log with historical session and enforcement events |
 | **Backup** | Export/import JSON bundle (v1); excludes password and usage history |
 
 ## Configuration files
