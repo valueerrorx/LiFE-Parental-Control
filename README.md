@@ -9,10 +9,10 @@ Desktop parental control app for **Linux** (KDE Plasma, GNOME, others). Stack: *
 | Module | Description |
 |--------|-------------|
 | **Lockdown Wizard** | First-run wizard: creates parent admin, sets root + GRUB password, de-privileges child account, sets up FUSE restrictions |
-| **Web filter** | Custom domains + HaGeZi blocklists → `/etc/hosts`; allowlist; category packs |
-| **Screen time** | Daily limit + allowed hours (overnight windows supported); quick presets (e.g. school week / holidays) on the Schedules page; bonus minutes via parent password |
-| **App blocking** | `.desktop` overrides under `/usr/local/share/applications/` |
-| **App quotas** | Per-app daily cap; process tracking via `pgrep`; quota exemptions |
+| **Web filter** | Custom domains + HaGeZi blocklists written to `/etc/hosts`; DNS-based filtering via **dnsmasq** (rewrites blocked domains to `0.0.0.0`); allowlist; category packs; optional **DNS4EU** family-safe upstream resolver; DHCP-discovered DNS used as fallback |
+| **Screen time** | Daily limit + allowed hours (overnight windows supported); quick presets (e.g. school week / holidays) on the Schedules page; bonus minutes via parent password; one-time parent bypass for allowed-hours enforcement |
+| **App blocking** | Blocks apps via **AppArmor** profiles; additionally overrides `.desktop` files under `/usr/local/share/applications/` to hide blocked apps from launchers |
+| **App quotas** | Per-app daily cap; process tracking via `pgrep`; **quota exemptions** (whitelisted apps): exempt apps keep the session alive beyond the daily screentime limit as long as they are actively used — logout is deferred until the user is inactive in the exempt app for the grace period |
 | **KDE kiosk** | Restrictions via `/etc/xdg/kdeglobals`; optional Plasma layout hard lock |
 | **Backup** | Export/import JSON bundle (v1); excludes password and usage history |
 
