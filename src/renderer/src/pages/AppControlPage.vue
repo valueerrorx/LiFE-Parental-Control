@@ -187,6 +187,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { confirm } from '../composables/useConfirm.js'
+import { useUnsavedGuard } from '../composables/useUnsavedGuard.js'
 import { normalizeQuotaLinuxUser, quotaUsedMinutes, quotaBonusMinutes } from '@shared/quotaUsageKey.js'
 import { useAppStore } from '../stores/appStore.js'
 import { useDesktopLoginUsers, loadDesktopLoginUsers } from '../composables/useDesktopLoginUsers.js'
@@ -219,6 +220,7 @@ const isDirty = computed(() => {
     if (quotas.value.some(q => q.isNew)) return true
     return quotas.value.some(q => !q.isNew && (q.editLimit !== q.minutesPerDay || q.editProcess.trim() !== (q.processName || '').trim()))
 })
+useUnsavedGuard(isDirty, onApplyAllQuotas)
 
 const filtered = computed(() => {
     const q = search.value.toLowerCase()

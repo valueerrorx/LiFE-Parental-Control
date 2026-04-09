@@ -46,7 +46,7 @@
     "unknown": "Unbekannt",
     "loadingApps": "Anwendungen werden geladen\u2026",
     "unsaved": "ungespeichert",
-    "unsavedChanges": "Du hast ungespeicherte \u00c4nderungen",
+    "unsavedChanges": "Sie haben ungespeicherte \u00c4nderungen",
     "blocked": "Blockiert",
     "allAccounts": "Alle Benutzer",
     "optional": "optional",
@@ -55,6 +55,12 @@
     "showPassword": "Passwort anzeigen",
     "hidePassword": "Passwort verbergen"
   },
+  "unsavedGuard": {
+    "title": "Ungespeicherte Änderungen",
+    "message": "Sie haben ungespeicherte Änderungen. Möchten Sie diese vor dem Wechsel speichern?",
+    "save": "Speichern & Wechseln",
+    "discard": "Änderungen verwerfen"
+  },
   "app": {
     "createPassword": "Erstelle ein Passwort, um die Elternkontrolle zu sch\u00fctzen.",
     "newPassword": "Neues Passwort",
@@ -62,7 +68,7 @@
     "confirmPassword": "Passwort best\u00e4tigen",
     "repeatPasswordPlaceholder": "Passwort wiederholen",
     "setPassword": "Passwort setzen & weiter",
-    "enterToUnlock": "Gib dein Elternkontroll-Passwort ein, um fortzufahren.",
+    "enterToUnlock": "Geben Sie Ihr Elternkontroll-Passwort ein, um fortzufahren.",
     "passwordPlaceholder": "Passwort",
     "unlock": "Entsperren",
     "exit": "Beenden",

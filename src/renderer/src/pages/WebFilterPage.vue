@@ -242,6 +242,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { confirm } from '../composables/useConfirm.js'
+import { useUnsavedGuard } from '../composables/useUnsavedGuard.js'
 import { useAppStore } from '../stores/appStore.js'
 
 const { t } = useI18n()
@@ -308,6 +309,7 @@ const isDirty = computed(() => {
     })
     return cur !== savedSnapshot.value
 })
+useUnsavedGuard(isDirty, onSave)
 
 const activeRuleCount = computed(() => store.webFilterHostRuleCount)
 

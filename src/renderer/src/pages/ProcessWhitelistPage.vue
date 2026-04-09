@@ -105,6 +105,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import AppListItemIcon from '../components/AppListItemIcon.vue'
+import { useUnsavedGuard } from '../composables/useUnsavedGuard.js'
 import { useAppStore } from '../stores/appStore.js'
 
 const { t } = useI18n()
@@ -131,6 +132,7 @@ const isDirty = computed(() => {
     for (const id of allowedIds.value) if (!savedAllowedIds.value.has(id)) return true
     return false
 })
+useUnsavedGuard(isDirty, onSave)
 
 function isAppBlocked(app) {
     return Boolean(app?.blocked) || (app?.id ? blockedIdSet.value.has(app.id) : false)

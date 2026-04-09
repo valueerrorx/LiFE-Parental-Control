@@ -206,6 +206,7 @@
 import { ref, reactive, computed, onMounted, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { confirm } from '../composables/useConfirm.js'
+import { useUnsavedGuard } from '../composables/useUnsavedGuard.js'
 import Swal from 'sweetalert2'
 import { normalizeQuotaLinuxUser } from '@shared/quotaUsageKey.js'
 import { useAppStore } from '../stores/appStore.js'
@@ -238,6 +239,7 @@ const isDirty = computed(() => {
     if (savedSnapshot.value === null) return false
     return scheduleSnapshot() !== savedSnapshot.value
 })
+useUnsavedGuard(isDirty, onSave)
 const todayMinutes = ref(0)
 const usageHistory = ref([])
 const historyDays = ref(7)
