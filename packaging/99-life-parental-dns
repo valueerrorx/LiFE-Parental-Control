@@ -1,7 +1,8 @@
 #!/bin/sh
 # LiFE Parental Control — NetworkManager dispatcher script
-# Triggered by NM on every network event. Writes the current DHCP DNS
-# into default.json so the daemon picks it up and uses it as dnsmasq fallback.
+# On every network-up event: write the current DHCP DNS into default.json.
+# The daemon's defaultSync detects the file change within its tick interval
+# and calls applyDnsmasq, which probes dns4eu and writes the correct config.
 #
 # SPDX-License-Identifier: GPL-3.0-or-later; Copyright (c) 2026 Thomas Michael Weissel
 
@@ -33,9 +34,11 @@ echo "$DNS" | grep -qE '^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$' || exi
 
 [ -f "$CONFIG" ] || exit 0
 
-# Pass DNS via environment variable — avoids any shell quoting issues in the JS string
+# Write dhcpFallbackDns into default.json — the daemon detects the hash change
+# on the next tick and rewrites dnsmasq.conf via defaultSync.applyDnsmasq,
+# which probes dns4eu reachability and picks the correct single upstream.
 LIFE_DHCP_DNS="$DNS" node -e "
-const fs = require('fs');
+const fs  = require('fs');
 const CONFIG = '/etc/life-parental/default.json';
 const dns = process.env.LIFE_DHCP_DNS;
 try {
@@ -46,7 +49,7 @@ try {
     const tmp = CONFIG + '.tmp';
     fs.writeFileSync(tmp, JSON.stringify(obj, null, 2) + '\n', 'utf8');
     fs.renameSync(tmp, CONFIG);
-} catch(e) { process.exit(1); }
+} catch (e) { process.exit(1); }
 " 2>/dev/null || true
 
 exit 0
