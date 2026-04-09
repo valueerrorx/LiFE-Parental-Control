@@ -245,6 +245,16 @@ export function registerHeavyIpc(ipcMain, { appConfigDir, getMainWindow }) {
                     fs.copyFileSync(lockdownSrc, path.join(tmpResBase, 'packaging', 'life-parental-lockdown.sh'))
                 }
 
+                // Copy NM dispatcher script (best-effort)
+                // packaged: resBase/99-life-parental-dns  dev: resBase/packaging/99-life-parental-dns
+                const nmDispatcherSrc = fs.existsSync(path.join(resBase, '99-life-parental-dns'))
+                    ? path.join(resBase, '99-life-parental-dns')
+                    : path.join(resBase, 'packaging', '99-life-parental-dns')
+                if (fs.existsSync(nmDispatcherSrc)) {
+                    fs.mkdirSync(path.join(tmpResBase, 'packaging'), { recursive: true })
+                    fs.copyFileSync(nmDispatcherSrc, path.join(tmpResBase, 'packaging', '99-life-parental-dns'))
+                }
+
                 console.log(`[LiFE serviceControl/install] resources staged to ${tmpResBase}, spawning pkexec...`)
                 console.log(`[LiFE serviceControl/pkexec-env] DBUS=${process.env.DBUS_SESSION_BUS_ADDRESS} DISPLAY=${process.env.DISPLAY} WAYLAND=${process.env.WAYLAND_DISPLAY} XDG_RUNTIME=${process.env.XDG_RUNTIME_DIR}`)
                 const { stdout, stderr } = await execFileAsync('pkexec', [tmpScript, tmpResBase, app.getVersion()], { timeout: 120_000 })
