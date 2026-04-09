@@ -269,6 +269,10 @@ export function registerWebFilterIpc(ipcMain, configDir) {
             if (VALID_DNS_MODES.includes(data.dnsMode)) {
                 wf.dnsMode = data.dnsMode
             }
+            // Always refresh dhcpFallbackDns before persisting so write-dnsmasq
+            // has a valid fallback even if the dispatcher hasn't run yet.
+            const dhcpResult = await daemonGetDhcpDns()
+            if (dhcpResult?.ok && dhcpResult.ip) wf.dhcpFallbackDns = dhcpResult.ip
             await persistWebfilterAndHosts(configDir, wf)
             appendActivity(configDir, { action: 'webfilter_saved', enabled: wf.enabled, manualCount: wf.entries.filter(e => e.enabled !== false).length, feedCount: Object.values(wf.feedState).filter(Boolean).length, allowlistCount: wf.listAllowlist.length })
             return { ok: true }
