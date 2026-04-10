@@ -804,7 +804,7 @@ async function runExemptWatchdog(processNames) {
         // to prevent background CPU blips from spuriously restarting the countdown.
         if (wdFirstWarnAt !== 0 && wdExemptActiveTicks >= 2) {
             log.info('exempt watchdog: activity resumed in exempt app — logout blocked, warning cycle reset');
-            wdWarnCount = 0; wdFirstWarnAt = 0; wdLastWarnAt = 0;
+            wdWarnCount = 0; wdFirstWarnAt = 0; wdLastWarnAt = 0; wdExemptActiveTicks = 0;
         }
         return true;
     }
@@ -1431,14 +1431,25 @@ async function tickScreenTime(logMinute) {
     const sessions = await getActiveGraphicalSessions();
     const activeUsers = uniqueUsers(sessions);
     const limitLu = normalizeLinuxUser(s.screenTimeLinuxUser);
-    const hasSessionForLimit = limitLu ? activeUsers.includes(limitLu) : activeUsers.length > 0;
+    let hasSessionForLimit;
+    if (!limitLu) {
+        hasSessionForLimit = activeUsers.length > 0;
+    } else if (!activeUsers.includes(limitLu)) {
+        hasSessionForLimit = false;
+    } else {
+        const activeSid = getActiveSeatSessionId();
+        const seatHit = activeSid ? sessions.find((s) => String(s.sid) === String(activeSid)) : null;
+        const seatUser = seatHit ? normalizeLinuxUser(seatHit.user) : null;
+        // If seat0 cannot be mapped to a listed graphical session, keep legacy behavior (headless / odd logind).
+        hasSessionForLimit = seatUser == null || seatUser === limitLu;
+    }
 
     let usage = readUsage();
     if (usage.date !== today) usage = emptyUsage(today);
 
-    // Accrue screen time every full minute when the target user has an active session
+    // Accrue screen time every full minute when the pinned user is on seat0 (same gate as warnings/logout); pool mode uses any GUI session.
     if (limitLu) {
-        if (logMinute && activeUsers.includes(limitLu)) {
+        if (logMinute && hasSessionForLimit) {
             ensureUserMinutes(usage, limitLu);
             usage.users[limitLu].minutes = Math.max(0, Number(usage.users[limitLu].minutes) || 0) + 1;
         }
@@ -1511,20 +1522,45 @@ async function tickScreenTime(logMinute) {
     if (logMinute) log.info(`screenTime sessions=${sessions.length} users=[${activeUsers.join(',')}] minutes=${minutes} limit=${limit} remaining=${remaining} limitEnabled=${period.dailyLimitEnabled} period=${isWeekend?'weekend':'weekday'}`);
 
     if (remaining <= 0) {
-        const exemptProcs = loadExemptAppProcessNames();
-        if (exemptProcs.length > 0) {
-            // Exempt apps configured: watchdog decides whether to block or allow the logout
-            startInputMonitor();
-            const blocked = await runExemptWatchdog(exemptProcs);
-            if (!blocked) {
-                resetExemptWatchdogState();
+        // Skip exhausted enforcement when pinned user is not on seat0 or has no GUI session (avoid parent receiving child limit warnings).
+        if (limitLu && !hasSessionForLimit) {
+            resetExemptWatchdogState();
+            usage.warnedScreenTimeExhausted = false;
+        } else {
+            const exemptProcs = loadExemptAppProcessNames();
+            if (exemptProcs.length > 0) {
+                // Exempt apps configured: watchdog decides whether to block or allow the logout
+                startInputMonitor();
+                const blocked = await runExemptWatchdog(exemptProcs);
+                if (!blocked) {
+                    resetExemptWatchdogState();
+                    if (!usage.warnedScreenTimeExhausted) {
+                        usage.warnedScreenTimeExhausted = true;
+                        broadcastWarn({ type: 'exhausted', effectiveLimit: limit, usedMinutes: minutes, remaining: 0 });
+                        writeUsage(usage);
+                        await new Promise(r => setTimeout(r, 15_000));
+                    }
+                    await terminateSessionsForPolicy(sessions, limitLu);
+                    const userKey = limitLu || '';
+                    if (usage.users && usage.users[userKey] && typeof usage.users[userKey].minutes === 'number') {
+                        usage.users[userKey].minutes = Math.max(0, usage.users[userKey].minutes - 2);
+                    }
+                    usage.warnedScreenTimeExhausted = false;
+                    usage.warnedLowScreenTime = false;
+                    delete usage.warnSnapLimit;
+                    writeUsage(usage);
+                }
+            } else {
                 if (!usage.warnedScreenTimeExhausted) {
                     usage.warnedScreenTimeExhausted = true;
-                    broadcastWarn({ type: 'exhausted', effectiveLimit: limit, usedMinutes: minutes, remaining: 0 });
+                    const warnPayload = { type: 'exhausted', effectiveLimit: limit, usedMinutes: minutes, remaining: 0 };
+                    notifyOrSpawn(warnPayload, 'Bildschirmzeit aufgebraucht', `Tageslimit von ${limit} Min. erreicht.`, 'critical');
                     writeUsage(usage);
                     await new Promise(r => setTimeout(r, 15_000));
                 }
                 await terminateSessionsForPolicy(sessions, limitLu);
+                // Grant 2 minutes by rolling back usage so the next login works cleanly.
+                // Using += on extraAllowance would grow the total limit on every cycle.
                 const userKey = limitLu || '';
                 if (usage.users && usage.users[userKey] && typeof usage.users[userKey].minutes === 'number') {
                     usage.users[userKey].minutes = Math.max(0, usage.users[userKey].minutes - 2);
@@ -1534,25 +1570,6 @@ async function tickScreenTime(logMinute) {
                 delete usage.warnSnapLimit;
                 writeUsage(usage);
             }
-        } else {
-            if (!usage.warnedScreenTimeExhausted) {
-                usage.warnedScreenTimeExhausted = true;
-                const warnPayload = { type: 'exhausted', effectiveLimit: limit, usedMinutes: minutes, remaining: 0 };
-                notifyOrSpawn(warnPayload, 'Bildschirmzeit aufgebraucht', `Tageslimit von ${limit} Min. erreicht.`, 'critical');
-                writeUsage(usage);
-                await new Promise(r => setTimeout(r, 15_000));
-            }
-            await terminateSessionsForPolicy(sessions, limitLu);
-            // Grant 2 minutes by rolling back usage so the next login works cleanly.
-            // Using += on extraAllowance would grow the total limit on every cycle.
-            const userKey = limitLu || '';
-            if (usage.users && usage.users[userKey] && typeof usage.users[userKey].minutes === 'number') {
-                usage.users[userKey].minutes = Math.max(0, usage.users[userKey].minutes - 2);
-            }
-            usage.warnedScreenTimeExhausted = false;
-            usage.warnedLowScreenTime = false;
-            delete usage.warnSnapLimit;
-            writeUsage(usage);
         }
     } else {
         // Time still available: reset watchdog warning cycle so it fires fresh next expiry
