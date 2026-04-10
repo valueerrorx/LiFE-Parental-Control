@@ -21,7 +21,7 @@
                     </div>
                     <div class="stat-label">{{ $t('dashboard.webFilter') }}</div>
                     <div class="stat-value">
-                        {{ filterCount }}<template v-if="store.webFilterEnabled && store.webFilterDnsMode !== 'dhcp'"><span class="text-muted" style="margin:0 4px;">|</span>DNS</template>
+                        {{ filterCount }}<template v-if="store.webFilterEnabled && store.webFilterDnsMode !== 'dhcp'"><span class="text-muted" style="margin:0 4px;">|</span>dns4eu</template>
                     </div>
                     <div class="stat-sub">
                         <span class="status-badge" :class="store.webFilterEnabled && (filterCount > 0 || store.webFilterDnsMode !== 'dhcp') ? 'active' : 'inactive'">
