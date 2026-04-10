@@ -18,13 +18,13 @@ const EMPTY_DEFAULT = {
         weekend: { dailyLimitEnabled: false, dailyLimitMinutes: 180, allowedHoursEnabled: false, allowedHoursStart: '09:00', allowedHoursEnd: '21:00' }
     },
     webfilter: {
-        enabled: true,
+        enabled: false,
         feedState: {},
         entries: [],
         listAllowlist: []
     },
     appControl: {
-        enabled: true
+        enabled: false
     },
     blockedDesktopIds: [],
     quotaExemptions: {
@@ -246,7 +246,6 @@ const DNSMASQ_DNS4EU = {
     dns4eu_child:      '86.54.11.12',
     dns4eu_ads:        '86.54.11.13',
     dns4eu_child_ads:  '86.54.11.11',
-    dns4eu_unfiltered: '86.54.11.100',
 };
 const VALID_DNS_MODES = new Set([...Object.keys(DNSMASQ_DNS4EU), 'dhcp']);
 

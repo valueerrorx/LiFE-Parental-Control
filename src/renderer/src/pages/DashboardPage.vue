@@ -20,11 +20,13 @@
                         <i class="bi bi-shield-x" />
                     </div>
                     <div class="stat-label">{{ $t('dashboard.webFilter') }}</div>
-                    <div class="stat-value">{{ filterCount }}</div>
+                    <div class="stat-value">
+                        {{ filterCount }}<template v-if="store.webFilterEnabled && store.webFilterDnsMode !== 'dhcp'"><span class="text-muted" style="margin:0 4px;">|</span>DNS</template>
+                    </div>
                     <div class="stat-sub">
-                        <span class="status-badge" :class="filterCount > 0 ? 'active' : 'inactive'">
+                        <span class="status-badge" :class="store.webFilterEnabled && (filterCount > 0 || store.webFilterDnsMode !== 'dhcp') ? 'active' : 'inactive'">
                             <i class="bi bi-circle-fill" style="font-size:7px;" />
-                            {{ filterCount > 0 ? $t('common.active') : $t('common.inactive') }}
+                            {{ store.webFilterEnabled && (filterCount > 0 || store.webFilterDnsMode !== 'dhcp') ? $t('common.active') : $t('common.inactive') }}
                         </span>
                     </div>
                 </div>

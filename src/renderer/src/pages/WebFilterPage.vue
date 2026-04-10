@@ -259,7 +259,6 @@ const dnsOptions = computed(() => [
     { value: 'dns4eu_child',       label: t('webFilter.dns_child'),             sub: '86.54.11.12' },
     { value: 'dns4eu_ads',         label: t('webFilter.dns_ads'),               sub: '86.54.11.13' },
     { value: 'dns4eu_child_ads',   label: t('webFilter.dns_child_ads'),         sub: '86.54.11.11' },
-    { value: 'dns4eu_unfiltered',  label: t('webFilter.dns_unfiltered'),        sub: '86.54.11.100' },
     { value: 'dhcp',               label: t('webFilter.dns_dhcp'),              sub: dhcpDnsIp.value ?? t('webFilter.dns_dhcp_unknown') },
 ])
 const entries = computed(() => store.webFilterEntries)

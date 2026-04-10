@@ -2003,7 +2003,6 @@ function handleClientCommand(client, cmd) {
             dns4eu_child:       '86.54.11.12',
             dns4eu_ads:         '86.54.11.13',
             dns4eu_child_ads:   '86.54.11.11',
-            dns4eu_unfiltered:  '86.54.11.100',
         };
         try {
             const entries  = Array.isArray(cmd.entries) ? cmd.entries : [];
@@ -2612,7 +2611,7 @@ try {
     const authJsonPath = path.join(CONFIG_DIR, AUTH_JSON_FILE);
 
     if (!fs.existsSync(defaultJsonPath)) {
-        const empty = { label: 'Default', schedule: { enabled: false, dailyLimitEnabled: false, dailyLimitMinutes: 120, screenTimeLinuxUser: '', allowedHoursEnabled: false, allowedHoursStart: '07:00', allowedHoursEnd: '22:00', allowedDays: [1,2,3,4,5,6,7] }, webfilter: { enabled: true, feedState: {}, entries: [], listAllowlist: [] }, appControl: { enabled: true }, preferences: { lockIdleMinutes: null, quotaViewLinuxUser: '' }, blockedDesktopIds: [], quotaExemptions: { enabled: false, allowedIds: [] }, quota: [], requestDaemonWarningTest: false };
+        const empty = { label: 'Default', schedule: { enabled: false, dailyLimitEnabled: false, dailyLimitMinutes: 120, screenTimeLinuxUser: '', allowedHoursEnabled: false, allowedHoursStart: '07:00', allowedHoursEnd: '22:00', allowedDays: [1,2,3,4,5,6,7] }, webfilter: { enabled: false, feedState: {}, entries: [], listAllowlist: [] }, appControl: { enabled: false }, preferences: { lockIdleMinutes: null, quotaViewLinuxUser: '' }, blockedDesktopIds: [], quotaExemptions: { enabled: false, allowedIds: [] }, quota: [], requestDaemonWarningTest: false };
         fs.writeFileSync(defaultJsonPath, JSON.stringify(empty, null, 2), { encoding: 'utf8', mode: 0o644 });
     } else {
         // Migrate: if default.json has a security section, move it to auth.json then strip it

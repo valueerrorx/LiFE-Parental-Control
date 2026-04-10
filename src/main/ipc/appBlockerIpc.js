@@ -461,9 +461,7 @@ export async function replaceBlockedDesktopIds(configDir, nextIds) {
 
 export function registerAppBlockerIpc(ipcMain, configDir) {
     ipcMain.handle('apps:getControlConfig', () => {
-        const cfg = readAppControlConfig(configDir)
-        if (!cfg.enabled) clearDisabledAppControlState(configDir)
-        return cfg
+        return readAppControlConfig(configDir)
     })
 
     ipcMain.handle('apps:setControlConfig', async (_, payload) => {
@@ -495,12 +493,9 @@ export function registerAppBlockerIpc(ipcMain, configDir) {
 
     ipcMain.handle('apps:list', () => {
         const base = readAllDesktopApps()
-        if (!readAppControlConfig(configDir).enabled) clearDisabledAppControlState(configDir)
         const resolvedBlocked = resolveBlockedIdsAgainstApps(readBlocked(configDir), base)
         const control = readAppControlConfig(configDir)
         const blocked = new Set(resolvedBlocked)
-        // Keep disk in sync with canonical IDs discovered from installed apps.
-        saveBlocked(configDir, resolvedBlocked)
         const apps = base.map((app) => {
             const file = app.id
             const row = {
@@ -549,8 +544,6 @@ export function registerAppBlockerIpc(ipcMain, configDir) {
 
     ipcMain.handle('apps:getBlocked', () => {
         const base = readAllDesktopApps()
-        const resolvedBlocked = resolveBlockedIdsAgainstApps(readBlocked(configDir), base)
-        saveBlocked(configDir, resolvedBlocked)
-        return resolvedBlocked
+        return resolveBlockedIdsAgainstApps(readBlocked(configDir), base)
     })
 }

@@ -40,12 +40,6 @@ export function clearSessionLockPreference(configDir) {
     })
 }
 
-export function repairInvalidLockIdleInConfig(configDir) {
-    const prefs = readDefaultJson(configDir)?.preferences || {}
-    if (!Object.hasOwn(prefs, 'lockIdleMinutes')) return
-    if (normalizedLockIdleMinutesOrUndefined(prefs.lockIdleMinutes) !== undefined) return
-    clearSessionLockPreference(configDir)
-}
 
 export function registerSettingsIpc(ipcMain, configDir) {
     ipcMain.handle('settings:isPasswordSet', async () => {

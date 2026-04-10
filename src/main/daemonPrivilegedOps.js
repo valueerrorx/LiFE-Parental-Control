@@ -35,7 +35,7 @@ export async function daemonWriteHosts(entries) {
  * Write /etc/dnsmasq.conf with blocked domains, write /etc/resolv.conf → 127.0.0.1,
  * protect resolv.conf with chattr +i, restart dnsmasq. Awaitable.
  * @param {Array<{domain:string,enabled:boolean}>} entries
- * @param {string} [dnsMode='dns4eu_protective']  dns4eu_protective|dns4eu_child|dns4eu_ads|dns4eu_child_ads|dns4eu_unfiltered|dhcp
+ * @param {string} [dnsMode='dns4eu_protective']  dns4eu_protective|dns4eu_child|dns4eu_ads|dns4eu_child_ads|dhcp
  */
 export async function daemonWriteDnsmasq(entries, dnsMode = 'dns4eu_protective', dhcpFallbackDns = null) {
     if (!isDaemonConnected()) { logErr('write-dnsmasq', 'daemon not connected'); return { ok: false, error: 'daemon not connected' } }

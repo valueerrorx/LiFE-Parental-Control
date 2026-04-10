@@ -5,10 +5,9 @@ import { mkdirSync } from 'fs'
 import { registerConfigIpc } from './ipc/configIpc.js'
 import { registerProfileIpc } from './ipc/profileIpc.js'
 import { registerSystemIpc } from './ipc/systemIpc.js'
-import { registerSettingsIpc, repairInvalidLockIdleInConfig } from './ipc/settingsIpc.js'
+import { registerSettingsIpc } from './ipc/settingsIpc.js'
 import { resolveWindowIconPath } from './windowIcon.js'
 import { initWarningWindow } from './warningWindow.js'
-import { ensureDefaultJsonExistsForUi } from './defaultProfileStore.js'
 
 const APP_CONFIG_DIR = '/etc/life-parental'
 
@@ -115,12 +114,6 @@ app.whenReady().then(async () => {
 
     initWarningWindow(imagesDir)
     mkdirSync(profilesDir, { recursive: true })
-    ensureDefaultJsonExistsForUi(APP_CONFIG_DIR)
-    try {
-        repairInvalidLockIdleInConfig(APP_CONFIG_DIR)
-    } catch {
-        // best-effort
-    }
     registerConfigIpc(ipcMain, kioskDir)
     registerProfileIpc(ipcMain, profilesDir, APP_CONFIG_DIR)
     registerSystemIpc(ipcMain, () => mainWindow, APP_CONFIG_DIR)
@@ -243,15 +236,6 @@ app.whenReady().then(async () => {
         deferredHeavyWorkPromise = (async () => {
             scheduleHeavyIpcRegistration()
             await heavyIpcReady
-
-            try {
-                if (process.platform === 'linux') {
-                    const { applyDefaultMergedState } = await import('./ipc/lifeModeIpc.js')
-                    await applyDefaultMergedState(APP_CONFIG_DIR, { background: true })
-                }
-            } catch {
-                // best-effort
-            }
 
             const { runDeferredStartupTasks } = await import('./registerHeavyIpc.js')
             globalThis.setImmediate(() => runDeferredStartupTasks(APP_CONFIG_DIR))

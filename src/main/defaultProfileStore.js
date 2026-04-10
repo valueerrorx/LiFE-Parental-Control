@@ -17,13 +17,14 @@ const EMPTY_DEFAULT = {
         allowedDays: [1, 2, 3, 4, 5, 6, 7]
     },
     webfilter: {
-        enabled: true,
+        enabled: false,
         feedState: {},
         entries: [],
-        listAllowlist: []
+        listAllowlist: [],
+        dnsMode: 'dhcp'
     },
     appControl: {
-        enabled: true
+        enabled: false
     },
     preferences: {
         lockIdleMinutes: null,
@@ -79,12 +80,15 @@ function buildFromRaw(raw) {
             .filter(e => e && typeof e.domain === 'string')
             .map(e => ({ domain: String(e.domain).toLowerCase(), enabled: e.enabled !== false }))
         if (Array.isArray(wf.listAllowlist)) next.webfilter.listAllowlist = wf.listAllowlist.filter(d => typeof d === 'string')
-        next.webfilter.enabled = wf.enabled !== false
+        next.webfilter.enabled = wf.enabled === true
         const n = wf.cachedHostRuleCount
         if (typeof n === 'number' && Number.isFinite(n) && n >= 0) next.webfilter.cachedHostRuleCount = Math.floor(n)
+        const VALID_DNS_MODES = ['dns4eu_protective', 'dns4eu_child', 'dns4eu_ads', 'dns4eu_child_ads', 'dhcp']
+        if (VALID_DNS_MODES.includes(wf.dnsMode)) next.webfilter.dnsMode = wf.dnsMode
+        if (typeof wf.dhcpFallbackDns === 'string') next.webfilter.dhcpFallbackDns = wf.dhcpFallbackDns
     }
     if (raw.appControl && typeof raw.appControl === 'object' && !Array.isArray(raw.appControl)) {
-        next.appControl.enabled = raw.appControl.enabled !== false
+        next.appControl.enabled = raw.appControl.enabled === true
     }
     if (raw.preferences && typeof raw.preferences === 'object' && !Array.isArray(raw.preferences)) {
         const p = raw.preferences
@@ -130,7 +134,4 @@ export function patchDefaultJson(configDir, patcher) {
     return next
 }
 
-export function ensureDefaultJsonExistsForUi(configDir) {
-    void configDir
-}
 

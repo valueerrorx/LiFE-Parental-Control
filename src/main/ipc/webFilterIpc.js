@@ -33,7 +33,7 @@ function normalizeAllowlist(raw) {
     return [...out].sort()
 }
 
-const VALID_DNS_MODES = ['dns4eu_protective', 'dns4eu_child', 'dns4eu_ads', 'dns4eu_child_ads', 'dns4eu_unfiltered', 'dhcp']
+const VALID_DNS_MODES = ['dns4eu_protective', 'dns4eu_child', 'dns4eu_ads', 'dns4eu_child_ads', 'dhcp']
 
 function readWebfilterFromConfig(configDir) {
     const wf = readDefaultJson(configDir)?.webfilter || {}
