@@ -53,6 +53,17 @@ if [ -n "$APP_VERSION" ] && [ -d "$DAEMON_LIB" ]; then
     chmod 0644 "$DAEMON_LIB/.installed-version"
 fi
 
+# Seed bundled HaGeZi blocklists into /etc/life-parental/blocklists/ (only if not already present)
+hagezi_src="${pkg_res}/hagezi"
+if [ -d "$hagezi_src" ]; then
+    mkdir -p /etc/life-parental/blocklists
+    for f in "$hagezi_src"/*.txt; do
+        [ -f "$f" ] || continue
+        dest="/etc/life-parental/blocklists/$(basename "$f")"
+        [ -f "$dest" ] || install -m 644 "$f" "$dest"
+    done
+fi
+
 # Install NetworkManager dispatcher script
 nm_dispatcher_src="${pkg_res}/packaging/99-life-parental-dns"
 [ -f "$nm_dispatcher_src" ] || nm_dispatcher_src="${pkg_res}/99-life-parental-dns"

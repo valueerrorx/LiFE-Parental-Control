@@ -19,6 +19,10 @@ const HOSTS_FILE = '/etc/hosts'
 const MARKER_BEGIN = '# LiFE Parental Control - BEGIN'
 const MARKER_END = '# LiFE Parental Control - END'
 
+// Bundled HaGeZi feed directory — set once by registerWebFilterIpc, used as fallback
+// when /etc/life-parental/blocklists/ is empty (fresh install, AppImage without prior sync).
+let _bundledDir = null
+
 /** Past sinkhole IPs still parsed when reading the LiFE hosts block (re-apply migrates to current IP). */
 const HOSTS_SINKHOLE_IPV4_RE = /^(?:192\.0\.2\.1|0\.0\.0\.0|127\.0\.0\.2)\s+(\S+)\s*$/
 
@@ -56,7 +60,7 @@ function buildCombinedEntries(configDir, wf) {
         if (e.enabled === false) continue
         blocked.add(String(e.domain).toLowerCase())
     }
-    for (const d of domainsForEnabledFeeds(configDir, wf.feedState)) {
+    for (const d of domainsForEnabledFeeds(configDir, wf.feedState, _bundledDir)) {
         blocked.add(d)
     }
     const allow = new Set(normalizeAllowlist(wf.listAllowlist))
@@ -135,7 +139,8 @@ async function persistWebfilterAndHosts(configDir, wf, { background = false } = 
     }
 }
 
-export function registerWebFilterIpc(ipcMain, configDir) {
+export function registerWebFilterIpc(ipcMain, configDir, bundledDir = null) {
+    _bundledDir = bundledDir
     ipcMain.handle('webfilter:getList', () => {
         const wf = readWebfilterFromConfig(configDir)
         const feedsMeta = getFeedsMetaForUi(configDir)

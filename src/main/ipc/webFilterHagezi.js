@@ -148,22 +148,30 @@ export function getFeedsMetaForUi(configDir) {
     return feeds
 }
 
-export function loadFeedFileText(configDir, feedId) {
+export function loadFeedFileText(configDir, feedId, bundledDir = null) {
     const feed = HAGEZI_FEED_BY_ID.get(feedId)
     if (!feed) return null
     try {
         return fs.readFileSync(path.join(configDir, 'blocklists', feed.file), 'utf8')
     } catch {
+        // Fall back to bundled copy shipped with the app (AppImage / fresh install without sync)
+        if (bundledDir) {
+            try {
+                return fs.readFileSync(path.join(bundledDir, 'hagezi', feed.file), 'utf8')
+            } catch {
+                return null
+            }
+        }
         return null
     }
 }
 
-export function domainsForEnabledFeeds(configDir, feedState) {
+export function domainsForEnabledFeeds(configDir, feedState, bundledDir = null) {
     const set = new Set()
     if (!feedState || typeof feedState !== 'object') return set
     for (const [id, on] of Object.entries(feedState)) {
         if (!on) continue
-        const text = loadFeedFileText(configDir, id)
+        const text = loadFeedFileText(configDir, id, bundledDir)
         if (!text) continue
         for (const d of parseDnsmasqDomains(text)) set.add(d)
     }

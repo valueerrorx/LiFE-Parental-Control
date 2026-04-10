@@ -33,7 +33,8 @@ function waitForDaemonConnect(timeoutMs = 20_000) {
 }
 
 export function registerHeavyIpc(ipcMain, { appConfigDir, getMainWindow }) {
-    registerWebFilterIpc(ipcMain, appConfigDir)
+    const bundledDir = app.isPackaged ? process.resourcesPath : app.getAppPath()
+    registerWebFilterIpc(ipcMain, appConfigDir, bundledDir)
     registerAppBlockerIpc(ipcMain, appConfigDir)
     syncAppArmor(appConfigDir)  // restore AppArmor profile on every app start
     registerSchedulesIpc(ipcMain, appConfigDir)
