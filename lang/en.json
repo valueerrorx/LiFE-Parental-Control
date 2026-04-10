@@ -437,9 +437,9 @@
   },
   "processWhitelist": {
     "title": "Quota exemptions",
-    "subtitle": "Apps exempt from <strong>daily app quota</strong> enforcement when time is used up",
-    "enableExemptions": "Enable quota exemptions",
-    "enableExemptionsDesc": "When on, checked apps are <strong>not killed</strong> when their daily app quota is exhausted (same minute-based job as <strong>App Control</strong>). Unchecked apps behave as before. Nothing is blocked from running only because it is missing from this list.",
+    "subtitle": "Apps that may continue to be used even after the <strong>daily screen time limit</strong> is reached",
+    "enableExemptions": "Enable screen time exemptions",
+    "enableExemptionsDesc": "When on, checked apps are <strong>not killed</strong> when the daily screen time limit is reached. Unchecked apps behave as before. Nothing is blocked from running only because it is missing from this list.",
     "exemptApps": "Exempt applications",
     "exemptCount": "{count} / {total} exempt when limit reached",
     "exemptAll": "Exempt all",

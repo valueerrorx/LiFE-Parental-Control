@@ -55,7 +55,7 @@ linux:
   category: System
   maintainer: "Thomas Michael Weissel"
   description: "Parental controls for Linux: kiosk lockdown, web filter, screen time, app blocking and daily app quotas."
-  icon: images/pc.png
+  icon: images/icons
 
 deb:
   depends:
