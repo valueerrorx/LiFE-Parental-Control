@@ -65,7 +65,7 @@ function makeLockscreenHtml(payload) {
     let heading = 'Bildschirmzeit aufgebraucht'
     let info
     if (isAllowedHours) {
-        heading = String(p.heading || 'Computer jetzt nicht erlaubt')
+        heading = String(p.heading || 'Computer gesperrt')
         info = String(p.message || 'Die Computernutzung ist zu dieser Zeit nicht gestattet.')
     } else {
         info = `Das Tageslimit von <strong>${effectiveLimit}</strong> Min. ist erreicht (${usedMinutes} Min. genutzt).`
@@ -74,7 +74,7 @@ function makeLockscreenHtml(payload) {
     // Final screen-time exhaustion: no password — session ends shortly (daemon enforces shutdown).
     if (isExhausted) {
         return `<!DOCTYPE html>
-<html><head><meta charset="utf-8"><title>LiFE – Zeitsperre</title><style>${WARNING_PANEL_CSS}</style></head>
+<html><head><meta charset="utf-8"><title>LiFE Parental Control - Lockscreen</title><style>${WARNING_PANEL_CSS}</style></head>
 <body><div class="card">
 <div class="icon">⏱</div>
 <h1>${heading}</h1>
@@ -100,7 +100,7 @@ setInterval(() => {
     // allowed-hours: countdown then logout unless parent grants calendar-day bypass via password.
     const graceEndsAt = Number(p.graceEndsAt) > 0 ? Number(p.graceEndsAt) : (Date.now() + 60_000)
     return `<!DOCTYPE html>
-<html><head><meta charset="utf-8"><title>LiFE – Zeitsperre</title><style>${WARNING_PANEL_CSS}</style></head>
+<html><head><meta charset="utf-8"><title>LiFE Parental Control - Lockscreen</title><style>${WARNING_PANEL_CSS}</style></head>
 <body><div class="card">
 <div class="icon">🔒</div>
 <h1>${heading}</h1>
@@ -176,7 +176,7 @@ export async function runLockscreen(payload) {
     const iconPath = resolveWindowIconPath(imagesDir)
 
     const win = new BrowserWindow({
-        width: 560,
+        width: 1560,
         height: 640,
         fullscreen: false,
         maximizable: false,
@@ -188,7 +188,7 @@ export async function runLockscreen(payload) {
         minimizable: false,
         closable: false,
         skipTaskbar: false,
-        title: 'LiFE Parental Control',
+        title: 'LiFE Parental Control - Lockscreen',
         ...(iconPath ? { icon: iconPath } : {}),
         webPreferences: {
             nodeIntegration: true,

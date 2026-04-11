@@ -21,10 +21,10 @@ function makeHtml(payload) {
     if (type === 'allowed-hours') {
         const msg = String(p.message || 'Die Computernutzung ist zu dieser Zeit nicht gestattet.')
         return `<!DOCTYPE html>
-<html><head><meta charset="utf-8"><title>LiFE Parental Control</title><style>${WARNING_PANEL_CSS}</style></head>
+<html><head><meta charset="utf-8"><title>LiFE Parental Control - Warning</title><style>${WARNING_PANEL_CSS}</style></head>
 <body><div class="card">
 <div class="icon">🕐</div>
-<h1>${String(p.heading || 'Computer jetzt nicht erlaubt')}</h1>
+<h1>${String(p.heading || 'Computer um diese Uhrzeit nicht erlaubt')}</h1>
 <p class="info">${msg}</p>
 <button class="btn-block" id="dismiss">OK</button>
 </div>
@@ -34,34 +34,12 @@ document.getElementById('dismiss').onclick = () => window.close()
     }
 
     const isApp = String(type).startsWith('app-')
-    const isExhausted = type === 'exhausted'
     const effectiveLimit = Number(p.effectiveLimit) || 0
     const usedMinutes = Number(p.usedMinutes) || 0
     const remaining = p.remaining != null ? Number(p.remaining) : Math.max(0, effectiveLimit - usedMinutes)
 
-    // Global screen time exhausted: final notice only (main UI path when daemon did not spawn lockscreen).
-    if (isExhausted) {
-        const info = `Das Tageslimit von <strong>${effectiveLimit}</strong> Min. ist erreicht (${usedMinutes} Min. genutzt).`
-        return `<!DOCTYPE html>
-<html><head><meta charset="utf-8"><title>LiFE Parental Control</title><style>${WARNING_PANEL_CSS}</style></head>
-<body><div class="card">
-<div class="icon">⏱</div>
-<h1>Bildschirmzeit aufgebraucht</h1>
-<p class="info">${info}</p>
-<p class="info">Die Sitzung wird in <strong id="cd">15</strong> Sekunden beendet.</p>
-<button class="btn-block" id="ok">OK</button>
-</div>
-<script>
-let s = 15
-const cd = document.getElementById('cd')
-const ok = document.getElementById('ok')
-ok.onclick = () => window.close()
-setInterval(() => { s--; if (cd) cd.textContent = s; if (s <= 0) window.close() }, 1000)
-</script></body></html>`
-    }
-
     let heading = 'Wenig Bildschirmzeit übrig'
-    let info = `Noch etwa <strong>${remaining}</strong> Min. heute (${usedMinutes} von <strong>${effectiveLimit}</strong> Min. genutzt).`
+    let info = `Noch etwa <strong>${remaining}</strong> Min. heute (${usedMinutes} von <strong>${effectiveLimit}</strong> Min. genutzt). Sichere deine Arbeit rechtzeitig!`
 
     if (isApp) {
         const name = String(p.appName || 'Anwendung')
@@ -86,7 +64,7 @@ setInterval(() => { s--; if (cd) cd.textContent = s; if (s <= 0) window.close() 
         : `ipcRenderer.invoke('schedules:grantBonusMinutes', { password: pw.value, minutes: +mins.value })`
 
     return `<!DOCTYPE html>
-<html><head><meta charset="utf-8"><title>LiFE Parental Control</title><style>${WARNING_PANEL_CSS}</style></head>
+<html><head><meta charset="utf-8"><title>LiFE Parental Control - Warning</title><style>${WARNING_PANEL_CSS}</style></head>
 <body><div class="card">
 <h2>${heading}</h2>
 <p class="info">${info}<br><br>Elternkontroll-Passwort eingeben, um ${isApp ? 'Bonuszeit für diese App' : 'Bonuszeit für heute'} hinzuzufügen.</p>
@@ -151,6 +129,7 @@ export function showWarningWindow(payload) {
     warningWin = new BrowserWindow({
         width: 480,
         height: 480,
+        show: false,
         frame: true,
         fullscreen: false,
         resizable: true,
@@ -158,7 +137,7 @@ export function showWarningWindow(payload) {
         minimizable: false,
         fullscreenable: false,
         alwaysOnTop: true,
-        title: 'LiFE Parental Control',
+        title: 'LiFE Parental Control - Warning',
         ...(iconPath ? { icon: iconPath } : {}),
         webPreferences: { nodeIntegration: true, contextIsolation: false, devTools: false }
     })
@@ -166,6 +145,9 @@ export function showWarningWindow(payload) {
     try { warningWin.setAlwaysOnTop(true, 'screen-saver') } catch { warningWin.setAlwaysOnTop(true) }
     try { warningWin.setVisibleOnAllWorkspaces(true) } catch { /* ignore */ }
     warningWin.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(makeHtml(payload ?? {})))
-    warningWin.once('ready-to-show', () => { try { warningWin.center() } catch { /* ignore */ } })
+    warningWin.webContents.once('did-finish-load', () => {
+        try { warningWin.center() } catch { /* ignore */ }
+        warningWin.show()
+    })
     warningWin.on('closed', () => { warningWin = null })
 }

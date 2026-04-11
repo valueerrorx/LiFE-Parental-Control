@@ -64,7 +64,6 @@ function emptyUsage(today) {
         date: today,
         users: {},
         extraAllowanceMinutes: 0,
-        warnedLowScreenTime: false,
         warnedScreenTimeExhausted: false
     }
 }
@@ -89,8 +88,6 @@ export function readUsage(configDir) {
             date: today,
             users,
             extraAllowanceMinutes: Math.max(0, Number(data.extraAllowanceMinutes) || 0),
-            warnedLowScreenTime: data.warnedLowScreenTime === true,
-            warnSnapLimit: data.warnSnapLimit != null ? Number(data.warnSnapLimit) : undefined,
             warnedScreenTimeExhausted: data.warnedScreenTimeExhausted === true
         }
     } catch {

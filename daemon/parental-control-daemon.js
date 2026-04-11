@@ -36,9 +36,6 @@ const NOTIFY_APP_NAME = 'LiFE Parental Control';
 // --- Exempt-app watchdog constants ---
 const WD_INPUT_WINDOW_MS   = 8_000;  // user counts as "active" if input in last 8s
 const WD_CPU_MIN_JIFFIES   = 5;      // minimum CPU jiffies delta to consider app "responsive"
-const WD_WARN_MAX          = 4;      // number of notifications before hard logout
-const WD_WARN_INTERVAL_MS  = 15_000; // 15s between each notification (test)
-const WD_GRACE_MS          = 60_000; // 1 minute total grace before logout (test)
 
 // --- File logger ---
 
@@ -74,8 +71,9 @@ function appendActivityDaemon(entry) {
     } catch { /* best-effort */ }
 }
 
-// Mutable tick state
+// Mutable tick state: minute counter every TICK_MS on wall clock; tickWorkChain runs tick body strictly serialized (no overlap during long awaits).
 let tickInMinute = 0;
+let tickWorkChain = Promise.resolve();
 let quotaWarnDate = '';
 const appQuotaWarnOnce = new Set();
 const quotaLinuxUserNoSessionWarnOnce = new Set(); // one warn per appId+linuxUser until next calendar day
@@ -87,18 +85,6 @@ let allowedHoursGraceStartMs = 0;
 let lastInputTimestamp = 0;   // last hardware input event seen by the input monitor
 let inputMonitorStarted = false;
 const exemptAppJiffies = {};  // processName → last CPU jiffies total
-let wdWarnCount = 0;          // warnings sent in current grace-period cycle
-let wdFirstWarnAt = 0;        // timestamp when the warning cycle started (0 = not started)
-let wdLastWarnAt  = 0;        // timestamp of the most recent warning notification
-let wdExemptActiveTicks = 0;  // consecutive ticks where exempt app was actively used
-
-function resetExemptWatchdogState() {
-    // Reset grace timers so the next login starts a fresh window.
-    wdWarnCount = 0;
-    wdFirstWarnAt = 0;
-    wdLastWarnAt = 0;
-    wdExemptActiveTicks = 0;
-}
 
 // Connected socket clients (Electron UI instances)
 const clients = new Set();
@@ -412,7 +398,7 @@ function readSchedule() {
 }
 
 function emptyUsage(today) {
-    return { date: today, users: {}, extraAllowanceMinutes: 0, warnedLowScreenTime: false, warnedScreenTimeExhausted: false, allowedHoursBypassDate: undefined };
+    return { date: today, users: {}, extraAllowanceMinutes: 0, warned10: false, warned5: false, warned2: false, warnedScreenTimeExhausted: false, allowedHoursBypassDate: undefined };
 }
 
 function readUsage() {
@@ -431,7 +417,9 @@ function readUsage() {
         return {
             date: today, users,
             extraAllowanceMinutes: Math.max(0, Number(data.extraAllowanceMinutes) || 0),
-            warnedLowScreenTime: data.warnedLowScreenTime === true,
+            warned10: data.warned10 === true,
+            warned5: data.warned5 === true,
+            warned2: data.warned2 === true,
             warnSnapLimit: data.warnSnapLimit != null ? Number(data.warnSnapLimit) : undefined,
             warnedScreenTimeExhausted: data.warnedScreenTimeExhausted === true,
             allowedHoursBypassDate: typeof data.allowedHoursBypassDate === 'string' ? data.allowedHoursBypassDate : undefined
@@ -771,84 +759,6 @@ function isExemptAppActivelyUsed(processNames) {
     return anyActive;
 }
 
-// Send a desktop notification to the active user via sudo+notify-send (same lift as spawnWarningWindow and notifyOrSpawn).
-function sendExemptWatchdogNotification(message, info) {
-    try {
-        const notifyEnv = buildNotifySendEnvPairs(info);
-        const { user } = info;
-        const r = spawnSync(
-            'sudo',
-            [
-                '-u', user, 'env', ...notifyEnv, NOTIFY_SEND_BIN,
-                '-a', NOTIFY_APP_NAME, '-u', 'critical', '-t', '8000',
-                NOTIFY_APP_NAME, message
-            ],
-            { timeout: 5000, encoding: 'utf8' }
-        );
-        if (r.error) log.warn(`notify-send (watchdog) spawn error: ${r.error.message}`);
-        if (r.status !== 0) log.warn(`notify-send (watchdog) failed status=${r.status} stderr=${String(r.stderr || '').trim()}`);
-    } catch (e) {
-        log.warn(`notify-send (watchdog): ${e && e.message ? e.message : String(e)}`);
-    }
-}
-
-// Called every tick when screen time is expired and exempt apps are configured.
-// Returns true  → logout should be BLOCKED (user is using exempt app or still in grace period).
-// Returns false → logout should PROCEED (grace period exhausted).
-async function runExemptWatchdog(processNames) {
-    const activelyUsed = isExemptAppActivelyUsed(processNames);
-
-    if (activelyUsed) {
-        wdExemptActiveTicks++;
-        // Only reset the warning cycle after 2 consecutive ticks of genuine exempt-app usage
-        // to prevent background CPU blips from spuriously restarting the countdown.
-        if (wdFirstWarnAt !== 0 && wdExemptActiveTicks >= 2) {
-            log.info('exempt watchdog: activity resumed in exempt app — logout blocked, warning cycle reset');
-            wdWarnCount = 0; wdFirstWarnAt = 0; wdLastWarnAt = 0; wdExemptActiveTicks = 0;
-        }
-        return true;
-    }
-    wdExemptActiveTicks = 0;
-
-    const now = Date.now();
-    const recentInput = (now - lastInputTimestamp) < WD_INPUT_WINDOW_MS;
-
-    if (!recentInput) {
-        // No input anywhere: user may be reading/watching — give benefit of the doubt
-        // but still enforce the grace period if a warning cycle is already running
-        if (wdFirstWarnAt === 0) return true; // no cycle started yet, keep blocking
-        if (now - wdFirstWarnAt < WD_GRACE_MS) return true; // still within grace
-        log.info('exempt watchdog: grace period exhausted (user idle) — logout will proceed');
-        return false;
-    }
-
-    // Input is happening but NOT in the exempt app — start / continue warning cycle
-    if (wdFirstWarnAt === 0) {
-        wdFirstWarnAt = now;
-        log.info(`exempt watchdog: input detected outside exempt app — grace period started (${WD_GRACE_MS / 1000}s)`);
-    }
-
-    const elapsed = now - wdFirstWarnAt;
-    if (elapsed >= WD_GRACE_MS) {
-        log.info('exempt watchdog: grace period exhausted — logout will proceed');
-        return false;
-    }
-
-    // Send up to WD_WARN_MAX notifications spaced WD_WARN_INTERVAL_MS apart
-    if (wdWarnCount < WD_WARN_MAX && (now - wdLastWarnAt) >= WD_WARN_INTERVAL_MS) {
-        wdWarnCount++;
-        wdLastWarnAt = now;
-        const remainingMs = Math.max(0, WD_GRACE_MS - elapsed);
-        const remainingSec = Math.floor(remainingMs / 1000);
-        const remainingText = remainingSec > 0 ? `${remainingSec} Sekunden` : 'unter 1 Sekunde';
-        const msg = `Warnung ${wdWarnCount}/${WD_WARN_MAX} (Screen-Time erschöpft): Kehre zur erlaubten App zurück! Logout in ${remainingText}.`;
-        log.warn(`exempt watchdog: warning ${wdWarnCount}/${WD_WARN_MAX} sent`);
-        const info = getFirstActiveUserInfo();
-        if (info) sendExemptWatchdogNotification(msg, info);
-    }
-
-    return true; // still within grace period
-}
 
 // --- Socket broadcast helpers ---
 
@@ -1469,14 +1379,23 @@ async function tickScreenTime(logMinute) {
     if (usage.date !== today) usage = emptyUsage(today);
 
     // Accrue screen time every full minute when the pinned user is on seat0 (same gate as warnings/logout); pool mode uses any GUI session.
-    if (limitLu) {
-        if (logMinute && hasSessionForLimit) {
-            ensureUserMinutes(usage, limitLu);
-            usage.users[limitLu].minutes = Math.max(0, Number(usage.users[limitLu].minutes) || 0) + 1;
+    // If exempt apps are configured and one is actively used, skip the increment for this minute.
+    if (logMinute) {
+        const exemptProcs = loadExemptAppProcessNames();
+        const exemptAppInUse = exemptProcs.length > 0 && isExemptAppActivelyUsed(exemptProcs);
+        if (exemptAppInUse) {
+            log.info(`screenTime: exempt app actively used — skipping minute increment`);
+        } else {
+            if (limitLu) {
+                if (hasSessionForLimit) {
+                    ensureUserMinutes(usage, limitLu);
+                    usage.users[limitLu].minutes = Math.max(0, Number(usage.users[limitLu].minutes) || 0) + 1;
+                }
+            } else if (activeUsers.length > 0) {
+                ensureUserMinutes(usage, '');
+                usage.users[''].minutes = Math.max(0, Number(usage.users[''].minutes) || 0) + 1;
+            }
         }
-    } else if (logMinute && activeUsers.length > 0) {
-        ensureUserMinutes(usage, '');
-        usage.users[''].minutes = Math.max(0, Number(usage.users[''].minutes) || 0) + 1;
     }
     usage.date = today;
 
@@ -1528,14 +1447,17 @@ async function tickScreenTime(logMinute) {
         return;
     }
 
-    // Reset stale low-warning flag when time was extended or remaining grew
-    if (usage.warnedLowScreenTime) {
-        const remainingCheck = limit - minutes;
-        const snap = usage.warnSnapLimit;
-        if (remainingCheck > 5 || snap == null || Number(snap) !== Number(limit)) {
-            usage.warnedLowScreenTime = false;
-            delete usage.warnSnapLimit;
-        }
+    // Reset warn flags when time was extended or limit changed (snap mismatch)
+    const snap = usage.warnSnapLimit;
+    const snapMismatch = snap == null || Number(snap) !== Number(limit);
+    const remainingCheck = limit - minutes;
+    if (snapMismatch || remainingCheck > 10) {
+        usage.warned10 = false; usage.warned5 = false; usage.warned2 = false;
+        delete usage.warnSnapLimit;
+    } else if (remainingCheck > 5) {
+        usage.warned5 = false; usage.warned2 = false;
+    } else if (remainingCheck > 2) {
+        usage.warned2 = false;
     }
 
     const remaining = limit - minutes;
@@ -1545,67 +1467,66 @@ async function tickScreenTime(logMinute) {
     if (remaining <= 0) {
         // Skip exhausted enforcement when pinned user is not on seat0 or has no GUI session (avoid parent receiving child limit warnings).
         if (limitLu && !hasSessionForLimit) {
-            resetExemptWatchdogState();
             usage.warnedScreenTimeExhausted = false;
         } else {
-            const exemptProcs = loadExemptAppProcessNames();
-            if (exemptProcs.length > 0) {
-                // Exempt apps configured: watchdog decides whether to block or allow the logout
-                startInputMonitor();
-                const blocked = await runExemptWatchdog(exemptProcs);
-                if (!blocked) {
-                    resetExemptWatchdogState();
-                    if (!usage.warnedScreenTimeExhausted) {
-                        usage.warnedScreenTimeExhausted = true;
-                        broadcastWarn({ type: 'exhausted', effectiveLimit: limit, usedMinutes: minutes, remaining: 0 });
-                        writeUsage(usage);
-                        await new Promise(r => setTimeout(r, 15_000));
-                    }
-                    await terminateSessionsForPolicy(sessions, limitLu);
-                    const userKey = limitLu || '';
-                    if (usage.users && usage.users[userKey] && typeof usage.users[userKey].minutes === 'number') {
-                        usage.users[userKey].minutes = Math.max(0, usage.users[userKey].minutes - 2);
-                    }
-                    usage.warnedScreenTimeExhausted = false;
-                    usage.warnedLowScreenTime = false;
-                    delete usage.warnSnapLimit;
-                    writeUsage(usage);
+            if (!usage.warnedScreenTimeExhausted) {
+                usage.warnedScreenTimeExhausted = true;
+                const warnPayload = { type: 'exhausted', effectiveLimit: limit, usedMinutes: minutes, remaining: 0 };
+                notifyOrSpawn(warnPayload, 'Bildschirmzeit aufgebraucht', `Tageslimit von ${limit} Min. erreicht.`, 'critical', false, limitLu);
+                writeUsage(usage);
+                await new Promise(r => setTimeout(r, 15_000));
+            }
+            const freshAfterExhaustWait = readUsage();
+            if (freshAfterExhaustWait.date === usage.date) {
+                usage.extraAllowanceMinutes = freshAfterExhaustWait.extraAllowanceMinutes;
+                if (Object.prototype.hasOwnProperty.call(freshAfterExhaustWait, 'allowedHoursBypassDate')) {
+                    usage.allowedHoursBypassDate = freshAfterExhaustWait.allowedHoursBypassDate;
                 }
+            }
+            const limitAfterWait = Math.max(0, Number(period.dailyLimitMinutes) || 0) + Math.max(0, Number(usage.extraAllowanceMinutes) || 0);
+            const minutesAfterWait = effectiveScreenMinutes(usage, s.screenTimeLinuxUser);
+            const remainingAfterWait = limitAfterWait - minutesAfterWait;
+            if (remainingAfterWait > 0) {
+                usage.warnedScreenTimeExhausted = false;
+                usage.warned10 = false; usage.warned5 = false; usage.warned2 = false;
+                delete usage.warnSnapLimit;
             } else {
-                if (!usage.warnedScreenTimeExhausted) {
-                    usage.warnedScreenTimeExhausted = true;
-                    const warnPayload = { type: 'exhausted', effectiveLimit: limit, usedMinutes: minutes, remaining: 0 };
-                    notifyOrSpawn(warnPayload, 'Bildschirmzeit aufgebraucht', `Tageslimit von ${limit} Min. erreicht.`, 'critical');
-                    writeUsage(usage);
-                    await new Promise(r => setTimeout(r, 15_000));
-                }
                 await terminateSessionsForPolicy(sessions, limitLu);
-                // Grant 2 minutes by rolling back usage so the next login works cleanly.
-                // Using += on extraAllowance would grow the total limit on every cycle.
+                // Roll back 2 minutes so the next login session starts cleanly without immediately triggering exhausted again.
                 const userKey = limitLu || '';
                 if (usage.users && usage.users[userKey] && typeof usage.users[userKey].minutes === 'number') {
                     usage.users[userKey].minutes = Math.max(0, usage.users[userKey].minutes - 2);
                 }
                 usage.warnedScreenTimeExhausted = false;
-                usage.warnedLowScreenTime = false;
+                usage.warned10 = false; usage.warned5 = false; usage.warned2 = false;
                 delete usage.warnSnapLimit;
                 writeUsage(usage);
             }
         }
     } else {
-        // Time still available: reset watchdog warning cycle so it fires fresh next expiry
-        if (wdFirstWarnAt !== 0) { wdWarnCount = 0; wdFirstWarnAt = 0; wdLastWarnAt = 0; wdExemptActiveTicks = 0; }
         if (usage.warnedScreenTimeExhausted) usage.warnedScreenTimeExhausted = false;
-        if (remaining >= 1 && remaining <= 5 && !usage.warnedLowScreenTime && hasSessionForLimit) {
-            usage.warnedLowScreenTime = true;
-            usage.warnSnapLimit = limit;
-            const warnPayload = { type: 'low', effectiveLimit: limit, usedMinutes: minutes, remaining };
-            notifyOrSpawn(warnPayload, 'Bildschirmzeit fast aufgebraucht', `Noch ${remaining} Min. übrig heute.`, 'normal');
+        if (hasSessionForLimit) {
+            if (remaining <= 2 && !usage.warned2) {
+                usage.warned2 = true;
+                if (!usage.warnSnapLimit) { usage.warned10 = true; usage.warned5 = true; usage.warnSnapLimit = limit; }
+                notifyOrSpawn({ type: 'low', effectiveLimit: limit, usedMinutes: minutes, remaining }, 'Bildschirmzeit fast aufgebraucht', `Noch ${remaining} Min. übrig heute.`, 'critical', false, limitLu);
+            } else if (remaining <= 5 && !usage.warned5) {
+                usage.warned5 = true;
+                if (!usage.warnSnapLimit) { usage.warned10 = true; usage.warnSnapLimit = limit; }
+                notifyOrSpawn({ type: 'low', effectiveLimit: limit, usedMinutes: minutes, remaining }, 'Bildschirmzeit fast aufgebraucht', `Noch ${remaining} Min. übrig heute.`, 'normal', false, limitLu);
+            } else if (remaining <= 10 && !usage.warned10) {
+                usage.warned10 = true;
+                usage.warnSnapLimit = limit;
+                notifyOrSpawn({ type: 'low', effectiveLimit: limit, usedMinutes: minutes, remaining }, 'Bildschirmzeit fast aufgebraucht', `Noch ${remaining} Min. übrig heute.`, 'normal', false, limitLu);
+            }
         }
     }
 
+    const minutesStatus = effectiveScreenMinutes(usage, s.screenTimeLinuxUser);
+    const limitStatus = Math.max(0, Number(period.dailyLimitMinutes) || 0) + Math.max(0, Number(usage.extraAllowanceMinutes) || 0);
+    const remainingStatus = limitStatus - minutesStatus;
     writeUsage(usage);
-    broadcast({ type: 'status', screenTime: { enabled: true, dailyLimitEnabled: true, minutes, limitMinutes: limit, remaining: Math.max(0, remaining) } });
+    broadcast({ type: 'status', screenTime: { enabled: true, dailyLimitEnabled: true, minutes: minutesStatus, limitMinutes: limitStatus, remaining: Math.max(0, remainingStatus) } });
 }
 
 // --- App quota enforcement ---
@@ -1784,9 +1705,8 @@ function maybeHandleDaemonWarningTestRequest() {
     notifyOrSpawn(payload, 'LiFE Test', 'Warnfenster-Test (Systemd-Daemon).', 'normal');
 }
 
-async function tick() {
+async function tickWork(logMinute) {
     maybeHandleDaemonWarningTestRequest();
-    const logMinute = atLoggedMinuteBoundary();
     if (logMinute) {
         try { await defaultSync.maybeSync(); } catch (e) { log.warn(`defaultSync tick: ${e && e.message ? e.message : String(e)}`); }
     }
@@ -1813,8 +1733,9 @@ function handleClientCommand(client, cmd) {
             const usage = readUsage();
             const prev = Math.max(0, Number(usage.extraAllowanceMinutes) || 0);
             usage.extraAllowanceMinutes = prev + minutes;
-            usage.warnedLowScreenTime = false;
+            usage.warned10 = false; usage.warned5 = false; usage.warned2 = false;
             usage.warnedScreenTimeExhausted = false;
+            delete usage.warnSnapLimit;
             writeUsage(usage);
             const s = readSchedule();
             const _extNow = new Date(); const _extWd = _extNow.getDay(); const _extPeriod = (_extWd === 0 || _extWd === 6) ? s.weekend : s.weekday;
@@ -2681,9 +2602,12 @@ defaultSync.maybeSync().catch(e => log.warn(`defaultSync initial: ${e && e.messa
 
 startSocketServer();
 
-// First tick immediately, then on TICK_MS interval
-tick().catch(e => log.error(`initial tick: ${e.message}`));
-setInterval(() => tick().catch(e => log.error(`tick: ${e.message}`)), TICK_MS);
+// Wall clock: advance minute counter every TICK_MS; run heavy tick work strictly one at a time (no overlap during exhausted wait).
+tickWorkChain = tickWorkChain.then(() => tickWork(atLoggedMinuteBoundary())).catch((e) => log.error(`initial tick: ${e && e.message ? e.message : String(e)}`));
+setInterval(() => {
+    const logMinute = atLoggedMinuteBoundary();
+    tickWorkChain = tickWorkChain.then(() => tickWork(logMinute)).catch((e) => log.error(`tick: ${e && e.message ? e.message : String(e)}`));
+}, TICK_MS);
 
 process.on('SIGTERM', () => {
     log.info('shutting down (SIGTERM)');
