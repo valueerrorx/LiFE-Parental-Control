@@ -1502,12 +1502,12 @@ async function tickScreenTime(logMinute) {
                 const graceEndsAt = allowedHoursGraceStartMs + ALLOWED_HOURS_GRACE_MS;
                 const warnPayload = {
                     type: 'allowed-hours',
-                    heading: 'Computer jetzt nicht erlaubt',
+                    heading: 'Computer um diese Zeit nicht erlaubt',
                     message: 'Die Computernutzung ist zu dieser Zeit nicht gestattet.',
                     graceEndsAt
                 };
                 writeUsage(usage);
-                notifyOrSpawn(warnPayload, 'Computer jetzt nicht erlaubt', 'Die Computernutzung ist zu dieser Zeit nicht gestattet.', 'critical', false, limitLu);
+                notifyOrSpawn(warnPayload, 'Computer um diese Zeit nicht erlaubt', 'Die Computernutzung ist zu dieser Zeit nicht gestattet.', 'critical', false, limitLu);
                 return;
             }
             if (Date.now() - allowedHoursGraceStartMs < ALLOWED_HOURS_GRACE_MS) {

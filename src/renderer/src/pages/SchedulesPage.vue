@@ -222,6 +222,7 @@ const schedule = reactive({
     weekday: { dailyLimitEnabled: false, dailyLimitMinutes: 120, allowedHoursEnabled: false, allowedHoursStart: '07:00', allowedHoursEnd: '22:00' },
     weekend: { dailyLimitEnabled: false, dailyLimitMinutes: 180, allowedHoursEnabled: false, allowedHoursStart: '09:00', allowedHoursEnd: '22:00' }
 })
+const loading = ref(true)
 const saving  = ref(false)
 const saveMsg = ref('')
 const saveError = ref(false)
@@ -261,7 +262,7 @@ const usageBarColor = computed(() => usagePercent.value >= 100 ? '#C62828' : usa
 const usageColor    = computed(() => ({ color: usageBarColor.value }))
 
 watch(() => schedule.enabled, (enabled) => {
-    if (enabled) return
+    if (loading.value || enabled) return
     schedule.weekday.dailyLimitEnabled = false
     schedule.weekday.allowedHoursEnabled = false
     schedule.weekend.dailyLimitEnabled = false
@@ -297,13 +298,18 @@ let usageRefreshTimer = null
 
 onMounted(async () => {
     await loadDesktopLoginUsers()
+    console.log('[SchedulesPage] loading schedule from IPC...')
     const saved = await window.api.schedules.get()
+    console.log('[SchedulesPage] IPC schedules:get result:', JSON.stringify(saved))
     if (saved) {
         const { weekday, weekend, allowedDays: _dropped, ...rest } = saved
         Object.assign(schedule, rest)
+        console.log('[SchedulesPage] after Object.assign(rest) — schedule.enabled:', schedule.enabled, 'weekday.dailyLimitEnabled:', schedule.weekday.dailyLimitEnabled)
         if (weekday) Object.assign(schedule.weekday, weekday)
         if (weekend) Object.assign(schedule.weekend, weekend)
+        console.log('[SchedulesPage] after weekday/weekend assign — weekday.dailyLimitEnabled:', schedule.weekday.dailyLimitEnabled, 'weekend.dailyLimitEnabled:', schedule.weekend.dailyLimitEnabled)
     }
+    loading.value = false
     takeSnapshot()
     await refreshUsageData()
     usageRefreshTimer = setInterval(refreshUsageData, 30_000)

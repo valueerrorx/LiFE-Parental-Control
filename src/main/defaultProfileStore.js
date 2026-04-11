@@ -8,13 +8,7 @@ const EMPTY_DEFAULT = {
     label: 'Default',
     schedule: {
         enabled: false,
-        dailyLimitEnabled: false,
-        dailyLimitMinutes: 120,
         screenTimeLinuxUser: '',
-        allowedHoursEnabled: false,
-        allowedHoursStart: '07:00',
-        allowedHoursEnd: '22:00',
-        allowedDays: [1, 2, 3, 4, 5, 6, 7]
     },
     webfilter: {
         enabled: false,
@@ -45,18 +39,19 @@ function defaultJsonPath(configDir) {
 
 function normalizeSchedule(schedule) {
     const s = schedule && typeof schedule === 'object' && !Array.isArray(schedule) ? schedule : {}
-    return {
+    const result = {
         enabled: s.enabled === true,
-        dailyLimitEnabled: s.dailyLimitEnabled === true,
-        dailyLimitMinutes: Number.isFinite(Number(s.dailyLimitMinutes)) ? Number(s.dailyLimitMinutes) : 120,
         screenTimeLinuxUser: typeof s.screenTimeLinuxUser === 'string' ? s.screenTimeLinuxUser : '',
-        allowedHoursEnabled: s.allowedHoursEnabled === true,
-        allowedHoursStart: typeof s.allowedHoursStart === 'string' ? s.allowedHoursStart : '07:00',
-        allowedHoursEnd: typeof s.allowedHoursEnd === 'string' ? s.allowedHoursEnd : '22:00',
-        allowedDays: Array.isArray(s.allowedDays)
-            ? s.allowedDays.map(n => Number(n)).filter(n => Number.isFinite(n)).map(n => Math.trunc(n))
-            : [1, 2, 3, 4, 5, 6, 7]
     }
+    if (s.weekday && typeof s.weekday === 'object') result.weekday = s.weekday
+    if (s.weekend && typeof s.weekend === 'object') result.weekend = s.weekend
+    // preserve legacy flat fields if present (backward compat for readSchedule migration)
+    if (s.dailyLimitEnabled != null) result.dailyLimitEnabled = s.dailyLimitEnabled === true
+    if (s.dailyLimitMinutes != null) result.dailyLimitMinutes = Number.isFinite(Number(s.dailyLimitMinutes)) ? Number(s.dailyLimitMinutes) : 120
+    if (s.allowedHoursEnabled != null) result.allowedHoursEnabled = s.allowedHoursEnabled === true
+    if (s.allowedHoursStart != null) result.allowedHoursStart = typeof s.allowedHoursStart === 'string' ? s.allowedHoursStart : '07:00'
+    if (s.allowedHoursEnd != null) result.allowedHoursEnd = typeof s.allowedHoursEnd === 'string' ? s.allowedHoursEnd : '22:00'
+    return result
 }
 
 function readJsonSafe(p) {

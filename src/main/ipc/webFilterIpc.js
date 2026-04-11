@@ -332,8 +332,9 @@ export function runStartupHageziSync(configDir) {
         })
 }
 
-export async function persistWebFilterEntries(configDir, entries, feedState = undefined, listAllowlist = undefined, { background = false } = {}) {
+export async function persistWebFilterEntries(configDir, entries, feedState = undefined, listAllowlist = undefined, { background = false, enabled: enabledOverride } = {}) {
     const wf = readWebfilterFromConfig(configDir)
+    if (enabledOverride !== undefined) wf.enabled = enabledOverride !== false
     wf.entries = Array.isArray(entries)
         ? entries.filter(e => e && typeof e.domain === 'string').map(e => ({
             domain: String(e.domain).toLowerCase(),
