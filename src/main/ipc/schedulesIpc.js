@@ -149,18 +149,20 @@ export function redeployScheduleCron(configDir) {
 export function registerSchedulesIpc(ipcMain, configDir) {
     ipcMain.handle('schedules:get', () => readSchedule(configDir))
 
-    ipcMain.handle('schedules:getUsage', () => {
+    ipcMain.handle('schedules:getUsage', (_, linuxUser) => {
         const schedule = readSchedule(configDir)
         const usage = readUsage(configDir)
-        const minutes = effectiveScreenMinutes(usage, schedule.screenTimeLinuxUser)
+        const user = linuxUser !== undefined ? linuxUser : schedule.screenTimeLinuxUser
+        const minutes = effectiveScreenMinutes(usage, user)
         return { ...usage, minutes }
     })
 
-    ipcMain.handle('schedules:getUsageHistory', (_, rawMax) => {
+    ipcMain.handle('schedules:getUsageHistory', (_, rawMax, linuxUser) => {
         try {
             const maxDays = Math.min(90, Math.max(1, Number(rawMax) || 14))
             const schedule = readSchedule(configDir)
-            return { days: readUsageHistory(configDir, maxDays, schedule.screenTimeLinuxUser) }
+            const user = linuxUser !== undefined ? linuxUser : schedule.screenTimeLinuxUser
+            return { days: readUsageHistory(configDir, maxDays, user) }
         } catch (e) {
             return { days: [], error: e.message }
         }

@@ -1308,7 +1308,11 @@ function spawnWarningWindow(payload, sessionInfo) {
 
     const info = sessionInfo === undefined ? getFirstActiveUserInfo() : sessionInfo;
     if (!info) {
-        log.error('spawnWarningWindow FAILED: no active graphical session found via loginctl');
+        if (sessionInfo === null) {
+            log.info(`spawnWarningWindow skipped: pinned notify had no graphical session for that user type=${payload?.type || '?'}`);
+        } else {
+            log.warn(`spawnWarningWindow skipped: no graphical session for notify target type=${payload?.type || '?'}`);
+        }
         return;
     }
 
@@ -1360,10 +1364,27 @@ function spawnWarningWindow(payload, sessionInfo) {
 // Notify connected clients AND always spawn a user-context warning window.
 // Root Electron cannot reliably open windows on the user's Wayland session,
 // so the --warning-mode process (running as desktop user) handles the actual UI.
-function notifyOrSpawn(payload, notifySummary, notifyBody, urgency = 'normal', skipWindow = false) {
-    appendActivityDaemon({ action: 'notification_sent', type: payload.type || 'unknown', summary: notifySummary, appId: payload.appId || undefined, appName: payload.appName || undefined });
+// Optional notifyLinuxUser: if set, notify-send and warning window use only that user's graphical session.
+function notifyOrSpawn(payload, notifySummary, notifyBody, urgency = 'normal', skipWindow = false, notifyLinuxUser = '') {
+    const payloadType = payload?.type || 'unknown';
+    appendActivityDaemon({ action: 'notification_sent', type: payloadType, summary: notifySummary, appId: payload.appId || undefined, appName: payload.appName || undefined });
     broadcastWarn(payload); // broadcast to connected clients (for status/dashboard updates)
-    const info = getFirstActiveUserInfo();
+    const pin = normalizeLinuxUser(notifyLinuxUser);
+    let info;
+    let resolvePath = 'seat0_first';
+    let graphCount = 0;
+    if (pin) {
+        resolvePath = 'pinned_user';
+        const list = listActiveUserInfos();
+        graphCount = list.length;
+        info = list.find((s) => normalizeLinuxUser(s.user) === pin) || null;
+    } else {
+        info = getFirstActiveUserInfo();
+        graphCount = listActiveUserInfos().length;
+    }
+    const target = info ? `${info.user}@sid=${info.sessionId}` : 'NONE';
+    const desktopPlan = info ? 'notify-send+window' : 'SKIP_NO_SESSION';
+    log.info(`notifyOrSpawn: type=${payloadType} summary="${notifySummary}" pinRaw=${typeof notifyLinuxUser === 'string' && notifyLinuxUser ? JSON.stringify(notifyLinuxUser) : '(none)'} pinNorm=${pin || '—'} resolve=${resolvePath} graphSessions=${graphCount} target=${target} desktop=${desktopPlan} skipWindow=${skipWindow}`);
     if (!skipWindow) spawnWarningWindow(payload, info);
     // notify-send must use the same session as the window (same sudo -u + env as Electron); runuser often targets a different bus.
     if (!info) return;
@@ -1486,7 +1507,7 @@ async function tickScreenTime(logMinute) {
                     graceEndsAt
                 };
                 writeUsage(usage);
-                notifyOrSpawn(warnPayload, 'Computer jetzt nicht erlaubt', 'Die Computernutzung ist zu dieser Zeit nicht gestattet.', 'critical');
+                notifyOrSpawn(warnPayload, 'Computer jetzt nicht erlaubt', 'Die Computernutzung ist zu dieser Zeit nicht gestattet.', 'critical', false, limitLu);
                 return;
             }
             if (Date.now() - allowedHoursGraceStartMs < ALLOWED_HOURS_GRACE_MS) {

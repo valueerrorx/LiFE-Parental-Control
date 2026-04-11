@@ -55,8 +55,8 @@ contextBridge.exposeInMainWorld('api', {
     },
     schedules: {
         get: () => ipcRenderer.invoke('schedules:get'),
-        getUsage: () => ipcRenderer.invoke('schedules:getUsage'),
-        getUsageHistory: (maxDays) => ipcRenderer.invoke('schedules:getUsageHistory', maxDays),
+        getUsage: (linuxUser) => ipcRenderer.invoke('schedules:getUsage', linuxUser),
+        getUsageHistory: (maxDays, linuxUser) => ipcRenderer.invoke('schedules:getUsageHistory', maxDays, linuxUser),
         save: (schedule) => ipcRenderer.invoke('schedules:save', schedule),
         redeploy: () => ipcRenderer.invoke('schedules:redeploy'),
         resetTodayUsage: () => ipcRenderer.invoke('schedules:resetTodayUsage'),

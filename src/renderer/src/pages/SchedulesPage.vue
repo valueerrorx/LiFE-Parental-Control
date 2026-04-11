@@ -203,7 +203,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted, watch } from 'vue'
+import { ref, reactive, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { confirm } from '../composables/useConfirm.js'
 import { useUnsavedGuard } from '../composables/useUnsavedGuard.js'
@@ -281,9 +281,10 @@ function historyBarStyle(row) {
 }
 
 async function refreshUsageData() {
+    const user = schedule.screenTimeLinuxUser
     const [usage, hist] = await Promise.all([
-        window.api.schedules.getUsage(),
-        window.api.schedules.getUsageHistory(historyDays.value)
+        window.api.schedules.getUsage(user),
+        window.api.schedules.getUsageHistory(historyDays.value, user)
     ])
     if (usage) {
         todayMinutes.value = usage.minutes ?? 0
@@ -291,6 +292,8 @@ async function refreshUsageData() {
     }
     usageHistory.value = hist.days ?? []
 }
+
+let usageRefreshTimer = null
 
 onMounted(async () => {
     await loadDesktopLoginUsers()
@@ -303,6 +306,15 @@ onMounted(async () => {
     }
     takeSnapshot()
     await refreshUsageData()
+    usageRefreshTimer = setInterval(refreshUsageData, 30_000)
+})
+
+onUnmounted(() => {
+    clearInterval(usageRefreshTimer)
+})
+
+watch(() => schedule.screenTimeLinuxUser, () => {
+    refreshUsageData()
 })
 
 async function applyPreset(kind) {
