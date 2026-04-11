@@ -79,14 +79,6 @@ export async function daemonWriteKiosk(kdeglobalsContent, plasmaAppletsrcContent
     catch (e) { logErr('write-kiosk', e.message); return { ok: false, error: e.message } }
 }
 
-/** Write /etc/life-parental/app-monitor-catalog.json. Fire-and-forget. */
-export function daemonWriteAppCatalogAsync(content) {
-    if (!isDaemonConnected()) { logErr('write-app-catalog', 'daemon not connected'); return }
-    daemonRequest({ type: 'write-app-catalog', content }, 'write-app-catalog-result', 15_000)
-        .then(r => { if (!r.ok) logErr('write-app-catalog', r.error) })
-        .catch(e => logErr('write-app-catalog', e.message))
-}
-
 /** systemctl action on parental-control.service. Awaitable. */
 export async function daemonServiceControl(action) {
     if (!isDaemonConnected()) { logErr('service-control', 'daemon not connected'); return { ok: false, error: 'Daemon nicht verbunden.' } }

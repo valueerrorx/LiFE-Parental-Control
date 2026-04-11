@@ -13,7 +13,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const SOCKET_PATH = '/run/parental-control.sock'
 const REQUEST_TIMEOUT_MS = 8_000
 
-// Enforcement types that require the fullscreen lockscreen (no dismiss button)
+// Enforcement types: fullscreen logout/session-end window (daemon terminates session except allowed-hours + valid parent bypass).
 const ENFORCEMENT_TYPES = new Set(['exhausted', 'allowed-hours'])
 
 function connectToDaemon() {
@@ -66,7 +66,7 @@ function daemonRequest(socket, cmd, replyType) {
 export async function runWarningMode(payload) {
     const type = payload?.type || ''
 
-    // Enforcement events → fullscreen lockscreen (no dismiss possible)
+    // Enforcement events → logout/session-end window (allowed-hours may still avoid logout via parent bypass).
     if (ENFORCEMENT_TYPES.has(type)) {
         await runLockscreen(payload)
         return

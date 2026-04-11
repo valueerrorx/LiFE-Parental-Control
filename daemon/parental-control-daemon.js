@@ -22,6 +22,7 @@ const LOG_MAX_BYTES = 2 * 1024 * 1024; // rotate at 2 MB
 const TICK_MS = 10_000;
 const TICKS_PER_LOGGED_MINUTE = 60_000 / TICK_MS; // 6 ticks = 1 minute
 const ALLOWED_HOURS_GRACE_MS = 60_000;
+const EXHAUSTED_LOGOUT_GRACE_MS = 60_000; // Same wall-clock UX as allowed-hours; parent may grant bonus via lockscreen before terminate.
 
 const NOTIFY_SEND_BIN = (() => {
     try {
@@ -487,6 +488,187 @@ function writeAppMonitorUsage(usageMap) {
     const file = path.join(CONFIG_DIR, `app-usage-${today}.json`);
     fs.mkdirSync(CONFIG_DIR, { recursive: true });
     fs.writeFileSync(file, JSON.stringify({ date: today, usage: usageMap }, null, 2), 'utf8');
+}
+
+// --- Desktop app catalog builder ---
+
+function execLineToProcessName(execLine) {
+    if (!execLine || typeof execLine !== 'string') return '';
+    const raw = execLine.trim().split(/\s+/).map(t => t.replace(/^['"]|['"]$/g, ''));
+    const skipLead = new Set(['env', 'dbus-run-session', 'gdbus']);
+    let i = 0;
+    while (i < raw.length) {
+        const t = raw[i];
+        if (skipLead.has(t.toLowerCase())) { i++; continue; }
+        if (/^[A-Za-z_][A-Za-z0-9_]*=/.test(t)) { i++; continue; }
+        break;
+    }
+    const tokens = raw.slice(i);
+    if (!tokens.length) return '';
+
+    for (let j = 0; j < tokens.length; j++) {
+        if (tokens[j].startsWith('--command=')) {
+            const v = tokens[j].slice('--command='.length);
+            if (v) return v.includes('/') ? (path.basename(v) || v) : v;
+        }
+        if (tokens[j] === '--command' && j + 1 < tokens.length) {
+            const v = tokens[j + 1];
+            return v.includes('/') ? (path.basename(v) || v) : v;
+        }
+    }
+
+    for (let j = 0; j < tokens.length - 2; j++) {
+        const base = tokens[j].includes('/') ? path.basename(tokens[j]) : tokens[j];
+        if (base === 'snap' && tokens[j + 1] === 'run') {
+            const v = tokens[j + 2];
+            if (v && !v.startsWith('-')) return v.includes('/') ? (path.basename(v) || v) : v;
+        }
+    }
+
+    const flatpakArgPair = new Set(['--arch', '--branch', '--share', '--socket', '--device', '--filesystem', '--env',
+        '--own-name', '--talk-name', '--system-talk-name', '--persist', '--add-policy', '--remove-policy']);
+    for (let j = 0; j < tokens.length - 1; j++) {
+        const base = tokens[j].includes('/') ? path.basename(tokens[j]) : tokens[j];
+        if (base !== 'flatpak' || tokens[j + 1] !== 'run') continue;
+        let k = j + 2;
+        while (k < tokens.length && tokens[k].startsWith('-')) {
+            const t = tokens[k];
+            if (t.startsWith('--command=') || t === '--command') break;
+            if (t.includes('=')) { k++; continue; }
+            if (flatpakArgPair.has(t) && k + 1 < tokens.length) { k += 2; continue; }
+            k++;
+        }
+        if (k < tokens.length && !tokens[k].startsWith('-')) {
+            const app = tokens[k];
+            if (app.includes('/')) return path.basename(app) || app;
+            if (app.includes('.')) {
+                const tail = app.slice(app.lastIndexOf('.') + 1);
+                return tail || app;
+            }
+            return app;
+        }
+        break;
+    }
+
+    for (let j = 0; j < tokens.length - 1; j++) {
+        const base = tokens[j].includes('/') ? path.basename(tokens[j]) : tokens[j];
+        const sh = base.toLowerCase();
+        if ((sh === 'sh' || sh === 'bash' || sh === 'dash' || sh === 'zsh') && tokens[j + 1] === '-c') {
+            const inner = tokens.slice(j + 2).join(' ').replace(/^['"]|['"]$/g, '');
+            return inner ? (execLineToProcessName(inner) || '') : '';
+        }
+    }
+
+    for (let j = 0; j < tokens.length; j++) {
+        const base = tokens[j].includes('/') ? path.basename(tokens[j]) : tokens[j];
+        if (base.toLowerCase() !== 'electron') continue;
+        let k = j + 1;
+        while (k < tokens.length && tokens[k].startsWith('-')) k++;
+        if (k < tokens.length) {
+            const nested = execLineToProcessName(tokens.slice(k).join(' '));
+            if (nested) return nested;
+        }
+        break;
+    }
+
+    for (const t of tokens) {
+        if (!/\.appimage$/i.test(t)) continue;
+        const file = t.includes('/') ? path.basename(t) : t;
+        const stem = file.replace(/\.appimage$/i, '');
+        if (stem) return stem;
+    }
+
+    for (let p = 0; p < tokens.length; p++) {
+        const t = tokens[p];
+        if (/^[A-Za-z_][A-Za-z0-9_]*=/.test(t)) continue;
+        if (t.includes('/')) return path.basename(t) || t;
+        return t;
+    }
+    return '';
+}
+
+function parseDesktopFile(filePath) {
+    try {
+        const content = fs.readFileSync(filePath, 'utf8');
+        const mainSection = content.split(/\[Desktop Entry\]/i)[1]?.split(/^\[/m)[0] || '';
+        if (!mainSection) return null;
+        const get = (key) => {
+            const m = mainSection.match(new RegExp(`^${key}=(.*)$`, 'm'));
+            return m ? m[1].trim() : '';
+        };
+        const name = get('Name\\[de\\]') || get('Name');
+        const exec = get('Exec');
+        const noDisplay = get('NoDisplay').toLowerCase() === 'true';
+        const hidden = get('Hidden').toLowerCase() === 'true';
+        if (!name || !exec || noDisplay || hidden) return null;
+        return { appId: path.basename(filePath), appName: name, exec, processName: execLineToProcessName(exec) };
+    } catch { return null; }
+}
+
+function execLineToFullPath(execLine) {
+    if (!execLine) return null;
+    const clean = execLine.trim().replace(/%[a-zA-Z]/g, '').trim();
+    const tokens = clean.split(/\s+/).filter(Boolean);
+    if (!tokens.length) return null;
+    let i = 0;
+    while (i < tokens.length) {
+        const t = tokens[i];
+        if (['env', 'dbus-run-session', 'gdbus'].includes(t.toLowerCase())) { i++; continue; }
+        if (/^[A-Za-z_][A-Za-z0-9_]*=/.test(t)) { i++; continue; }
+        break;
+    }
+    if (i >= tokens.length) return null;
+    const cmd = tokens[i];
+    const base = cmd.includes('/') ? path.basename(cmd) : cmd;
+    if (base === 'flatpak' || base === 'snap') return null;
+    if (cmd.startsWith('/')) return cmd;
+    try {
+        const r = spawnSync('which', [cmd], { encoding: 'utf8', timeout: 2000 });
+        const found = (r.stdout || '').trim();
+        if (found && found.startsWith('/')) return found;
+    } catch { /* which not available */ }
+    return null;
+}
+
+function readAllDesktopApps() {
+    const apps = [];
+    const seen = new Set();
+    for (const dir of DESKTOP_DIRS) {
+        try {
+            if (!fs.existsSync(dir)) continue;
+            for (const file of fs.readdirSync(dir).filter(f => f.endsWith('.desktop'))) {
+                if (seen.has(file)) continue;
+                seen.add(file);
+                const app = parseDesktopFile(path.join(dir, file));
+                if (!app) continue;
+                // Skip apps whose binary is not on disk
+                const fullPath = execLineToFullPath(app.exec);
+                if (fullPath !== null && !fs.existsSync(fullPath)) continue;
+                const { exec: _exec, ...catalogEntry } = app;
+                apps.push(catalogEntry);
+            }
+        } catch { /* skip unreadable dir */ }
+    }
+    return apps.sort((a, b) => a.appName.localeCompare(b.appName));
+}
+
+function buildAndWriteAppCatalog() {
+    try {
+        const apps = readAllDesktopApps();
+        const payload = {
+            updatedAt: new Date().toISOString(),
+            apps: apps.filter(a => (a.processName || '').trim().length > 0)
+        };
+        fs.mkdirSync(CONFIG_DIR, { recursive: true });
+        fs.writeFileSync(
+            path.join(CONFIG_DIR, 'app-monitor-catalog.json'),
+            JSON.stringify(payload, null, 2),
+            { encoding: 'utf8', mode: 0o644 }
+        );
+        log.info(`app-catalog: built ${payload.apps.length} entries`);
+    } catch (e) {
+        log.warn(`app-catalog: build failed: ${e.message}`);
+    }
 }
 
 // --- DNS probe helper ---
@@ -1471,10 +1653,11 @@ async function tickScreenTime(logMinute) {
         } else {
             if (!usage.warnedScreenTimeExhausted) {
                 usage.warnedScreenTimeExhausted = true;
-                const warnPayload = { type: 'exhausted', effectiveLimit: limit, usedMinutes: minutes, remaining: 0 };
+                const graceEndsAt = Date.now() + EXHAUSTED_LOGOUT_GRACE_MS;
+                const warnPayload = { type: 'exhausted', effectiveLimit: limit, usedMinutes: minutes, remaining: 0, graceEndsAt };
                 notifyOrSpawn(warnPayload, 'Bildschirmzeit aufgebraucht', `Tageslimit von ${limit} Min. erreicht.`, 'critical', false, limitLu);
                 writeUsage(usage);
-                await new Promise(r => setTimeout(r, 15_000));
+                await new Promise(r => setTimeout(r, EXHAUSTED_LOGOUT_GRACE_MS));
             }
             const freshAfterExhaustWait = readUsage();
             if (freshAfterExhaustWait.date === usage.date) {
@@ -1701,7 +1884,7 @@ function maybeHandleDaemonWarningTestRequest() {
     if (!want) return;
     clearRequestDaemonWarningTestFlag();
     log.info('default.json requestDaemonWarningTest: spawning daemon warning test window');
-    const payload = { type: 'exhausted', effectiveLimit: 120, usedMinutes: 120, remaining: 0 };
+    const payload = { type: 'exhausted', effectiveLimit: 120, usedMinutes: 120, remaining: 0, graceEndsAt: Date.now() + EXHAUSTED_LOGOUT_GRACE_MS };
     notifyOrSpawn(payload, 'LiFE Test', 'Warnfenster-Test (Systemd-Daemon).', 'normal');
 }
 
@@ -2366,21 +2549,14 @@ function handleClientCommand(client, cmd) {
         return;
     }
 
-    if (cmd.type === 'write-app-catalog') {
-        // Write /etc/life-parental/app-monitor-catalog.json (world-readable, not sensitive)
+    if (cmd.type === 'get-app-catalog') {
+        // Return the current app-monitor-catalog.json content built from .desktop files
         try {
-            const content = typeof cmd.content === 'string' ? cmd.content : null;
-            if (!content) throw new Error('no content');
-            JSON.parse(content); // validate JSON
-            fs.writeFileSync(
-                path.join(CONFIG_DIR, 'app-monitor-catalog.json'),
-                content,
-                { encoding: 'utf8', mode: 0o644 }
-            );
-            client.write(JSON.stringify({ type: 'write-app-catalog-result', ok: true }) + '\n');
+            const entries = readMonitorCatalogEntries();
+            client.write(JSON.stringify({ type: 'get-app-catalog-result', ok: true, apps: entries }) + '\n');
         } catch (e) {
-            log.error('write-app-catalog: ' + e.message);
-            client.write(JSON.stringify({ type: 'write-app-catalog-result', ok: false, error: e.message }) + '\n');
+            log.error('get-app-catalog: ' + e.message);
+            client.write(JSON.stringify({ type: 'get-app-catalog-result', ok: false, error: e.message }) + '\n');
         }
         return;
     }
@@ -2601,6 +2777,7 @@ const defaultSync = createDefaultSync({ configDir: CONFIG_DIR, log });
 defaultSync.maybeSync().catch(e => log.warn(`defaultSync initial: ${e && e.message ? e.message : String(e)}`));
 
 startSocketServer();
+buildAndWriteAppCatalog();
 
 // Wall clock: advance minute counter every TICK_MS; run heavy tick work strictly one at a time (no overlap during exhausted wait).
 tickWorkChain = tickWorkChain.then(() => tickWork(atLoggedMinuteBoundary())).catch((e) => log.error(`initial tick: ${e && e.message ? e.message : String(e)}`));

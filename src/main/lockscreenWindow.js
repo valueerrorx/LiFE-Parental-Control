@@ -1,5 +1,4 @@
-// Enforcement overlay spawned by the daemon when no Electron client is connected (warning-mode).
-// exhausted: final notice only (countdown, no password). allowed-hours: parent password to unlock.
+// Logout-enforcement window: daemon-spawned --warning-mode child; session end is enforced by the daemon (terminate), not by this process alone.
 import { BrowserWindow, app, ipcMain } from 'electron'
 import net from 'net'
 import path from 'path'
@@ -54,13 +53,13 @@ function daemonRequest(socket, cmd, replyType) {
     })
 }
 
-function makeLockscreenHtml(payload) {
+function makeLogoutEnforcementHtml(payload) {
     const p = payload || {}
     const type = p.type || 'exhausted'
     const isAllowedHours = type === 'allowed-hours'
-    const isExhausted = type === 'exhausted'
     const effectiveLimit = Number(p.effectiveLimit) || 0
     const usedMinutes = Number(p.usedMinutes) || 0
+    const graceEndsAt = Number(p.graceEndsAt) > 0 ? Number(p.graceEndsAt) : (Date.now() + 60_000)
 
     let heading = 'Bildschirmzeit aufgebraucht'
     let info
@@ -71,49 +70,48 @@ function makeLockscreenHtml(payload) {
         info = `Das Tageslimit von <strong>${effectiveLimit}</strong> Min. ist erreicht (${usedMinutes} Min. genutzt).`
     }
 
-    // Final screen-time exhaustion: no password — session ends shortly (daemon enforces shutdown).
-    if (isExhausted) {
-        return `<!DOCTYPE html>
-<html><head><meta charset="utf-8"><title>LiFE Parental Control - Lockscreen</title><style>${WARNING_PANEL_CSS}</style></head>
-<body><div class="card">
-<div class="icon">⏱</div>
-<h1>${heading}</h1>
-<p class="info">${info}</p>
-<p class="info">Die Sitzung wird in <strong id="cd">15</strong> Sekunden beendet.</p>
-<button class="btn-block" id="btn">OK</button>
-</div>
-<script>
-const {ipcRenderer} = require('electron')
-const btn = document.getElementById('btn')
-let s = 15
-const cd = document.getElementById('cd')
-function done() { ipcRenderer.invoke('lockscreen:quit') }
-btn.addEventListener('click', () => done())
-setInterval(() => {
-  s--;
-  if (cd) cd.textContent = s
-  if (s <= 0) done()
-}, 1000)
-</script></body></html>`
-    }
+    const icon = isAllowedHours ? '🔒' : '⏱'
+    const countdownLine = isAllowedHours
+        ? 'Abmeldung, sobald der Countdown 0 erreicht — außer du gibst unten das Elternpasswort ein, um die <strong>heutigen Nutzungszeiten</strong> freizuschalten.'
+        : 'Abmeldung, sobald der Countdown 0 erreicht — außer du gibst unten das Elternpasswort ein und wählst <strong>Bonus-Bildschirmzeit</strong> (Abmeldung verhindern). Ohne Passwort trennt das System die Sitzung; beim nächsten Login gibt es kurz „Luft“, damit du wieder dieses Fenster siehst.'
 
-    // allowed-hours: countdown then logout unless parent grants calendar-day bypass via password.
-    const graceEndsAt = Number(p.graceEndsAt) > 0 ? Number(p.graceEndsAt) : (Date.now() + 60_000)
+    const pwLabel = isAllowedHours
+        ? 'Eltern-Passwort (heute erlaubte Zeiten aussetzen)'
+        : 'Eltern-Passwort (Bonus-Bildschirmzeit)'
+
+    const bonusSelect = isAllowedHours ? '' : `
+<label>Bonus hinzufügen</label>
+<select id="mins" class="sel" style="max-width:220px;">
+  <option value="10">+10 Min.</option>
+  <option value="15">+15 Min.</option>
+  <option value="20">+20 Min.</option>
+  <option value="25">+25 Min.</option>
+  <option value="30" selected>+30 Min.</option>
+  <option value="40">+40 Min.</option>
+  <option value="50">+50 Min.</option>
+  <option value="60">+60 Min.</option>
+</select>`
+
+    const typeJson = JSON.stringify(type)
+
     return `<!DOCTYPE html>
-<html><head><meta charset="utf-8"><title>LiFE Parental Control - Lockscreen</title><style>${WARNING_PANEL_CSS}</style></head>
+<html><head><meta charset="utf-8"><title>LiFE Parental Control — Sitzungsende</title><style>${WARNING_PANEL_CSS}</style></head>
 <body><div class="card">
-<div class="icon">🔒</div>
+<div class="icon">${icon}</div>
 <h1>${heading}</h1>
 <p class="info">${info}</p>
-<p class="info">Ausloggen in <strong id="cd">60</strong> Sekunden, sofern kein Elternpasswort eingegeben wird.</p>
-<label>Eltern-Passwort (heute erlaubte Zeiten aussetzen)</label>
+<p class="info">${countdownLine}</p>
+<p class="info">Verbleibend: <strong id="cd">0</strong> Sekunden</p>
+<label>${pwLabel}</label>
 <div class="row"><input type="password" id="pw" placeholder="Passwort" autocomplete="off"/></div>
+${bonusSelect}
 <div class="err" id="err"></div>
 <button class="btn-block" id="btn">Passwort bestätigen</button>
 </div>
 <script>
 const {ipcRenderer} = require('electron')
 const graceEndsAt = ${graceEndsAt}
+const enforcementType = ${typeJson}
 const pw = document.getElementById('pw')
 const btn = document.getElementById('btn')
 const err = document.getElementById('err')
@@ -124,16 +122,23 @@ function tickCd() {
 }
 setInterval(tickCd, 500)
 tickCd()
-pw.addEventListener('keydown', e => { if (e.key === 'Enter') doBypass() })
-btn.addEventListener('click', doBypass)
+pw.addEventListener('keydown', e => { if (e.key === 'Enter') doSubmit() })
+btn.addEventListener('click', doSubmit)
 pw.focus()
 
-async function doBypass() {
+async function doSubmit() {
   const password = pw.value
   if (!password) { err.textContent = 'Bitte Passwort eingeben.'; return }
   btn.disabled = true; btn.textContent = '…'; err.textContent = ''
   try {
-    const r = await ipcRenderer.invoke('lockscreen:allowed-hours-bypass', { password })
+    let r
+    if (enforcementType === 'allowed-hours') {
+      r = await ipcRenderer.invoke('lockscreen:allowed-hours-bypass', { password })
+    } else {
+      const sel = document.getElementById('mins')
+      const minutes = sel ? (+sel.value || 30) : 30
+      r = await ipcRenderer.invoke('lockscreen:grantBonusMinutes', { password, minutes })
+    }
     if (r && r.ok) {
       btn.textContent = '✓ Gespeichert'
       setTimeout(() => ipcRenderer.invoke('lockscreen:quit'), 500)
@@ -152,21 +157,24 @@ async function doBypass() {
 </script></body></html>`
 }
 
+// Daemon-spawned UI: exhausted ends session after grace unless parent grants bonus; allowed-hours ends session after grace unless bypass for today.
 export async function runLockscreen(payload) {
-    const type = payload?.type || 'exhausted'
-    const isAllowedHours = type === 'allowed-hours'
-    let daemonSocket = null
-    if (isAllowedHours) {
-        daemonSocket = await connectToDaemon()
-    }
+    const daemonSocket = await connectToDaemon()
 
-    if (isAllowedHours) {
-        ipcMain.handle('lockscreen:allowed-hours-bypass', async (_, { password } = {}) => {
-            const result = await daemonRequest(daemonSocket, { type: 'allowed-hours-bypass', password }, 'allowed-hours-bypass-result')
-            if (result.ok !== true) return { error: result.error || 'Falsches Passwort.' }
-            return { ok: true }
-        })
-    }
+    ipcMain.handle('lockscreen:allowed-hours-bypass', async (_, { password } = {}) => {
+        if (!daemonSocket) return { error: 'Daemon nicht verbunden.' }
+        const result = await daemonRequest(daemonSocket, { type: 'allowed-hours-bypass', password }, 'allowed-hours-bypass-result')
+        if (result.ok !== true) return { error: result.error || 'Falsches Passwort.' }
+        return { ok: true }
+    })
+
+    ipcMain.handle('lockscreen:grantBonusMinutes', async (_, { password, minutes } = {}) => {
+        if (!daemonSocket) return { error: 'Daemon nicht verbunden.' }
+        const m = Math.min(180, Math.max(5, Math.floor(Number(minutes) || 30)))
+        const result = await daemonRequest(daemonSocket, { type: 'extend', password, minutes: m }, 'extend-result')
+        if (result.ok !== true) return { error: result.error || 'Falsches Passwort.' }
+        return { ok: true }
+    })
 
     ipcMain.handle('lockscreen:quit', () => { app.quit() })
 
@@ -188,7 +196,7 @@ export async function runLockscreen(payload) {
         minimizable: false,
         closable: false,
         skipTaskbar: false,
-        title: 'LiFE Parental Control - Lockscreen',
+        title: 'LiFE Parental Control — Sitzungsende',
         ...(iconPath ? { icon: iconPath } : {}),
         webPreferences: {
             nodeIntegration: true,
@@ -201,7 +209,7 @@ export async function runLockscreen(payload) {
     try { win.setAlwaysOnTop(true, 'screen-saver') } catch { win.setAlwaysOnTop(true) }
     try { win.setVisibleOnAllWorkspaces(true) } catch { /* ignore */ }
 
-    win.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(makeLockscreenHtml(payload ?? {})))
+    win.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(makeLogoutEnforcementHtml(payload ?? {})))
     win.once('ready-to-show', () => { try { win.center() } catch { /* ignore */ } })
     app.on('window-all-closed', () => { /* keep running until lockscreen:quit */ })
 }

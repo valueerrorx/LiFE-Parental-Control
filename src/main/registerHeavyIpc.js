@@ -5,7 +5,7 @@ import { execFile } from 'child_process'
 import { promisify } from 'util'
 import { app } from 'electron'
 import { registerWebFilterIpc, runStartupHageziSync } from './ipc/webFilterIpc.js'
-import { registerAppBlockerIpc, refreshAppMonitorCatalog, syncAppArmor } from './ipc/appBlockerIpc.js'
+import { registerAppBlockerIpc, syncAppArmor } from './ipc/appBlockerIpc.js'
 import { registerSchedulesIpc } from './ipc/schedulesIpc.js'
 import { registerQuotaIpc } from './ipc/quotaIpc.js'
 import { registerProcessWhitelistIpc } from './ipc/processWhitelistIpc.js'
@@ -334,13 +334,6 @@ export function runDeferredStartupTasks(appConfigDir) {
     if (RUN_STARTUP_HAGEZI_SYNC) {
         void runStartupHageziSync(appConfigDir)
     }
-    globalThis.setImmediate(() => {
-        try {
-            refreshAppMonitorCatalog(appConfigDir)
-        } catch {
-            // best-effort: catalog so dashboard app-usage can run without opening App Control first
-        }
-    })
     // Register exec path with daemon on every (re)connect so warning windows can be spawned.
     // AppImage: use process.env.APPIMAGE (the actual .AppImage file) so the daemon can re-spawn
     // it correctly as the desktop user with APPIMAGE_EXTRACT_AND_RUN=1.

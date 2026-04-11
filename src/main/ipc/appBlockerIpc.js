@@ -2,7 +2,7 @@ import fs from 'fs'
 import path from 'path'
 import { spawnSync } from 'child_process'
 import { desktopIconToDataUrl } from './desktopIconResolve.js'
-import { daemonSyncAppArmorAsync, daemonDesktopOverride, daemonWriteAppCatalogAsync } from '../daemonPrivilegedOps.js'
+import { daemonSyncAppArmorAsync, daemonDesktopOverride } from '../daemonPrivilegedOps.js'
 import { redeployQuotaFromDisk } from './quotaIpc.js'
 import { appendActivity } from './activityLog.js'
 import { patchDefaultJson, readDefaultJson } from '../defaultProfileStore.js'
@@ -358,27 +358,6 @@ export function readAllDesktopApps() {
     return apps.sort((a, b) => a.name.localeCompare(b.name))
 }
 
-export function writeAppMonitorCatalog(configDir, apps) {
-    void configDir
-    const payload = {
-        updatedAt: new Date().toISOString(),
-        apps: apps
-            .filter(a => (a.processName || '').trim().length > 0)
-            .map(a => ({
-                appId: a.id,
-                appName: a.name,
-                processName: (a.processName || '').trim()
-            }))
-    }
-    daemonWriteAppCatalogAsync(JSON.stringify(payload, null, 2))
-}
-
-/** Refresh catalog from disk and ensure cron script runs app-usage tally when quotas or catalog exist. */
-export function refreshAppMonitorCatalog(configDir) {
-    writeAppMonitorCatalog(configDir, readAllDesktopApps())
-    redeployQuotaFromDisk(configDir)
-}
-
 // --- AppArmor blocking ---
 
 const APPARMOR_PROFILE = '/etc/apparmor.d/life-parental-blocked'
@@ -515,7 +494,6 @@ export function registerAppBlockerIpc(ipcMain, configDir) {
             if (iconDataUrl) row.iconDataUrl = iconDataUrl
             return row
         })
-        writeAppMonitorCatalog(configDir, base)
         redeployQuotaFromDisk(configDir)
         return apps
     })
