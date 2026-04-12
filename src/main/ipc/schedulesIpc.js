@@ -127,6 +127,32 @@ function readUsageHistory(configDir, maxDays, screenTimeLinuxUser) {
 
 export function persistSchedule(configDir, schedule) {
     const s = { ...schedule, screenTimeLinuxUser: normalizeQuotaLinuxUser(schedule?.screenTimeLinuxUser) }
+
+    // Parent saved the schedule → reset all temporary overrides and warning flags for today.
+    try {
+        const today = localIsoDate()
+        const usageFile = path.join(configDir, `usage-${today}.json`)
+        let raw = null
+        try { raw = JSON.parse(fs.readFileSync(usageFile, 'utf8')) } catch { /* no file yet */ }
+        if (raw && raw.date === today) {
+            raw.allowedHoursOverrideEnd = ''
+            raw.allowedHoursExtraMinutes = 0
+            raw.extraAllowanceMinutes = 0
+            raw.warned10 = false
+            raw.warned5 = false
+            raw.warned2 = false
+            raw.warnedScreenTimeExhausted = false
+            raw.warnedAH10 = false
+            raw.warnedAH5 = false
+            raw.warnedAH2 = false
+            delete raw.warnSnapAHEnd
+            delete raw.warnSnapLimit
+            fs.writeFileSync(usageFile, JSON.stringify(raw, null, 2), 'utf8')
+        }
+    } catch {
+        // best-effort: don't block schedule save if usage file is missing/corrupt
+    }
+
     patchDefaultJson(configDir, (d) => {
         d.schedule = s
         return d
