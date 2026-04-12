@@ -147,6 +147,10 @@
             <div class="pc-card-header d-flex align-items-center justify-content-between flex-wrap gap-2">
                 <h6 class="mb-0">{{ $t('dashboard.screenTimeCard') }}</h6>
                 <div class="d-flex flex-wrap gap-2">
+                    <select v-if="appMonitorKnownUsers.length > 0" v-model="appMonitorViewUser" class="form-select form-select-sm" style="width:auto;">
+                        <option value="">{{ $t('dashboard.allUsers') }}</option>
+                        <option v-for="u in appMonitorKnownUsers" :key="u" :value="u">{{ u }}</option>
+                    </select>
                     <button type="button" class="btn btn-sm btn-outline-secondary" @click="refreshScreenCharts">
                         {{ $t('common.refresh') }}
                     </button>
@@ -294,6 +298,7 @@ const weekUsage = ref([])
 /** null = today (live store); else YYYY-MM-DD for historical donut. */
 const selectedDonutDate = ref(null)
 const donutDayUsage = ref({})
+const appMonitorViewUser = ref('')
 const daemonServiceActive = ref(null) // 'active' | 'inactive' | null
 const dnsmasqOk = ref(true) // true until loaded
 const dnsmasqReason = ref('ok')
@@ -447,9 +452,38 @@ const screenMinutesForDonut = computed(() => {
     return row ? Math.max(0, Number(row.minutes) || 0) : 0
 })
 
+function filterUsageByUser(raw, user) {
+    if (!user) {
+        // Alle User: summiere user:appId Keys auf appId
+        const out = {}
+        for (const [k, v] of Object.entries(raw)) {
+            const colonIdx = k.indexOf(':')
+            const appId = colonIdx !== -1 ? k.slice(colonIdx + 1) : k
+            out[appId] = (out[appId] || 0) + Math.max(0, Number(v) || 0)
+        }
+        return out
+    }
+    const prefix = user + ':'
+    const out = {}
+    for (const [k, v] of Object.entries(raw)) {
+        if (k.startsWith(prefix)) out[k.slice(prefix.length)] = Math.max(0, Number(v) || 0)
+    }
+    return out
+}
+
+const appMonitorKnownUsers = computed(() => {
+    const raw = store.appMonitorUsage || {}
+    const users = new Set()
+    for (const k of Object.keys(raw)) {
+        const colonIdx = k.indexOf(':')
+        if (colonIdx !== -1) users.add(k.slice(0, colonIdx))
+    }
+    return [...users].sort()
+})
+
 const usageMapForDonut = computed(() => {
-    if (selectedDonutDate.value === null) return store.appMonitorUsage || {}
-    return donutDayUsage.value
+    const raw = selectedDonutDate.value === null ? (store.appMonitorUsage || {}) : donutDayUsage.value
+    return filterUsageByUser(raw, appMonitorViewUser.value)
 })
 
 const donutMinCaption = computed(() => {

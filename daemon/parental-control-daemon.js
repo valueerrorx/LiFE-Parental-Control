@@ -399,7 +399,7 @@ function readSchedule() {
 }
 
 function emptyUsage(today) {
-    return { date: today, users: {}, extraAllowanceMinutes: 0, warned10: false, warned5: false, warned2: false, warnedScreenTimeExhausted: false, allowedHoursBypassDate: undefined };
+    return { date: today, users: {}, extraAllowanceMinutes: 0, allowedHoursExtraMinutes: 0, allowedHoursOverrideEnd: '', warned10: false, warned5: false, warned2: false, warnedScreenTimeExhausted: false, warnedAH10: false, warnedAH5: false, warnedAH2: false };
 }
 
 function readUsage() {
@@ -423,7 +423,12 @@ function readUsage() {
             warned2: data.warned2 === true,
             warnSnapLimit: data.warnSnapLimit != null ? Number(data.warnSnapLimit) : undefined,
             warnedScreenTimeExhausted: data.warnedScreenTimeExhausted === true,
-            allowedHoursBypassDate: typeof data.allowedHoursBypassDate === 'string' ? data.allowedHoursBypassDate : undefined
+            allowedHoursExtraMinutes: Math.max(0, Number(data.allowedHoursExtraMinutes) || 0),
+            allowedHoursOverrideEnd: typeof data.allowedHoursOverrideEnd === 'string' ? data.allowedHoursOverrideEnd.trim() : '',
+            warnedAH10: data.warnedAH10 === true,
+            warnedAH5: data.warnedAH5 === true,
+            warnedAH2: data.warnedAH2 === true,
+            warnSnapAHEnd: data.warnSnapAHEnd != null ? Number(data.warnSnapAHEnd) : undefined
         };
     } catch { return emptyUsage(today); }
 }
@@ -1512,14 +1517,62 @@ function isoWeekday(d) {
     return n === 0 ? 7 : n; // 1=Mon … 7=Sun
 }
 
-function isWithinAllowedHours(s, now) {
-    const [sh, sm] = String(s.allowedHoursStart || '07:00').split(':').map(Number);
-    const [eh, em] = String(s.allowedHoursEnd || '22:00').split(':').map(Number);
-    const start = sh * 60 + sm;
-    const end = eh * 60 + em;
+function scheduleStartDayMinutes(period) {
+    const [sh, sm] = String(period.allowedHoursStart || '07:00').split(':').map(Number);
+    return (Math.max(0, sh) * 60 + Math.max(0, sm)) || 0;
+}
+
+function scheduleEndDayMinutes(period) {
+    const [eh, em] = String(period.allowedHoursEnd || '22:00').split(':').map(Number);
+    return (Math.max(0, eh) * 60 + Math.max(0, em)) || 0;
+}
+
+/** Parses HH:MM (24h); "24:00" → end of calendar day. Returns null if invalid. */
+function parseOverrideEndDayMinutes(raw) {
+    if (raw == null || typeof raw !== 'string') return null;
+    const s = raw.trim();
+    if (s === '24:00') return 24 * 60;
+    const m = s.match(/^([01]?\d|2[0-3]):([0-5]\d)$/);
+    if (!m) return null;
+    const h = Number(m[1]);
+    const min = Number(m[2]);
+    if (!Number.isFinite(h) || !Number.isFinite(min)) return null;
+    if (h > 23 || min > 59) return null;
+    return h * 60 + min;
+}
+
+function effectiveAllowedHoursEndDayMinutes(period, usage) {
+    const start = scheduleStartDayMinutes(period);
+    const baseEnd = scheduleEndDayMinutes(period);
+    if (start > baseEnd) {
+        return baseEnd + Math.max(0, Number(usage?.allowedHoursExtraMinutes) || 0);
+    }
+    const ov = parseOverrideEndDayMinutes(usage?.allowedHoursOverrideEnd);
+    if (ov != null && ov > baseEnd && ov <= 24 * 60) return ov;
+    return baseEnd + Math.max(0, Number(usage?.allowedHoursExtraMinutes) || 0);
+}
+
+/** HH:MM labels from first full hour after schedule end through 24:00 (same calendar day). */
+function allowedHoursOverrideOptionHHMMs(period) {
+    const start = scheduleStartDayMinutes(period);
+    const baseEnd = scheduleEndDayMinutes(period);
+    if (start > baseEnd) return [];
+    const firstHour = Math.floor(baseEnd / 60) + 1;
+    const out = [];
+    for (let h = firstHour; h <= 24; h++) {
+        if (h === 24) out.push('24:00');
+        else out.push(`${String(h).padStart(2, '0')}:00`);
+    }
+    return out;
+}
+
+function isWithinAllowedHours(period, now, usage = {}) {
+    const start = scheduleStartDayMinutes(period);
+    const baseEnd = scheduleEndDayMinutes(period);
+    const end = effectiveAllowedHoursEndDayMinutes(period, usage);
     const nowT = now.getHours() * 60 + now.getMinutes();
-    if (start <= end) return nowT >= start && nowT <= end;
-    return nowT >= start || nowT <= end; // midnight wrap
+    if (start <= baseEnd) return nowT >= start && nowT <= end;
+    return nowT >= start || nowT <= end; // midnight wrap (override end not applied here)
 }
 
 function atLoggedMinuteBoundary() {
@@ -1592,12 +1645,9 @@ async function tickScreenTime(logMinute) {
         return;
     }
 
-    // Enforce allowed hours: grace period, optional parent bypass for calendar day, then terminate
+    // Enforce allowed hours: grace period, then terminate (parent may set override end time for today via lockscreen)
     if (period.allowedHoursEnabled) {
-        const bypassForToday = typeof usage.allowedHoursBypassDate === 'string' && usage.allowedHoursBypassDate === today;
-        if (bypassForToday) {
-            if (allowedHoursGraceStartMs !== 0) allowedHoursGraceStartMs = 0;
-        } else if (!isWithinAllowedHours(period, now)) {
+        if (!isWithinAllowedHours(period, now, usage)) {
             if (allowedHoursGraceStartMs === 0) {
                 allowedHoursGraceStartMs = Date.now();
                 const graceEndsAt = allowedHoursGraceStartMs + ALLOWED_HOURS_GRACE_MS;
@@ -1605,7 +1655,8 @@ async function tickScreenTime(logMinute) {
                     type: 'allowed-hours',
                     heading: 'Computer um diese Zeit nicht erlaubt',
                     message: 'Die Computernutzung ist zu dieser Zeit nicht gestattet.',
-                    graceEndsAt
+                    graceEndsAt,
+                    allowedHoursOverrideOptions: allowedHoursOverrideOptionHHMMs(period)
                 };
                 writeUsage(usage);
                 notifyOrSpawn(warnPayload, 'Computer um diese Zeit nicht erlaubt', 'Die Computernutzung ist zu dieser Zeit nicht gestattet.', 'critical', false, limitLu);
@@ -1621,6 +1672,32 @@ async function tickScreenTime(logMinute) {
             return;
         } else if (allowedHoursGraceStartMs !== 0) {
             allowedHoursGraceStartMs = 0;
+        }
+
+        // Warn 10/5/2 minutes before allowed-hours end time (only while within the window and session is active)
+        if (hasSessionForLimit) {
+            const effectiveEnd = effectiveAllowedHoursEndDayMinutes(period, usage);
+            const nowT = now.getHours() * 60 + now.getMinutes();
+            const minutesUntilEnd = effectiveEnd - nowT;
+
+            // Reset warn flags when effective end time shifted (bonus/override applied)
+            if (usage.warnSnapAHEnd == null || Number(usage.warnSnapAHEnd) !== effectiveEnd) {
+                usage.warnedAH10 = false; usage.warnedAH5 = false; usage.warnedAH2 = false;
+                usage.warnSnapAHEnd = effectiveEnd;
+            }
+
+            if (minutesUntilEnd <= 2 && minutesUntilEnd > 0 && !usage.warnedAH2) {
+                usage.warnedAH2 = true;
+                if (!usage.warnedAH10) { usage.warnedAH10 = true; usage.warnedAH5 = true; }
+                notifyOrSpawn({ type: 'low', remaining: minutesUntilEnd }, 'Computer bald gesperrt', `Noch ${minutesUntilEnd} Min. bis zum Ende der erlaubten Zeit.`, 'critical', true, limitLu);
+            } else if (minutesUntilEnd <= 5 && minutesUntilEnd > 0 && !usage.warnedAH5) {
+                usage.warnedAH5 = true;
+                if (!usage.warnedAH10) { usage.warnedAH10 = true; }
+                notifyOrSpawn({ type: 'low', remaining: minutesUntilEnd }, 'Computer bald gesperrt', `Noch ${minutesUntilEnd} Min. bis zum Ende der erlaubten Zeit.`, 'normal', true, limitLu);
+            } else if (minutesUntilEnd <= 10 && minutesUntilEnd > 0 && !usage.warnedAH10) {
+                usage.warnedAH10 = true;
+                notifyOrSpawn({ type: 'low', remaining: minutesUntilEnd }, 'Computer bald gesperrt', `Noch ${minutesUntilEnd} Min. bis zum Ende der erlaubten Zeit.`, 'normal', true, limitLu);
+            }
         }
     }
 
@@ -1662,9 +1739,6 @@ async function tickScreenTime(logMinute) {
             const freshAfterExhaustWait = readUsage();
             if (freshAfterExhaustWait.date === usage.date) {
                 usage.extraAllowanceMinutes = freshAfterExhaustWait.extraAllowanceMinutes;
-                if (Object.prototype.hasOwnProperty.call(freshAfterExhaustWait, 'allowedHoursBypassDate')) {
-                    usage.allowedHoursBypassDate = freshAfterExhaustWait.allowedHoursBypassDate;
-                }
             }
             const limitAfterWait = Math.max(0, Number(period.dailyLimitMinutes) || 0) + Math.max(0, Number(usage.extraAllowanceMinutes) || 0);
             const minutesAfterWait = effectiveScreenMinutes(usage, s.screenTimeLinuxUser);
@@ -1849,7 +1923,12 @@ async function tickAppMonitor(logMinute) {
         const appId = entry.appId || entry.id || '';
         const proc = String(entry.processName || '').trim();
         if (!appId || !proc) continue;
-        if (await anyUserRunningProcess(activeUsers, proc) && logMinute) track[appId] = (track[appId] || 0) + 1;
+        for (const user of activeUsers) {
+            if (await pgrepUserProcess(user, proc) && logMinute) {
+                const key = `${user}:${appId}`;
+                track[key] = (track[key] || 0) + 1;
+            }
+        }
     }
     // Guard against midnight-crossing: if the date changed during the async loop,
     // the track was read from yesterday's file. Discard to avoid polluting today's file.
@@ -1960,22 +2039,54 @@ function handleClientCommand(client, cmd) {
         return;
     }
 
-    if (cmd.type === 'allowed-hours-bypass') {
+    if (cmd.type === 'allowed-hours-extend') {
         const gate = checkParentPassword(cmd.password);
         if (!gate.ok) {
             const err = gate.reason === 'no_password' ? 'Kein Eltern-Passwort gesetzt.' : 'Falsches Passwort.';
-            client.write(JSON.stringify({ type: 'allowed-hours-bypass-result', ok: false, error: err }) + '\n');
+            client.write(JSON.stringify({ type: 'allowed-hours-extend-result', ok: false, error: err }) + '\n');
             return;
         }
+        const minutes = Math.min(180, Math.max(5, Math.floor(Number(cmd.minutes) || 30)));
         try {
             const usage = readUsage();
-            usage.allowedHoursBypassDate = localIsoDate();
+            usage.allowedHoursExtraMinutes = Math.max(0, Number(usage.allowedHoursExtraMinutes) || 0) + minutes;
             allowedHoursGraceStartMs = 0;
             writeUsage(usage);
-            appendActivityDaemon({ action: 'allowed_hours_bypass_granted', date: usage.allowedHoursBypassDate });
-            client.write(JSON.stringify({ type: 'allowed-hours-bypass-result', ok: true }) + '\n');
+            appendActivityDaemon({ action: 'allowed_hours_extended', minutes, total: usage.allowedHoursExtraMinutes });
+            client.write(JSON.stringify({ type: 'allowed-hours-extend-result', ok: true, minutes, total: usage.allowedHoursExtraMinutes }) + '\n');
         } catch (e) {
-            client.write(JSON.stringify({ type: 'allowed-hours-bypass-result', ok: false, error: e.message }) + '\n');
+            client.write(JSON.stringify({ type: 'allowed-hours-extend-result', ok: false, error: e.message }) + '\n');
+        }
+        return;
+    }
+
+    if (cmd.type === 'allowed-hours-override-end') {
+        const gate = checkParentPassword(cmd.password);
+        if (!gate.ok) {
+            const err = gate.reason === 'no_password' ? 'Kein Eltern-Passwort gesetzt.' : 'Falsches Passwort.';
+            client.write(JSON.stringify({ type: 'allowed-hours-override-end-result', ok: false, error: err }) + '\n');
+            return;
+        }
+        const endHHMM = typeof cmd.endHHMM === 'string' ? cmd.endHHMM.trim() : '';
+        try {
+            const s = readSchedule();
+            const now = new Date();
+            const wd = isoWeekday(now);
+            const period = wd >= 6 ? s.weekend : s.weekday;
+            const allowed = allowedHoursOverrideOptionHHMMs(period);
+            if (!allowed.includes(endHHMM)) {
+                client.write(JSON.stringify({ type: 'allowed-hours-override-end-result', ok: false, error: 'Ungültige Endzeit.' }) + '\n');
+                return;
+            }
+            const usage = readUsage();
+            usage.allowedHoursOverrideEnd = endHHMM;
+            usage.allowedHoursExtraMinutes = 0;
+            allowedHoursGraceStartMs = 0;
+            writeUsage(usage);
+            appendActivityDaemon({ action: 'allowed_hours_override_end', endHHMM });
+            client.write(JSON.stringify({ type: 'allowed-hours-override-end-result', ok: true, endHHMM }) + '\n');
+        } catch (e) {
+            client.write(JSON.stringify({ type: 'allowed-hours-override-end-result', ok: false, error: e.message }) + '\n');
         }
         return;
     }

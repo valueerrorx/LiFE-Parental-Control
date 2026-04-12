@@ -137,7 +137,8 @@
     "ofCapBonus": "of {cap}m cap (+bonus)",
     "peakThisWeek": "Peak this week: {day} ({min}m)",
     "dayLimits": "day limit(s)",
-    "allAccountsSuffix": "all accounts"
+    "allAccountsSuffix": "all accounts",
+    "allUsers": "All users"
   },
   "webFilter": {
     "title": "Web Filter",
@@ -245,8 +246,9 @@
     "dailyTimeLimit": "Daily Time Limit",
     "maxDailyUsage": "Max daily usage:",
     "minutes": "minutes",
-    "limitForLinuxUser": "Limit for Linux user:",
-    "allSessions": "All sessions (shared counter)",
+    "limitForLinuxUser": "Restricted user",
+    "limitForLinuxUserHint": "The time restrictions apply only to the selected user. Only one user can be restricted at a time.",
+    "allSessions": "All users",
     "todayAllowance": "Today's allowance includes <strong>+{min} min</strong> added by a parent (logged usage is unchanged).",
     "todayUsage": "Today's usage",
     "resetCounter": "Reset counter",
@@ -436,12 +438,12 @@
     "addBlockedPath": "Add blocked path"
   },
   "processWhitelist": {
-    "title": "Quota exemptions",
-    "subtitle": "Apps that may continue to be used even after the <strong>daily screen time limit</strong> is reached",
-    "enableExemptions": "Enable screen time exemptions",
-    "enableExemptionsDesc": "When on, checked apps are <strong>not killed</strong> when the daily screen time limit is reached. Unchecked apps behave as before. Nothing is blocked from running only because it is missing from this list.",
+    "title": "App exemptions",
+    "subtitle": "Apps during whose active use <strong>screen time does not count</strong>",
+    "enableExemptions": "Enable app exemptions",
+    "enableExemptionsDesc": "When on, screen time is not counted while any of the marked apps is actively being used (keyboard/mouse input + CPU activity).",
     "exemptApps": "Exempt applications",
-    "exemptCount": "{count} / {total} exempt when limit reached",
+    "exemptCount": "{count} / {total} exempt",
     "exemptAll": "Exempt all",
     "exemptNone": "Exempt none",
     "searchApps": "Search apps\u2026",

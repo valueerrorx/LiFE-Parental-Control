@@ -137,7 +137,8 @@
     "ofCapBonus": "von {cap}m Limit (+Bonus)",
     "peakThisWeek": "Spitzenwert diese Woche: {day} ({min}m)",
     "dayLimits": "Tageslimit(s)",
-    "allAccountsSuffix": "alle Benutzer"
+    "allAccountsSuffix": "alle Benutzer",
+    "allUsers": "Alle Benutzer"
   },
   "webFilter": {
     "title": "Web-Filter",
@@ -245,8 +246,9 @@
     "dailyTimeLimit": "Tageslimit",
     "maxDailyUsage": "Maximale Tagesnutzung:",
     "minutes": "Minuten",
-    "limitForLinuxUser": "Limit f\u00fcr Linux-Benutzer:",
-    "allSessions": "Alle Sitzungen (gemeinsamer Z\u00e4hler)",
+    "limitForLinuxUser": "Eingeschr\u00e4nkter Benutzer",
+    "limitForLinuxUserHint": "Die Zeitbeschr\u00e4nkungen gelten nur f\u00fcr den ausgew\u00e4hlten Benutzer. Es kann nur ein Benutzer eingeschr\u00e4nkt werden.",
+    "allSessions": "Alle Benutzer",
     "todayAllowance": "Das heutige Kontingent enth\u00e4lt <strong>+{min} Min</strong>, die ein Elternteil hinzugef\u00fcgt hat (aufgezeichnete Nutzung unver\u00e4ndert).",
     "todayUsage": "Heutige Nutzung",
     "resetCounter": "Z\u00e4hler zur\u00fccksetzen",
@@ -437,11 +439,11 @@
   },
   "processWhitelist": {
     "title": "App-Ausnahmen",
-    "subtitle": "Apps, die auch nach Ablauf des <strong>t\u00e4glichen Bildschirmzeit-Limits</strong> weiter genutzt werden d\u00fcrfen",
-    "enableExemptions": "Bildschirmzeit-Ausnahmen aktivieren",
-    "enableExemptionsDesc": "Wenn aktiviert, werden markierte Apps nicht beendet, wenn das t\u00e4gliche Bildschirmzeit-Limit erreicht ist.",
+    "subtitle": "Apps, bei deren aktiver Nutzung die <strong>Bildschirmzeit nicht weiterl\u00e4uft</strong>",
+    "enableExemptions": "App-Ausnahmen aktivieren",
+    "enableExemptionsDesc": "Wenn aktiviert, wird die Bildschirmzeit nicht gez\u00e4hlt, solange eine der markierten Apps aktiv genutzt wird (Tastatur-/Mauseingabe + CPU-Aktivit\u00e4t).",
     "exemptApps": "Ausgenommene Anwendungen",
-    "exemptCount": "{count} / {total} ausgenommen wenn Limit erreicht",
+    "exemptCount": "{count} / {total} ausgenommen",
     "exemptAll": "Alle ausschlie\u00dfen",
     "exemptNone": "Keine ausschlie\u00dfen",
     "searchApps": "Apps suchen\u2026",

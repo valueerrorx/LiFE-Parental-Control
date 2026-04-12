@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later; Copyright (c) 2026 Thomas Michael Weissel; Licensed under GPLv3+ (see http://www.gnu.org/licenses/). */
 // Handles the Electron app running in --warning-mode (spawned by daemon as the desktop user).
-// Enforcement: exhausted = final notice only; allowed-hours = grace + password bypass for today (see daemon).
+// Enforcement: exhausted = grace + bonus minutes; allowed-hours = grace + parent override end time (or legacy bonus minutes overnight).
 // Soft warnings (low, app-low, …) show the regular bonus-time dialog.
 import { ipcMain, app } from 'electron'
 import net from 'net'
@@ -13,7 +13,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const SOCKET_PATH = '/run/parental-control.sock'
 const REQUEST_TIMEOUT_MS = 8_000
 
-// Enforcement types: fullscreen logout/session-end window (daemon terminates session except allowed-hours + valid parent bypass).
+// Enforcement types: fullscreen logout/session-end window (daemon terminates unless parent extends time / override end).
 const ENFORCEMENT_TYPES = new Set(['exhausted', 'allowed-hours'])
 
 function connectToDaemon() {

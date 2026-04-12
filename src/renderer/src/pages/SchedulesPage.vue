@@ -35,6 +35,7 @@
                             <option v-for="u in screenTimeUserOptions" :key="u" :value="u">{{ u }}</option>
                         </select>
                     </div>
+                    <p class="text-muted small mt-2 mb-0">{{ $t('schedules.limitForLinuxUserHint') }}</p>
                 </div>
             </div>
 
