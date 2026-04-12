@@ -259,6 +259,8 @@
     "weekendSettings": "Wochenende (Sa\u2013So)",
     "activeDaysAndUsage": "Aktive Tage",
     "allowedHours": "Erlaubte Zeiten",
+    "allowedHoursExtendedUntil": "bis {time}",
+    "allowedHoursBonusMinutes": "+{min} Min",
     "from": "Von:",
     "to": "Bis:",
     "midnightHint": "Wenn <strong>Von</strong> sp\u00e4ter ist als <strong>Bis</strong> (z.B. 22:00\u201307:00), erstreckt sich das erlaubte Fenster \u00fcber Mitternacht.",

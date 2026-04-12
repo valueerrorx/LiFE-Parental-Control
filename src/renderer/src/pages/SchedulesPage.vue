@@ -58,7 +58,10 @@
                     </div>
                     <!-- Weekday allowed hours -->
                     <div class="d-flex align-items-center justify-content-between mb-2 mt-3" style="border-top:1px solid var(--pc-border,#e0e0e0);padding-top:0.75rem;">
-                        <span class="text-muted small fw-semibold">{{ $t('schedules.allowedHours') }}</span>
+                        <div class="d-flex align-items-center gap-2 flex-wrap">
+                            <span class="text-muted small fw-semibold">{{ $t('schedules.allowedHours') }}</span>
+                            <span v-if="allowedHoursBadgeWeekday" class="schedules-bonus-badge">{{ allowedHoursBadgeWeekday }}</span>
+                        </div>
                         <label class="pc-toggle">
                             <input type="checkbox" v-model="schedule.weekday.allowedHoursEnabled" />
                             <span class="slider" />
@@ -104,7 +107,10 @@
                     </div>
                     <!-- Weekend allowed hours -->
                     <div class="d-flex align-items-center justify-content-between mb-2 mt-3" style="border-top:1px solid var(--pc-border,#e0e0e0);padding-top:0.75rem;">
-                        <span class="text-muted small fw-semibold">{{ $t('schedules.allowedHours') }}</span>
+                        <div class="d-flex align-items-center gap-2 flex-wrap">
+                            <span class="text-muted small fw-semibold">{{ $t('schedules.allowedHours') }}</span>
+                            <span v-if="allowedHoursBadgeWeekend" class="schedules-bonus-badge">{{ allowedHoursBadgeWeekend }}</span>
+                        </div>
                         <label class="pc-toggle">
                             <input type="checkbox" v-model="schedule.weekend.allowedHoursEnabled" />
                             <span class="slider" />
@@ -246,9 +252,32 @@ const todayMinutes = ref(0)
 const usageHistory = ref([])
 const historyDays = ref(7)
 const todayExtraAllowance = ref(0)
+const allowedHoursOverrideEndToday = ref('')
+const allowedHoursExtraMinutesToday = ref(0)
 
-const isWeekend = new Date().getDay() === 0 || new Date().getDay() === 6
-const activePeriod = computed(() => isWeekend ? schedule.weekend : schedule.weekday)
+const weekendToday = computed(() => {
+    const d = new Date().getDay()
+    return d === 0 || d === 6
+})
+const activePeriod = computed(() => (weekendToday.value ? schedule.weekend : schedule.weekday))
+
+const allowedHoursBadgeWeekday = computed(() => {
+    if (weekendToday.value || !schedule.weekday.allowedHoursEnabled) return ''
+    const end = allowedHoursOverrideEndToday.value.trim()
+    if (end) return t('schedules.allowedHoursExtendedUntil', { time: end })
+    const extra = allowedHoursExtraMinutesToday.value
+    if (extra > 0) return t('schedules.allowedHoursBonusMinutes', { min: extra })
+    return ''
+})
+
+const allowedHoursBadgeWeekend = computed(() => {
+    if (!weekendToday.value || !schedule.weekend.allowedHoursEnabled) return ''
+    const end = allowedHoursOverrideEndToday.value.trim()
+    if (end) return t('schedules.allowedHoursExtendedUntil', { time: end })
+    const extra = allowedHoursExtraMinutesToday.value
+    if (extra > 0) return t('schedules.allowedHoursBonusMinutes', { min: extra })
+    return ''
+})
 const effectiveDailyLimit = computed(() => (activePeriod.value.dailyLimitMinutes || 120) + todayExtraAllowance.value)
 
 const screenTimeUserOptions = computed(() => {
@@ -291,6 +320,11 @@ async function refreshUsageData() {
     if (usage) {
         todayMinutes.value = usage.minutes ?? 0
         todayExtraAllowance.value = usage.extraAllowanceMinutes ?? 0
+        allowedHoursOverrideEndToday.value = typeof usage.allowedHoursOverrideEnd === 'string' ? usage.allowedHoursOverrideEnd : ''
+        allowedHoursExtraMinutesToday.value = Math.max(0, Number(usage.allowedHoursExtraMinutes) || 0)
+    } else {
+        allowedHoursOverrideEndToday.value = ''
+        allowedHoursExtraMinutesToday.value = 0
     }
     usageHistory.value = hist.days ?? []
 }

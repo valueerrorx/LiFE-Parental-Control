@@ -259,6 +259,8 @@
     "weekendSettings": "Weekend (Sat\u2013Sun)",
     "activeDaysAndUsage": "Active Days",
     "allowedHours": "Allowed Hours",
+    "allowedHoursExtendedUntil": "until {time}",
+    "allowedHoursBonusMinutes": "+{min} min",
     "from": "From:",
     "to": "To:",
     "midnightHint": "If <strong>From</strong> is later than <strong>To</strong> (e.g. 22:00\u201307:00), the allowed window spans midnight.",

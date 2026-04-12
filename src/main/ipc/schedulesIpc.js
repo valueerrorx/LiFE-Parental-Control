@@ -64,7 +64,9 @@ function emptyUsage(today) {
         date: today,
         users: {},
         extraAllowanceMinutes: 0,
-        warnedScreenTimeExhausted: false
+        warnedScreenTimeExhausted: false,
+        allowedHoursExtraMinutes: 0,
+        allowedHoursOverrideEnd: ''
     }
 }
 
@@ -88,7 +90,9 @@ export function readUsage(configDir) {
             date: today,
             users,
             extraAllowanceMinutes: Math.max(0, Number(data.extraAllowanceMinutes) || 0),
-            warnedScreenTimeExhausted: data.warnedScreenTimeExhausted === true
+            warnedScreenTimeExhausted: data.warnedScreenTimeExhausted === true,
+            allowedHoursExtraMinutes: Math.max(0, Number(data.allowedHoursExtraMinutes) || 0),
+            allowedHoursOverrideEnd: typeof data.allowedHoursOverrideEnd === 'string' ? data.allowedHoursOverrideEnd.trim() : ''
         }
     } catch {
         return emptyUsage(today)
