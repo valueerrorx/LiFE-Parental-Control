@@ -81,6 +81,21 @@ export async function runWarningMode(payload) {
         return { error: result.error || 'Unbekannter Fehler.' }
     })
 
+    ipcMain.handle('schedules:grantAllowedHoursBonus', async (_, { password, minutes } = {}) => {
+        const m = Math.min(180, Math.max(5, Math.floor(Number(minutes) || 30)))
+        const result = await daemonRequest(daemonSocket, { type: 'allowed-hours-extend', password, minutes: m }, 'allowed-hours-extend-result')
+        if (result.ok) return { ok: true }
+        return { error: result.error || 'Unbekannter Fehler.' }
+    })
+
+    ipcMain.handle('schedules:setAllowedHoursOverride', async (_, { password, endHHMM } = {}) => {
+        const end = typeof endHHMM === 'string' ? endHHMM.trim() : ''
+        if (!end) return { error: 'Keine Endzeit gewählt.' }
+        const result = await daemonRequest(daemonSocket, { type: 'allowed-hours-override-end', password, endHHMM: end }, 'allowed-hours-override-end-result')
+        if (result.ok) return { ok: true }
+        return { error: result.error || 'Unbekannter Fehler.' }
+    })
+
     ipcMain.handle('quota:grantAppBonus', async (_, { password, minutes, appId, linuxUser } = {}) => {
         const result = await daemonRequest(daemonSocket, { type: 'extend-app', password, minutes, appId, linuxUser }, 'extend-app-result')
         if (result.ok) return { ok: true, granted: minutes }

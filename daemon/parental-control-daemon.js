@@ -1686,17 +1686,18 @@ async function tickScreenTime(logMinute) {
                 usage.warnSnapAHEnd = effectiveEnd;
             }
 
+            const ahOverrideOpts = allowedHoursOverrideOptionHHMMs(period);
             if (minutesUntilEnd <= 2 && minutesUntilEnd > 0 && !usage.warnedAH2) {
                 usage.warnedAH2 = true;
                 if (!usage.warnedAH10) { usage.warnedAH10 = true; usage.warnedAH5 = true; }
-                notifyOrSpawn({ type: 'low', remaining: minutesUntilEnd }, 'Computer bald gesperrt', `Noch ${minutesUntilEnd} Min. bis zum Ende der erlaubten Zeit.`, 'critical', true, limitLu);
+                notifyOrSpawn({ type: 'low', subtype: 'allowed-hours', remaining: minutesUntilEnd, allowedHoursOverrideOptions: ahOverrideOpts }, 'Computer bald gesperrt', `Noch ${minutesUntilEnd} Min. bis zum Ende der erlaubten Zeit.`, 'critical', false, limitLu);
             } else if (minutesUntilEnd <= 5 && minutesUntilEnd > 0 && !usage.warnedAH5) {
                 usage.warnedAH5 = true;
                 if (!usage.warnedAH10) { usage.warnedAH10 = true; }
-                notifyOrSpawn({ type: 'low', remaining: minutesUntilEnd }, 'Computer bald gesperrt', `Noch ${minutesUntilEnd} Min. bis zum Ende der erlaubten Zeit.`, 'normal', true, limitLu);
+                notifyOrSpawn({ type: 'low', subtype: 'allowed-hours', remaining: minutesUntilEnd, allowedHoursOverrideOptions: ahOverrideOpts }, 'Computer bald gesperrt', `Noch ${minutesUntilEnd} Min. bis zum Ende der erlaubten Zeit.`, 'normal', false, limitLu);
             } else if (minutesUntilEnd <= 10 && minutesUntilEnd > 0 && !usage.warnedAH10) {
                 usage.warnedAH10 = true;
-                notifyOrSpawn({ type: 'low', remaining: minutesUntilEnd }, 'Computer bald gesperrt', `Noch ${minutesUntilEnd} Min. bis zum Ende der erlaubten Zeit.`, 'normal', true, limitLu);
+                notifyOrSpawn({ type: 'low', subtype: 'allowed-hours', remaining: minutesUntilEnd, allowedHoursOverrideOptions: ahOverrideOpts }, 'Computer bald gesperrt', `Noch ${minutesUntilEnd} Min. bis zum Ende der erlaubten Zeit.`, 'normal', false, limitLu);
             }
         }
     }

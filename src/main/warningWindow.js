@@ -33,15 +33,22 @@ document.getElementById('dismiss').onclick = () => window.close()
 </script></body></html>`
     }
 
+    const subtype = p.subtype || ''
+    const isAllowedHoursLow = subtype === 'allowed-hours'
     const isApp = String(type).startsWith('app-')
     const effectiveLimit = Number(p.effectiveLimit) || 0
     const usedMinutes = Number(p.usedMinutes) || 0
     const remaining = p.remaining != null ? Number(p.remaining) : Math.max(0, effectiveLimit - usedMinutes)
+    const overrideOpts = Array.isArray(p.allowedHoursOverrideOptions) ? p.allowedHoursOverrideOptions : []
+    const useEndOverride = isAllowedHoursLow && overrideOpts.length > 0
 
     let heading = 'Wenig Bildschirmzeit übrig'
     let info = `Noch etwa <strong>${remaining}</strong> Min. heute (${usedMinutes} von <strong>${effectiveLimit}</strong> Min. genutzt). Sichere deine Arbeit rechtzeitig!`
 
-    if (isApp) {
+    if (isAllowedHoursLow) {
+        heading = 'Computer bald gesperrt'
+        info = `Noch etwa <strong>${remaining}</strong> Min. bis zum Ende der erlaubten Zeit. Passwort eingeben, um die Endzeit anzupassen.`
+    } else if (isApp) {
         const name = String(p.appName || 'Anwendung')
         if (type === 'app-exhausted') {
             heading = 'App-Zeit aufgebraucht'
@@ -59,21 +66,9 @@ document.getElementById('dismiss').onclick = () => window.close()
     }
 
     const payloadJson = escapeForInlineScriptJson(p)
-    const grantCall = isApp
-        ? `ipcRenderer.invoke('quota:grantAppBonus', { password: pw.value, minutes: +mins.value, appId: payload.appId, linuxUser: payload.linuxUser || '' })`
-        : `ipcRenderer.invoke('schedules:grantBonusMinutes', { password: pw.value, minutes: +mins.value })`
+    const optsJson = JSON.stringify(overrideOpts)
 
-    return `<!DOCTYPE html>
-<html><head><meta charset="utf-8"><title>LiFE Parental Control - Warning</title><style>${WARNING_PANEL_CSS}</style></head>
-<body><div class="card">
-<h2>${heading}</h2>
-<p class="info">${info}<br><br>Elternkontroll-Passwort eingeben, um ${isApp ? 'Bonuszeit für diese App' : 'Bonuszeit für heute'} hinzuzufügen.</p>
-<label>Elternkontroll-Passwort</label>
-<div class="row">
-  <div class="pw-wrap">
-    <input type="password" id="pw" autocomplete="off" placeholder="Passwort"/>
-    <button class="eye" id="eye" tabindex="-1" title="Passwort anzeigen">&#128065;</button>
-  </div>
+    const minuteOptionsHtml = `
   <select id="mins" class="sel">
     <option value="10">+10 Min.</option>
     <option value="15">+15 Min.</option>
@@ -83,19 +78,54 @@ document.getElementById('dismiss').onclick = () => window.close()
     <option value="40">+40 Min.</option>
     <option value="50">+50 Min.</option>
     <option value="60">+60 Min.</option>
-  </select>
+  </select>`
+
+    let secondControlHtml
+    let btnLabel
+    let grantCall
+    if (useEndOverride) {
+        const endOverrideOptionsHtml = overrideOpts.map((h) => `<option value="${h}">${h}</option>`).join('')
+        secondControlHtml = `<select id="endOv" class="sel">${endOverrideOptionsHtml}</select>`
+        btnLabel = 'Endzeit setzen'
+        grantCall = `ipcRenderer.invoke('schedules:setAllowedHoursOverride', { password: pw.value, endHHMM: document.getElementById('endOv').value })`
+    } else if (isAllowedHoursLow) {
+        secondControlHtml = minuteOptionsHtml
+        btnLabel = 'Bonus-Zeit gewähren'
+        grantCall = `ipcRenderer.invoke('schedules:grantAllowedHoursBonus', { password: pw.value, minutes: +document.getElementById('mins').value })`
+    } else if (isApp) {
+        secondControlHtml = minuteOptionsHtml
+        btnLabel = 'Zeit hinzufügen'
+        grantCall = `ipcRenderer.invoke('quota:grantAppBonus', { password: pw.value, minutes: +document.getElementById('mins').value, appId: payload.appId, linuxUser: payload.linuxUser || '' })`
+    } else {
+        secondControlHtml = minuteOptionsHtml
+        btnLabel = 'Zeit hinzufügen'
+        grantCall = `ipcRenderer.invoke('schedules:grantBonusMinutes', { password: pw.value, minutes: +document.getElementById('mins').value })`
+    }
+
+    return `<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>LiFE Parental Control - Warning</title><style>${WARNING_PANEL_CSS}</style></head>
+<body><div class="card">
+<h2>${heading}</h2>
+<p class="info">${info}</p>
+<label>Elternkontroll-Passwort</label>
+<div class="row">
+  <div class="pw-wrap">
+    <input type="password" id="pw" autocomplete="off" placeholder="Passwort"/>
+    <button class="eye" id="eye" tabindex="-1" title="Passwort anzeigen">&#128065;</button>
+  </div>
+  ${secondControlHtml}
 </div>
 <p id="err" class="err"></p>
 <div class="btn-row">
   <button class="btn-outline" id="dismiss">Später</button>
-  <button id="grant">Zeit hinzufügen</button>
+  <button id="grant">${btnLabel}</button>
 </div>
 </div>
 <script>
 const {ipcRenderer} = require('electron')
 const payload = ${payloadJson}
+const overrideOptions = ${optsJson}
 const pw = document.getElementById('pw')
-const mins = document.getElementById('mins')
 const err = document.getElementById('err')
 const grantBtn = document.getElementById('grant')
 document.getElementById('dismiss').onclick = () => window.close()
@@ -110,7 +140,7 @@ async function doGrant() {
   if (r && r.error) {
     err.textContent = r.error
     grantBtn.disabled = false
-    grantBtn.textContent = 'Zeit hinzufügen'
+    grantBtn.textContent = ${JSON.stringify(btnLabel)}
     return
   }
   window.close()
