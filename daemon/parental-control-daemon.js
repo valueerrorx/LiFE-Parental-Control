@@ -23,6 +23,7 @@ const TICK_MS = 10_000;
 const TICKS_PER_LOGGED_MINUTE = 60_000 / TICK_MS; // 6 ticks = 1 minute
 const ALLOWED_HOURS_GRACE_MS = 60_000;
 const EXHAUSTED_LOGOUT_GRACE_MS = 60_000; // Same wall-clock UX as allowed-hours; parent may grant bonus via lockscreen before terminate.
+const RELOGIN_BUFFER_MINUTES = 2; // Same slack as post-exhausted minute rollback; allowed-hours uses override end (wall clock).
 
 const NOTIFY_SEND_BIN = (() => {
     try {
@@ -1541,6 +1542,13 @@ function parseOverrideEndDayMinutes(raw) {
     return h * 60 + min;
 }
 
+/** HH:MM local for now + buffer, capped to 24:00 same calendar day (no next-day override). */
+function allowedHoursPostLogoutOverrideEndHHMM(now) {
+    const t = new Date(now.getTime() + RELOGIN_BUFFER_MINUTES * 60_000);
+    if (localIsoDate(t) !== localIsoDate(now)) return '24:00';
+    return `${String(t.getHours()).padStart(2, '0')}:${String(t.getMinutes()).padStart(2, '0')}`;
+}
+
 function effectiveAllowedHoursEndDayMinutes(period, usage) {
     const start = scheduleStartDayMinutes(period);
     const baseEnd = scheduleEndDayMinutes(period);
@@ -1669,6 +1677,18 @@ async function tickScreenTime(logMinute) {
             writeUsage(usage);
             await terminateSessionsForPolicy(sessions, limitLu);
             allowedHoursGraceStartMs = 0;
+            const startM = scheduleStartDayMinutes(period);
+            const baseEnd = scheduleEndDayMinutes(period);
+            if (startM <= baseEnd) {
+                const endHHMM = allowedHoursPostLogoutOverrideEndHHMM(now);
+                const ov = parseOverrideEndDayMinutes(endHHMM);
+                if (ov != null && ov > baseEnd) {
+                    usage.allowedHoursOverrideEnd = endHHMM;
+                    usage.allowedHoursExtraMinutes = 0;
+                    appendActivityDaemon({ action: 'allowed_hours_post_logout_override', endHHMM });
+                    writeUsage(usage);
+                }
+            }
             return;
         } else if (allowedHoursGraceStartMs !== 0) {
             allowedHoursGraceStartMs = 0;
@@ -1753,7 +1773,7 @@ async function tickScreenTime(logMinute) {
                 // Roll back 2 minutes so the next login session starts cleanly without immediately triggering exhausted again.
                 const userKey = limitLu || '';
                 if (usage.users && usage.users[userKey] && typeof usage.users[userKey].minutes === 'number') {
-                    usage.users[userKey].minutes = Math.max(0, usage.users[userKey].minutes - 2);
+                    usage.users[userKey].minutes = Math.max(0, usage.users[userKey].minutes - RELOGIN_BUFFER_MINUTES);
                 }
                 usage.warnedScreenTimeExhausted = false;
                 usage.warned10 = false; usage.warned5 = false; usage.warned2 = false;

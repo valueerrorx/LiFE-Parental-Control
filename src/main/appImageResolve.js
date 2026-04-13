@@ -47,19 +47,3 @@ export function getAppImagePathIfAny() {
     if (fromProc) return fromProc
     return ''
 }
-
-/** Prefer on-disk AppImage path; execPath under /tmp/.mount_* is wrong for pkexec/spawn. */
-export function resolveElevatedExecutablePath() {
-    const ap = getAppImagePathIfAny()
-    if (ap) return ap
-    const a0 = process.argv[0]
-    if (a0 && /\.AppImage$/i.test(a0)) {
-        const full = path.isAbsolute(a0) ? a0 : path.resolve(process.cwd(), a0)
-        try {
-            if (fs.existsSync(full)) return full
-        } catch {
-            /* ignore */
-        }
-    }
-    return process.execPath
-}
