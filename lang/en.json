@@ -80,7 +80,9 @@
     "daemonInstalling": "Installing and starting system service (administrator privileges required) …",
     "daemonUpdating": "Updating system service (administrator privileges required) …",
     "daemonWaiting": "Waiting for system service to start …",
-    "daemonRetry": "Try again"
+    "daemonRetry": "Try again",
+    "passwordGateChecking": "Checking parent password status …",
+    "passwordGateDaemonError": "Cannot reach the system service. The parent password cannot be verified without it."
   },
   "dashboard": {
     "title": "Dashboard",

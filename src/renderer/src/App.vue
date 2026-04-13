@@ -22,6 +22,41 @@
         </Transition>
     </div>
 
+    <!-- Until daemon answers auth:is-set — avoid flashing the first-run form when a password already exists -->
+    <div v-else-if="passwordGatePending" class="pc-lockscreen">
+        <Transition name="pc-lock-fade" appear>
+            <div class="lock-card">
+                <div class="lock-icon">
+                    <i class="bi bi-shield-lock-fill" />
+                </div>
+                <h2>LiFE Parental Control</h2>
+                <div class="lock-card-phase">
+                    <p>{{ $t('app.passwordGateChecking') }}</p>
+                    <div class="d-flex justify-content-center mt-3">
+                        <div class="spinner-border spinner-border-sm text-secondary" role="status" />
+                    </div>
+                </div>
+            </div>
+        </Transition>
+    </div>
+
+    <div v-else-if="authGateError" class="pc-lockscreen">
+        <Transition name="pc-lock-fade" appear>
+            <div class="lock-card">
+                <div class="lock-icon">
+                    <i class="bi bi-shield-lock-fill" />
+                </div>
+                <h2>LiFE Parental Control</h2>
+                <div class="lock-card-phase">
+                    <p class="text-danger">{{ authGateError }}</p>
+                    <button type="button" class="btn-pc-primary w-100 mt-3" @click="onRetryPasswordGate">
+                        {{ $t('app.daemonRetry') }}
+                    </button>
+                </div>
+            </div>
+        </Transition>
+    </div>
+
     <!-- First-run: no password yet — full gate, no dashboard -->
     <div v-else-if="!passwordSet" class="pc-lockscreen">
         <Transition name="pc-lock-fade" appear>
@@ -105,6 +140,8 @@ const store = useAppStore()
 
 const unlocked = ref(false)
 const passwordSet = ref(false)
+const passwordGatePending = ref(true)
+const authGateError = ref('')
 let lockdownWizardDismissedThisSession = false
 const password = ref('')
 const pw1 = ref('')
@@ -126,6 +163,7 @@ function quitRequestListener() {
 
 function sessionLockListener() {
     if (isDevRelaxSessionLock) return
+    if (passwordGatePending.value || authGateError.value) return
     if (!passwordSet.value) return
     unlocked.value = false
     password.value = ''
@@ -162,12 +200,34 @@ function onUserActivity() {
     scheduleIdleLock()
 }
 
+async function resolvePasswordGate() {
+    authGateError.value = ''
+    const r = await window.api.settings.isPasswordSet()
+    passwordGatePending.value = false
+    if (!r.ok) {
+        authGateError.value = r.error || t('app.passwordGateDaemonError')
+        return
+    }
+    passwordSet.value = r.isSet
+    if (isDevRelaxSessionLock && passwordSet.value) {
+        unlocked.value = true
+        lockIdleMs.value = 0
+    }
+    if (passwordSet.value) await checkLockdownWizard()
+}
+
+function onRetryPasswordGate() {
+    authGateError.value = ''
+    passwordGatePending.value = true
+    void resolvePasswordGate()
+}
+
 async function runDaemonSetup() {
     daemonSetupError.value = ''
 
     // Check installed version vs. app version
     daemonSetupMsg.value = t('app.daemonChecking')
-    let versionInfo = null
+    let versionInfo
     try {
         versionInfo = await window.api.daemon.checkInstalledVersion()
     } catch {
@@ -179,11 +239,8 @@ async function runDaemonSetup() {
     // If daemon is connected and up-to-date, we're done
     if (connected && versionInfo?.upToDate) {
         daemonSetupPhase.value = false
-        passwordSet.value = await window.api.settings.isPasswordSet()
-        if (isDevRelaxSessionLock && passwordSet.value) {
-            unlocked.value = true
-            lockIdleMs.value = 0
-        }
+        passwordGatePending.value = true
+        await resolvePasswordGate()
         return
     }
 
@@ -207,11 +264,8 @@ async function runDaemonSetup() {
     }
 
     daemonSetupPhase.value = false
-    passwordSet.value = await window.api.settings.isPasswordSet()
-    if (isDevRelaxSessionLock && passwordSet.value) {
-        unlocked.value = true
-        lockIdleMs.value = 0
-    }
+    passwordGatePending.value = true
+    await resolvePasswordGate()
 }
 
 onMounted(async () => {
@@ -225,7 +279,7 @@ onMounted(async () => {
     await window.api.app.deferredHeavyWork()
 
     // Check whether daemon is reachable and version matches before showing UI
-    let needsSetup = false
+    let needsSetup
     try {
         const [connected, versionInfo] = await Promise.all([
             window.api.daemon.isConnected(),
@@ -237,15 +291,11 @@ onMounted(async () => {
     }
 
     if (needsSetup) {
+        passwordGatePending.value = false
         daemonSetupPhase.value = true
         await runDaemonSetup()
     } else {
-        passwordSet.value = await window.api.settings.isPasswordSet()
-        if (isDevRelaxSessionLock && passwordSet.value) {
-            unlocked.value = true
-            lockIdleMs.value = 0
-            await checkLockdownWizard()
-        }
+        await resolvePasswordGate()
     }
 })
 

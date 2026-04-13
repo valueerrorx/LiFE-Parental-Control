@@ -42,12 +42,14 @@ export function clearSessionLockPreference(configDir) {
 
 
 export function registerSettingsIpc(ipcMain, configDir) {
+    // Returns { ok, isSet, error? } so the renderer can wait for a real answer (no false = "no password" on daemon errors).
     ipcMain.handle('settings:isPasswordSet', async () => {
         try {
             const r = await daemonAuthIsSet()
-            return r.ok ? r.isSet : false
-        } catch {
-            return false
+            if (!r.ok) return { ok: false, isSet: false, error: r.error || 'Daemon nicht verbunden.' }
+            return { ok: true, isSet: r.isSet === true }
+        } catch (e) {
+            return { ok: false, isSet: false, error: e?.message || 'Unbekannter Fehler.' }
         }
     })
 

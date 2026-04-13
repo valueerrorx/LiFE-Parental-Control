@@ -80,7 +80,9 @@
     "daemonInstalling": "Systemdienst wird installiert und gestartet (Administratorrechte erforderlich) …",
     "daemonUpdating": "Systemdienst wird aktualisiert (Administratorrechte erforderlich) …",
     "daemonWaiting": "Warte auf Systemdienst …",
-    "daemonRetry": "Erneut versuchen"
+    "daemonRetry": "Erneut versuchen",
+    "passwordGateChecking": "Elternpasswort-Status wird abgefragt …",
+    "passwordGateDaemonError": "Keine Verbindung zum Systemdienst. Ohne diesen kann das Elternpasswort nicht geprüft werden."
   },
   "dashboard": {
     "title": "Dashboard",
