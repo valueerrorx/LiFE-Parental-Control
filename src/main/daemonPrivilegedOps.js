@@ -99,6 +99,13 @@ export async function daemonResetTodayUsage() {
     catch (e) { return { ok: false, error: e.message } }
 }
 
+/** Reset all temporary overrides and warning flags in today's usage file. Awaitable. */
+export async function daemonClearTodayOverrides() {
+    if (!isDaemonConnected()) return { ok: false, error: 'Daemon nicht verbunden.' }
+    try { return await daemonRequest({ type: 'clear-today-overrides' }, 'clear-today-overrides-result', 10_000) }
+    catch (e) { return { ok: false, error: e.message } }
+}
+
 /** Delete today's quota-usage file (app quota reset). Awaitable. */
 export async function daemonResetTodayQuotaUsage() {
     if (!isDaemonConnected()) return { ok: false, error: 'Daemon nicht verbunden.' }

@@ -2713,6 +2713,35 @@ function handleClientCommand(client, cmd) {
         return;
     }
 
+    if (cmd.type === 'clear-today-overrides') {
+        // Reset all temporary overrides and warning flags in today's usage file.
+        // Called when the parent saves the schedule — any prior extensions are invalidated.
+        try {
+            const file = path.join(CONFIG_DIR, `usage-${localIsoDate()}.json`);
+            let raw = {};
+            try { raw = JSON.parse(fs.readFileSync(file, 'utf8')); } catch { /* no file yet */ }
+            raw.allowedHoursOverrideEnd = '';
+            raw.allowedHoursExtraMinutes = 0;
+            raw.extraAllowanceMinutes = 0;
+            raw.warned10 = false;
+            raw.warned5 = false;
+            raw.warned2 = false;
+            raw.warnedScreenTimeExhausted = false;
+            raw.warnedAH10 = false;
+            raw.warnedAH5 = false;
+            raw.warnedAH2 = false;
+            delete raw.warnSnapAHEnd;
+            delete raw.warnSnapLimit;
+            fs.writeFileSync(file, JSON.stringify(raw, null, 2), { encoding: 'utf8', mode: 0o644 });
+            log.info('clear-today-overrides: ok');
+            client.write(JSON.stringify({ type: 'clear-today-overrides-result', ok: true }) + '\n');
+        } catch (e) {
+            log.error('clear-today-overrides: ' + e.message);
+            client.write(JSON.stringify({ type: 'clear-today-overrides-result', ok: false, error: e.message }) + '\n');
+        }
+        return;
+    }
+
     if (cmd.type === 'reset-today-quota-usage') {
         // Delete today's quota-usage file (app quota reset)
         try {
