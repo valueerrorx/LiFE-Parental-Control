@@ -89,15 +89,26 @@ function parseDohIpList(text) {
     return { v4, v6 };
 }
 
+function resolveCmdPathSync(cmd) {
+    const candidates = cmd === 'iptables'
+        ? ['/usr/sbin/iptables', '/usr/bin/iptables', '/sbin/iptables', '/bin/iptables']
+        : cmd === 'ip6tables'
+            ? ['/usr/sbin/ip6tables', '/usr/bin/ip6tables', '/sbin/ip6tables', '/bin/ip6tables']
+            : cmd === 'curl'
+                ? ['/usr/bin/curl', '/bin/curl']
+                : [];
+    for (const p of candidates) {
+        try { if (fs.existsSync(p)) return p; } catch { /* ignore */ }
+    }
+    return null;
+}
+
 function hasCmdSync(cmd) {
-    try {
-        const r = spawnSync('which', [cmd], { encoding: 'utf8', timeout: 2000 });
-        return r.status === 0 && (r.stdout || '').trim().length > 0;
-    } catch { return false; }
+    return Boolean(resolveCmdPathSync(cmd));
 }
 
 function iptSync(bin, args, { ignoreError = false } = {}) {
-    const base = hasCmdSync(bin) ? bin : null;
+    const base = resolveCmdPathSync(bin);
     if (!base) {
         if (ignoreError) return null;
         throw new Error(`${bin} not found`);
@@ -164,7 +175,9 @@ function ensureDohIptablesEnabled({ configDir, log }) {
             fs.mkdirSync(path.dirname(filePath), { recursive: true });
         } catch { /* ignore */ }
         try {
-            const buf = execFileSync('curl', ['-fsSL', DOH_IPS_URL], { timeout: 20_000 });
+            const curlBin = resolveCmdPathSync('curl');
+            if (!curlBin) throw new Error('curl not found');
+            const buf = execFileSync(curlBin, ['-fsSL', DOH_IPS_URL], { timeout: 20_000 });
             if (buf && buf.length > 0 && buf.length <= 2 * 1024 * 1024) {
                 fs.writeFileSync(filePath, buf);
                 try { fs.chmodSync(filePath, 0o644); } catch { /* ignore */ }
