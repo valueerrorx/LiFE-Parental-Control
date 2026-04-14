@@ -307,6 +307,10 @@ function applyDnsmasq(blockedDomains, dnsMode, log, dhcpFallbackDns) {
     const DOH_BLOCK = [
         'use-application-dns.net',
         'dns-over-https.invalid',
+        'cloudflare-dns.com',
+        'mozilla.cloudflare-dns.com',
+        'dns.nextdns.io',
+        'router.nextdns.io',
     ].map(d => `local=/${d}/`).join('\n');
 
     const blockedLines = blockedDomains.map(d => `local=/${d}/`).join('\n');

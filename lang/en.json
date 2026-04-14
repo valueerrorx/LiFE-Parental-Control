@@ -82,7 +82,8 @@
     "daemonWaiting": "Waiting for system service to start …",
     "daemonRetry": "Try again",
     "passwordGateChecking": "Checking parent password status …",
-    "passwordGateDaemonError": "Cannot reach the system service. The parent password cannot be verified without it."
+    "passwordGateDaemonError": "Cannot reach the system service. The parent password cannot be verified without it.",
+    "passwordGateNodeHint": "The system service needs Node.js installed (as /usr/bin/node, e.g. your distro's nodejs or node package). Without it the service will not start — see journalctl -u parental-control.service."
   },
   "dashboard": {
     "title": "Dashboard",

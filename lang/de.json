@@ -82,7 +82,8 @@
     "daemonWaiting": "Warte auf Systemdienst …",
     "daemonRetry": "Erneut versuchen",
     "passwordGateChecking": "Elternpasswort-Status wird abgefragt …",
-    "passwordGateDaemonError": "Keine Verbindung zum Systemdienst. Ohne diesen kann das Elternpasswort nicht geprüft werden."
+    "passwordGateDaemonError": "Keine Verbindung zum Systemdienst. Ohne diesen kann das Elternpasswort nicht geprüft werden.",
+    "passwordGateNodeHint": "Der Systemdienst benötigt Node.js auf dem Rechner (ausführbar als /usr/bin/node, z. B. Paket nodejs oder node). Ohne Node startet der Dienst nicht — siehe auch journalctl -u parental-control.service."
   },
   "dashboard": {
     "title": "Dashboard",

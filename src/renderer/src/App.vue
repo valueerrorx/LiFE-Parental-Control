@@ -49,6 +49,7 @@
                 <h2>LiFE Parental Control</h2>
                 <div class="lock-card-phase">
                     <p class="text-danger">{{ authGateError }}</p>
+                    <p class="text-muted small mt-2 mb-0">{{ $t('app.passwordGateNodeHint') }}</p>
                     <button type="button" class="btn-pc-primary w-100 mt-3" @click="onRetryPasswordGate">
                         {{ $t('app.daemonRetry') }}
                     </button>
