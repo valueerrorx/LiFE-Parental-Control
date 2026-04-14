@@ -941,8 +941,9 @@ function isExemptAppActivelyUsed(processNames) {
         const prev = exemptAppJiffies[proc] || 0;
         const delta = current - prev;
         exemptAppJiffies[proc] = current;
-        // Active = app has a process AND it consumed CPU AND input happened recently
-        if (current > 0 && recentInput && delta >= WD_CPU_MIN_JIFFIES) anyActive = true;
+        // Active = app has a process AND input happened recently (CPU delta not required — lightweight
+        // apps like calculators are idle between keystrokes but are still actively used).
+        if (current > 0 && recentInput) anyActive = true;
     }
     return anyActive;
 }
@@ -1623,8 +1624,9 @@ async function tickScreenTime(logMinute) {
 
     // Accrue screen time every full minute when the pinned user is on seat0 (same gate as warnings/logout); pool mode uses any GUI session.
     // If exempt apps are configured and one is actively used, skip the increment for this minute.
+    const exemptProcs = loadExemptAppProcessNames();
+    if (exemptProcs.length > 0) startInputMonitor();
     if (logMinute) {
-        const exemptProcs = loadExemptAppProcessNames();
         const exemptAppInUse = exemptProcs.length > 0 && isExemptAppActivelyUsed(exemptProcs);
         if (exemptAppInUse) {
             log.info(`screenTime: exempt app actively used — skipping minute increment`);

@@ -60,6 +60,7 @@ const OVERRIDE_DIR = '/usr/local/share/applications';
 const APPARMOR_PROFILE = '/etc/apparmor.d/life-parental-blocked';
 
 const DOH_IPS_FILE = 'blocklists/ips/doh.txt';
+const DOH_IPS_URL = 'https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@latest/ips/doh.txt';
 const IPT_CHAIN_V4 = 'LIFE_DOH_BLOCK';
 const IPT_CHAIN_V6 = 'LIFE_DOH_BLOCK6';
 
@@ -158,8 +159,25 @@ function ensureDohIptablesEnabled({ configDir, log }) {
     const filePath = path.join(configDir, DOH_IPS_FILE);
     let text = '';
     try { text = fs.readFileSync(filePath, 'utf8'); } catch {
-        log && log.warn && log.warn(`defaultSync: DoH ip list missing (${filePath}); skipping iptables apply`);
-        return;
+        // Auto-seed the list when missing so the feature works without requiring a manual list sync.
+        try {
+            fs.mkdirSync(path.dirname(filePath), { recursive: true });
+        } catch { /* ignore */ }
+        try {
+            const buf = execFileSync('curl', ['-fsSL', DOH_IPS_URL], { timeout: 20_000 });
+            if (buf && buf.length > 0 && buf.length <= 2 * 1024 * 1024) {
+                fs.writeFileSync(filePath, buf);
+                try { fs.chmodSync(filePath, 0o644); } catch { /* ignore */ }
+                text = buf.toString('utf8');
+                log && log.info && log.info(`defaultSync: seeded DoH ip list (${filePath})`);
+            } else {
+                log && log.warn && log.warn('defaultSync: DoH ip list seed failed: unexpected size');
+                return;
+            }
+        } catch (e) {
+            log && log.warn && log.warn(`defaultSync: DoH ip list missing and seed failed (${filePath}): ${e?.message || String(e)}`);
+            return;
+        }
     }
     const { v4, v6 } = parseDohIpList(text);
     if (!v4.length && !v6.length) {
