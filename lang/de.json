@@ -53,7 +53,8 @@
     "on": "an",
     "back": "Zurück",
     "showPassword": "Passwort anzeigen",
-    "hidePassword": "Passwort verbergen"
+    "hidePassword": "Passwort verbergen",
+    "notAvailable": "Nicht verfügbar"
   },
   "unsavedGuard": {
     "title": "Ungespeicherte Änderungen",
@@ -193,7 +194,12 @@
     "dns_unfiltered": "Ungefiltert",
     "dns_dhcp": "Lokales Netzwerk (DHCP)",
     "dns_dhcp_sub": "DNS vom Router",
-    "dns_dhcp_unknown": "IP nicht erkannt"
+    "dns_dhcp_unknown": "IP nicht erkannt",
+    "dohIptablesTitle": "DoH blockieren (iptables)",
+    "dohIptablesToggle": "Bekannte DoH-Resolver blockieren",
+    "dohIptablesHelp": "Blockiert bekannte DoH-Resolver-IP-Adressen aus HaGeZi (ips/doh.txt). Benötigt Root; Regeln werden vom Daemon gesetzt.",
+    "dohIptablesStatus": "Status:",
+    "dohIptablesStatusUnknown": "Status: unbekannt (Daemon nicht verbunden)"
   },
   "appControl": {
     "title": "App-Kontrolle",

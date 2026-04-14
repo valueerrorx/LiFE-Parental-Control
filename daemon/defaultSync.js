@@ -59,6 +59,159 @@ const DESKTOP_DIRS = [
 const OVERRIDE_DIR = '/usr/local/share/applications';
 const APPARMOR_PROFILE = '/etc/apparmor.d/life-parental-blocked';
 
+const DOH_IPS_FILE = 'blocklists/ips/doh.txt';
+const IPT_CHAIN_V4 = 'LIFE_DOH_BLOCK';
+const IPT_CHAIN_V6 = 'LIFE_DOH_BLOCK6';
+
+function parseDohIpList(text) {
+    const v4 = [];
+    const v6 = [];
+    if (typeof text !== 'string') return { v4, v6 };
+    const seen4 = new Set();
+    const seen6 = new Set();
+    for (const line of text.split('\n')) {
+        const t = line.trim();
+        if (!t || t.startsWith('#')) continue;
+        const ip = t.split(/\s+/)[0];
+        if (!ip) continue;
+        if (/^\d{1,3}(\.\d{1,3}){3}$/.test(ip)) {
+            if (!seen4.has(ip)) { seen4.add(ip); v4.push(ip); }
+            continue;
+        }
+        if (/^[0-9a-fA-F:]+$/.test(ip) && ip.includes(':')) {
+            const norm = ip.toLowerCase();
+            if (!seen6.has(norm)) { seen6.add(norm); v6.push(norm); }
+        }
+    }
+    v4.sort();
+    v6.sort();
+    return { v4, v6 };
+}
+
+function hasCmdSync(cmd) {
+    try {
+        const r = spawnSync('which', [cmd], { encoding: 'utf8', timeout: 2000 });
+        return r.status === 0 && (r.stdout || '').trim().length > 0;
+    } catch { return false; }
+}
+
+function iptSync(bin, args, { ignoreError = false } = {}) {
+    const base = hasCmdSync(bin) ? bin : null;
+    if (!base) {
+        if (ignoreError) return null;
+        throw new Error(`${bin} not found`);
+    }
+    try {
+        // -w: wait for xtables lock when supported; avoid hanging forever.
+        return execFileSync(base, ['-w', '2', ...args], { timeout: 4000, encoding: 'utf8' });
+    } catch (e) {
+        // Fallback for iptables variants without -w (busybox, older).
+        try {
+            return execFileSync(base, args, { timeout: 4000, encoding: 'utf8' });
+        } catch (e2) {
+            if (ignoreError) return null;
+            throw e2;
+        }
+    }
+}
+
+function chainExists(bin, chain) {
+    try { iptSync(bin, ['-S', chain], { ignoreError: false }); return true; } catch { return false; }
+}
+
+function outputHookPresent(bin, chain) {
+    try {
+        const out = iptSync(bin, ['-S', 'OUTPUT'], { ignoreError: false }) || '';
+        return out.split('\n').some(l => l.includes(`-A OUTPUT -j ${chain}`));
+    } catch { return false; }
+}
+
+function ensureOutputHook(bin, chain) {
+    if (outputHookPresent(bin, chain)) return;
+    // Insert at top so it cannot be bypassed by later ACCEPT rules.
+    iptSync(bin, ['-I', 'OUTPUT', '1', '-j', chain], { ignoreError: false });
+}
+
+function removeOutputHookAll(bin, chain) {
+    // Remove all matching hooks (idempotent).
+    while (true) {
+        try {
+            iptSync(bin, ['-D', 'OUTPUT', '-j', chain], { ignoreError: false });
+        } catch { break; }
+    }
+}
+
+function ensureChain(bin, chain) {
+    if (!chainExists(bin, chain)) {
+        iptSync(bin, ['-N', chain], { ignoreError: true });
+    }
+    iptSync(bin, ['-F', chain], { ignoreError: true });
+}
+
+function deleteChain(bin, chain) {
+    removeOutputHookAll(bin, chain);
+    iptSync(bin, ['-F', chain], { ignoreError: true });
+    iptSync(bin, ['-X', chain], { ignoreError: true });
+}
+
+function ensureDohIptablesEnabled({ configDir, log }) {
+    const filePath = path.join(configDir, DOH_IPS_FILE);
+    let text = '';
+    try { text = fs.readFileSync(filePath, 'utf8'); } catch {
+        log && log.warn && log.warn(`defaultSync: DoH ip list missing (${filePath}); skipping iptables apply`);
+        return;
+    }
+    const { v4, v6 } = parseDohIpList(text);
+    if (!v4.length && !v6.length) {
+        log && log.warn && log.warn('defaultSync: DoH ip list empty; skipping iptables apply');
+        return;
+    }
+
+    try {
+        ensureChain('iptables', IPT_CHAIN_V4);
+        for (const ip of v4) {
+            iptSync('iptables', ['-A', IPT_CHAIN_V4, '-d', ip, '-p', 'tcp', '--dport', '443', '-j', 'REJECT'], { ignoreError: false });
+        }
+        ensureOutputHook('iptables', IPT_CHAIN_V4);
+    } catch (e) {
+        log && log.warn && log.warn('defaultSync: iptables DoH apply failed: ' + (e?.message || String(e)));
+    }
+
+    const haveV6 = hasCmdSync('ip6tables');
+    if (!haveV6) {
+        log && log.info && log.info('defaultSync: ip6tables not found; skipping IPv6 DoH rules');
+        return;
+    }
+    if (!v6.length) return;
+    try {
+        ensureChain('ip6tables', IPT_CHAIN_V6);
+        for (const ip of v6) {
+            iptSync('ip6tables', ['-A', IPT_CHAIN_V6, '-d', ip, '-p', 'tcp', '--dport', '443', '-j', 'REJECT'], { ignoreError: false });
+        }
+        ensureOutputHook('ip6tables', IPT_CHAIN_V6);
+    } catch (e) {
+        log && log.warn && log.warn('defaultSync: ip6tables DoH apply failed: ' + (e?.message || String(e)));
+    }
+}
+
+function ensureDohIptablesDisabled({ log }) {
+    try { deleteChain('iptables', IPT_CHAIN_V4); } catch (e) {
+        log && log.warn && log.warn('defaultSync: iptables DoH cleanup failed: ' + (e?.message || String(e)));
+    }
+    if (hasCmdSync('ip6tables')) {
+        try { deleteChain('ip6tables', IPT_CHAIN_V6); } catch (e) {
+            log && log.warn && log.warn('defaultSync: ip6tables DoH cleanup failed: ' + (e?.message || String(e)));
+        }
+    }
+}
+
+function dohIptablesStatus() {
+    const v4Active = chainExists('iptables', IPT_CHAIN_V4) && outputHookPresent('iptables', IPT_CHAIN_V4);
+    const v6Available = hasCmdSync('ip6tables');
+    const v6Active = v6Available ? (chainExists('ip6tables', IPT_CHAIN_V6) && outputHookPresent('ip6tables', IPT_CHAIN_V6)) : null;
+    return { ok: true, v4Active, v6Available, v6Active };
+}
+
 function desktopIdStem(id) {
     return path.basename(String(id || ''), '.desktop').toLowerCase();
 }
@@ -646,6 +799,11 @@ async function applyFromDefault({ configDir, log }) {
             log && log.warn && log.warn('defaultSync: applyDnsmasq failed: ' + (e && e.message ? e.message : String(e)));
         }
     }
+
+    // Optional: DoH blocking via iptables/ip6tables using HaGeZi ips/doh.txt.
+    const dohIptOn = wf.dohIptablesEnabled === true;
+    if (dohIptOn) ensureDohIptablesEnabled({ configDir, log });
+    else ensureDohIptablesDisabled({ log });
 }
 
 function ensureDefaultJsonExists({ configDir, log }) {
@@ -701,5 +859,5 @@ function createDefaultSync({ configDir, log }) {
     };
 }
 
-module.exports = { createDefaultSync };
+module.exports = { createDefaultSync, dohIptablesStatus };
 

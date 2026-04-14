@@ -15,7 +15,8 @@ const EMPTY_DEFAULT = {
         feedState: {},
         entries: [],
         listAllowlist: [],
-        dnsMode: 'dhcp'
+        dnsMode: 'dhcp',
+        dohIptablesEnabled: false
     },
     appControl: {
         enabled: false
@@ -76,6 +77,7 @@ function buildFromRaw(raw) {
             .map(e => ({ domain: String(e.domain).toLowerCase(), enabled: e.enabled !== false }))
         if (Array.isArray(wf.listAllowlist)) next.webfilter.listAllowlist = wf.listAllowlist.filter(d => typeof d === 'string')
         next.webfilter.enabled = wf.enabled === true
+        next.webfilter.dohIptablesEnabled = wf.dohIptablesEnabled === true
         const n = wf.cachedHostRuleCount
         if (typeof n === 'number' && Number.isFinite(n) && n >= 0) next.webfilter.cachedHostRuleCount = Math.floor(n)
         const VALID_DNS_MODES = ['dns4eu_protective', 'dns4eu_child', 'dns4eu_ads', 'dns4eu_child_ads', 'dhcp']

@@ -7,6 +7,7 @@ import { daemonWriteHageziCache } from '../daemonPrivilegedOps.js'
 export const HAGEZI_REPO = 'https://github.com/hagezi/dns-blocklists'
 
 export const HAGEZI_CDN_DNSMASQ_BASE = 'https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@latest/dnsmasq/'
+export const HAGEZI_CDN_IPS_BASE = 'https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@latest/ips/'
 
 export const HAGEZI_FEEDS = [
     { id: 'social', file: 'social.txt' },
@@ -45,6 +46,10 @@ export function feedUrl(feed) {
     return `${HAGEZI_CDN_DNSMASQ_BASE}${feed.file}`
 }
 
+export function dohIpsUrl() {
+    return `${HAGEZI_CDN_IPS_BASE}doh.txt`
+}
+
 function assertAllowedUrl(url) {
     if (typeof url !== 'string' || !url.startsWith(ALLOWED_FETCH_PREFIX)) {
         throw new Error('web filter: blocked feed URL')
@@ -75,6 +80,7 @@ export async function syncHageziFeeds(configDir) {
     const errors = []
     const meta = readFeedMeta(configDir)
     if (!meta.feeds || typeof meta.feeds !== 'object') meta.feeds = {}
+    if (!meta.ips || typeof meta.ips !== 'object' || Array.isArray(meta.ips)) meta.ips = {}
     const filesToWrite = []
 
     for (const feed of HAGEZI_FEEDS) {
@@ -124,15 +130,57 @@ export async function syncHageziFeeds(configDir) {
             errors.push(`${feed.id}: ${msg}`)
         }
     }
+
+    // DoH IP list (for iptables hardening)
+    try {
+        const id = 'doh'
+        const url = dohIpsUrl()
+        assertAllowedUrl(url)
+        const prev = meta.ips[id] && typeof meta.ips[id] === 'object' ? meta.ips[id] : {}
+        const prevEtag = typeof prev.etag === 'string' ? prev.etag : undefined
+        const headers = { 'User-Agent': 'life-parental-control/webfilter' }
+        if (prevEtag) headers['If-None-Match'] = prevEtag
+
+        const ac = new AbortController()
+        const t = setTimeout(() => ac.abort(), 120_000)
+        const res = await fetch(url, { headers, signal: ac.signal })
+        clearTimeout(t)
+
+        if (res.status === 304) {
+            notModified.push('ips_doh')
+        } else if (!res.ok) {
+            errors.push(`ips_doh: HTTP ${res.status}`)
+        } else {
+            const etag = res.headers.get('etag') || undefined
+            const buf = await res.arrayBuffer()
+            if (buf.byteLength > MAX_FETCH_BYTES) {
+                errors.push('ips_doh: response too large')
+            } else {
+                const text = new TextDecoder('utf8', { fatal: false }).decode(buf)
+                if (!text || !text.includes('\n')) {
+                    errors.push('ips_doh: unexpected body')
+                } else {
+                    filesToWrite.push({ name: 'ips/doh.txt', content: text })
+                    meta.ips[id] = {
+                        etag: etag || null,
+                        cachedAt: new Date().toISOString(),
+                        url
+                    }
+                    updated.push('ips_doh')
+                }
+            }
+        }
+    } catch (e) {
+        const msg = e?.name === 'AbortError' ? 'timeout' : (e?.message || String(e))
+        errors.push(`ips_doh: ${msg}`)
+    }
+
     // Delegate all writes (feed files + meta) to daemon (root); best-effort
     if (filesToWrite.length > 0 || updated.length > 0 || notModified.length > 0) {
         await daemonWriteHageziCache(filesToWrite, meta).catch(() => { /* offline / not connected */ })
     }
     return { updated, notModified, errors }
 }
-
-// Version metadata lives in the file header — avoid reading multi‑MB lists into memory for UI metadata only.
-const VERSION_HEAD_BYTES = 65536
 
 export function getFeedsMetaForUi(configDir) {
     const diskMeta = readFeedMeta(configDir)

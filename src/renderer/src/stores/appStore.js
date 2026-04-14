@@ -30,6 +30,8 @@ export const useAppStore = defineStore('app', () => {
 
     const webFilterEnabled = ref(true)
     const webFilterDnsMode = ref('dhcp')
+    const webFilterDohIptablesEnabled = ref(false)
+    const webFilterDohIptablesStatus = ref({ ok: false, v4Active: false, v6Available: false, v6Active: null })
 
     async function loadWebFilter() {
         const result = await window.api.webFilter.getList()
@@ -41,7 +43,23 @@ export const useAppStore = defineStore('app', () => {
         webFilterHostRuleCount.value = typeof result.hostRuleCount === 'number' ? result.hostRuleCount : 0
         webFilterAllowlist.value = Array.isArray(result.listAllowlist) ? [...result.listAllowlist] : []
         webFilterDnsMode.value = typeof result.dnsMode === 'string' ? result.dnsMode : 'dhcp'
+        webFilterDohIptablesEnabled.value = result.dohIptablesEnabled === true
         return result
+    }
+
+    async function refreshDohIptablesStatus() {
+        const r = await window.api.webFilter.getDohIptablesStatus()
+        if (r && r.ok) {
+            webFilterDohIptablesStatus.value = {
+                ok: true,
+                v4Active: r.v4Active === true,
+                v6Available: r.v6Available === true,
+                v6Active: Object.hasOwn(r, 'v6Active') ? (r.v6Active === true) : null
+            }
+        } else {
+            webFilterDohIptablesStatus.value = { ok: false, v4Active: false, v6Available: false, v6Active: null, error: r?.error }
+        }
+        return webFilterDohIptablesStatus.value
     }
 
     async function persistWebFilterAllowlist() {
@@ -71,7 +89,8 @@ export const useAppStore = defineStore('app', () => {
             entries,
             feedState: { ...toRaw(webFilterFeedState.value) },
             listAllowlist: webFilterAllowlist.value.map(d => String(d)),
-            dnsMode: webFilterDnsMode.value
+            dnsMode: webFilterDnsMode.value,
+            dohIptablesEnabled: webFilterDohIptablesEnabled.value
         })
         if (!result?.error) await loadWebFilter()
         return result
@@ -164,9 +183,9 @@ export const useAppStore = defineStore('app', () => {
         webFilterEntries, webFilterFeedState, webFilterHostRuleCount, webFilterAllowlist, blockedApps, appControlEnabled, quotaExemptAllowedIds, schedule, todayUsageMinutes, todayExtraAllowanceMinutes, kioskStatus,
         appQuotas, appQuotaUsage, appQuotaExtra, appMonitorUsage, appMonitorLabels, statusMessage, whitelistEnabled, runningAsRoot, xdgCurrentDesktop,
         invokingLinuxUser, quotaViewLinuxUser,
-        webFilterEnabled, webFilterDnsMode, installedApps,
+        webFilterEnabled, webFilterDnsMode, webFilterDohIptablesEnabled, webFilterDohIptablesStatus, installedApps,
         loadWebFilter, saveWebFilter, saveWebFilterAll, persistWebFilterAllowlist, loadAppControlConfig, loadBlockedApps, loadInstalledApps, loadSchedule, loadKioskStatus, loadAppQuotas,
-        loadProcessWhitelist, refreshProtectionsState, setQuotaViewLinuxUser,
+        loadProcessWhitelist, refreshProtectionsState, setQuotaViewLinuxUser, refreshDohIptablesStatus,
         showLockdownWizard
     }
 })

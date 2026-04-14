@@ -9,7 +9,7 @@ const path = require('path');
 const { execFile, execFileSync, spawn, spawnSync } = require('child_process');
 const { promisify } = require('util');
 const crypto = require('crypto');
-const { createDefaultSync } = require('./defaultSync.js');
+const { createDefaultSync, dohIptablesStatus } = require('./defaultSync.js');
 
 const execFileAsync = promisify(execFile);
 
@@ -2815,10 +2815,13 @@ function handleClientCommand(client, cmd) {
             fs.mkdirSync(dir, { recursive: true });
             for (const f of (cmd.files || [])) {
                 if (typeof f.name !== 'string' || typeof f.content !== 'string') continue;
-                const name = path.basename(f.name);
-                if (!name || name.startsWith('.')) continue;
-                fs.writeFileSync(path.join(dir, name), f.content, 'utf8');
-                try { fs.chmodSync(path.join(dir, name), 0o644); } catch { /* ignore */ }
+                const rel = path.normalize(f.name).replace(/^([/\\])+/, '');
+                if (!rel || rel.startsWith('.')) continue;
+                const outPath = path.resolve(dir, rel);
+                if (!outPath.startsWith(dir + path.sep)) continue;
+                fs.mkdirSync(path.dirname(outPath), { recursive: true });
+                fs.writeFileSync(outPath, f.content, 'utf8');
+                try { fs.chmodSync(outPath, 0o644); } catch { /* ignore */ }
             }
             if (cmd.meta && typeof cmd.meta === 'object') {
                 fs.writeFileSync(path.join(dir, 'meta.json'), JSON.stringify(cmd.meta, null, 2), 'utf8');
@@ -2827,6 +2830,16 @@ function handleClientCommand(client, cmd) {
             client.write(JSON.stringify({ type: 'write-hagezi-cache-result', ok: true }) + '\n');
         } catch (e) {
             client.write(JSON.stringify({ type: 'write-hagezi-cache-result', ok: false, error: e.message }) + '\n');
+        }
+        return;
+    }
+
+    if (cmd.type === 'get-doh-iptables-status') {
+        try {
+            const st = dohIptablesStatus();
+            client.write(JSON.stringify({ type: 'get-doh-iptables-status-result', ...st }) + '\n');
+        } catch (e) {
+            client.write(JSON.stringify({ type: 'get-doh-iptables-status-result', ok: false, error: e.message }) + '\n');
         }
         return;
     }

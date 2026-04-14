@@ -54,7 +54,14 @@ export async function daemonRemoveDnsmasq() {
 export async function daemonGetDhcpDns() {
     if (!isDaemonConnected()) return { ok: false, ip: null }
     try { return await daemonRequest({ type: 'get-dhcp-dns' }, 'get-dhcp-dns-result', 10_000) }
-    catch (e) { return { ok: false, ip: null } }
+    catch { return { ok: false, ip: null } }
+}
+
+/** Query DoH iptables/ip6tables status from daemon. Awaitable. */
+export async function daemonGetDohIptablesStatus() {
+    if (!isDaemonConnected()) return { ok: false, error: 'daemon not connected' }
+    try { return await daemonRequest({ type: 'get-doh-iptables-status' }, 'get-doh-iptables-status-result', 10_000) }
+    catch (e) { return { ok: false, error: e.message } }
 }
 
 /** Write + reload AppArmor profile. Fire-and-forget. */

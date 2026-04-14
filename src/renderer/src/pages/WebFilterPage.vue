@@ -231,6 +231,45 @@
                         </div>
                     </div>
 
+                    <!-- DoH iptables blocking -->
+                    <div class="pc-card mb-3">
+                        <div class="pc-card-header">
+                            <h6>{{ $t('webFilter.dohIptablesTitle') }}</h6>
+                        </div>
+                        <div class="pc-card-body d-flex flex-column gap-2">
+                            <div class="d-flex align-items-center justify-content-between gap-3">
+                                <div class="d-flex flex-column">
+                                    <div style="font-weight:600;">{{ $t('webFilter.dohIptablesToggle') }}</div>
+                                    <div class="text-muted" style="font-size:12px;line-height:1.3;">
+                                        {{ $t('webFilter.dohIptablesHelp') }}
+                                    </div>
+                                </div>
+                                <label class="pc-toggle">
+                                    <input type="checkbox" v-model="store.webFilterDohIptablesEnabled" />
+                                    <span class="slider" />
+                                </label>
+                            </div>
+                            <div class="small" style="font-size:12px;">
+                                <span v-if="store.webFilterDohIptablesStatus?.ok">
+                                    <span class="me-2">{{ $t('webFilter.dohIptablesStatus') }}</span>
+                                    <span class="fw-semibold">{{ store.webFilterDohIptablesStatus.v4Active ? $t('common.active') : $t('common.inactive') }}</span>
+                                    <span class="text-muted ms-2">
+                                        (IPv4: {{ store.webFilterDohIptablesStatus.v4Active ? $t('common.active') : $t('common.inactive') }},
+                                        IPv6:
+                                        <template v-if="store.webFilterDohIptablesStatus.v6Available">
+                                            {{ store.webFilterDohIptablesStatus.v6Active ? $t('common.active') : $t('common.inactive') }}
+                                        </template>
+                                        <template v-else>
+                                            {{ $t('common.notAvailable') }}
+                                        </template>)
+                                    </span>
+                                </span>
+                                <span v-else class="text-muted">
+                                    {{ $t('webFilter.dohIptablesStatusUnknown') }}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
 
                 </div>
             </div>
@@ -293,7 +332,8 @@ function takeSnapshot() {
         entries: store.webFilterEntries.map(e => ({ domain: e.domain, enabled: e.enabled })),
         feedState: Object.fromEntries(Object.entries(store.webFilterFeedState).sort()),
         allowlist: [...store.webFilterAllowlist],
-        dnsMode: store.webFilterDnsMode
+        dnsMode: store.webFilterDnsMode,
+        dohIptablesEnabled: store.webFilterDohIptablesEnabled
     })
 }
 
@@ -304,7 +344,8 @@ const isDirty = computed(() => {
         entries: store.webFilterEntries.map(e => ({ domain: e.domain, enabled: e.enabled })),
         feedState: Object.fromEntries(Object.entries(store.webFilterFeedState).sort()),
         allowlist: [...store.webFilterAllowlist],
-        dnsMode: store.webFilterDnsMode
+        dnsMode: store.webFilterDnsMode,
+        dohIptablesEnabled: store.webFilterDohIptablesEnabled
     })
     return cur !== savedSnapshot.value
 })
@@ -363,6 +404,7 @@ onMounted(async () => {
     applyFeedsMeta(result)
     takeSnapshot()
     fetchDhcpDns()
+    store.refreshDohIptablesStatus()
 })
 
 function onAdd() {
@@ -407,6 +449,7 @@ function onQuickCategory(cat) {
 async function onSave() {
     saving.value = true
     const result = await store.saveWebFilterAll()
+    store.refreshDohIptablesStatus()
     saving.value = false
     if (result?.error) { saveMsg.value = `Error: ${result.error}`; saveError.value = true }
     else {

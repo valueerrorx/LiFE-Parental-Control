@@ -1,5 +1,5 @@
 import fs from 'fs'
-import { daemonWriteHosts, daemonWriteDnsmasq, daemonRemoveDnsmasq, daemonGetDhcpDns } from '../daemonPrivilegedOps.js'
+import { daemonWriteHosts, daemonWriteDnsmasq, daemonRemoveDnsmasq, daemonGetDhcpDns, daemonGetDohIptablesStatus } from '../daemonPrivilegedOps.js'
 import {
     WEB_FILTER_STATIC_CATEGORIES,
     CATEGORY_TO_HAGEZI_FEED,
@@ -50,6 +50,7 @@ function readWebfilterFromConfig(configDir) {
         listAllowlist: Array.isArray(wf.listAllowlist) ? wf.listAllowlist : [],
         cachedHostRuleCount: typeof wf.cachedHostRuleCount === 'number' ? wf.cachedHostRuleCount : undefined,
         dnsMode: VALID_DNS_MODES.includes(wf.dnsMode) ? wf.dnsMode : 'dhcp',
+        dohIptablesEnabled: wf.dohIptablesEnabled === true,
         dhcpFallbackDns: typeof wf.dhcpFallbackDns === 'string' ? wf.dhcpFallbackDns : null
     }
 }
@@ -100,6 +101,7 @@ async function persistWebfilterAndHosts(configDir, wf, { background = false } = 
         feedState: wf.feedState || {},
         listAllowlist: wf.listAllowlist ?? [],
         dnsMode: VALID_DNS_MODES.includes(wf.dnsMode) ? wf.dnsMode : 'dhcp',
+        dohIptablesEnabled: wf.dohIptablesEnabled === true,
         dhcpFallbackDns: typeof wf.dhcpFallbackDns === 'string' ? wf.dhcpFallbackDns : null
     }
     await new Promise((resolve) => globalThis.setImmediate(resolve))
@@ -112,6 +114,7 @@ async function persistWebfilterAndHosts(configDir, wf, { background = false } = 
             listAllowlist: full.listAllowlist,
             cachedHostRuleCount: combined.length,
             dnsMode: full.dnsMode,
+            dohIptablesEnabled: full.dohIptablesEnabled,
             ...(full.dhcpFallbackDns ? { dhcpFallbackDns: full.dhcpFallbackDns } : {})
         }
         return d
@@ -163,6 +166,7 @@ export function registerWebFilterIpc(ipcMain, configDir, bundledDir = null) {
             feedState: wf.feedState,
             listAllowlist: wf.listAllowlist,
             dnsMode: wf.dnsMode,
+            dohIptablesEnabled: wf.dohIptablesEnabled,
             categories: WEB_FILTER_QUICK_ADD_ORDER,
             staticCategories: WEB_FILTER_STATIC_CATEGORIES,
             feedsMeta,
@@ -260,6 +264,7 @@ export function registerWebFilterIpc(ipcMain, configDir, bundledDir = null) {
             if (!data || typeof data !== 'object') return { error: 'Invalid data' }
             const wf = readWebfilterFromConfig(configDir)
             wf.enabled = data.enabled !== false
+            wf.dohIptablesEnabled = data.dohIptablesEnabled === true
             if (Array.isArray(data.entries)) {
                 wf.entries = data.entries
                     .filter(e => e && typeof e.domain === 'string')
@@ -306,6 +311,10 @@ export function registerWebFilterIpc(ipcMain, configDir, bundledDir = null) {
 
     ipcMain.handle('webfilter:getDhcpDns', async () => {
         return daemonGetDhcpDns()
+    })
+
+    ipcMain.handle('webfilter:getDohIptablesStatus', async () => {
+        return daemonGetDohIptablesStatus()
     })
 
     ipcMain.handle('webfilter:reapplyMirror', async () => {

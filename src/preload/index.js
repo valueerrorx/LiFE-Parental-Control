@@ -44,7 +44,8 @@ contextBridge.exposeInMainWorld('api', {
         syncFeeds: () => ipcRenderer.invoke('webfilter:syncFeeds'),
         reapplyMirror: () => ipcRenderer.invoke('webfilter:reapplyMirror'),
         saveAll: (data) => ipcRenderer.invoke('webfilter:saveAll', data),
-        getDhcpDns: () => ipcRenderer.invoke('webfilter:getDhcpDns')
+        getDhcpDns: () => ipcRenderer.invoke('webfilter:getDhcpDns'),
+        getDohIptablesStatus: () => ipcRenderer.invoke('webfilter:getDohIptablesStatus')
     },
     apps: {
         list: () => ipcRenderer.invoke('apps:list'),
