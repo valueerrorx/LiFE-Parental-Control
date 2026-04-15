@@ -64,6 +64,13 @@ if [ -d "$hagezi_src" ]; then
     done
 fi
 
+# App monitor background excludes (always refresh on install/upgrade)
+excl_src="${pkg_res}/app-monitor-background-excludes.json"
+if [ -f "$excl_src" ]; then
+    mkdir -p /etc/life-parental
+    install -D -m 644 "$excl_src" /etc/life-parental/app-monitor-background-excludes.json
+fi
+
 # Install NetworkManager dispatcher script
 nm_dispatcher_src="${pkg_res}/packaging/99-life-parental-dns"
 [ -f "$nm_dispatcher_src" ] || nm_dispatcher_src="${pkg_res}/99-life-parental-dns"

@@ -58,6 +58,15 @@ if [ -d "$HAGEZI_SRC" ]; then
     cp -r "$HAGEZI_SRC/." "$HAGEZI_DST/"
 fi
 
+# --- App monitor background excludes (always overwrite) ---
+EXCL_SRC="$RES_BASE/app-monitor-background-excludes.json"
+if [ -f "$EXCL_SRC" ]; then
+    mkdir -p "$CONFIG_DIR"
+    cp "$EXCL_SRC" "$CONFIG_DIR/app-monitor-background-excludes.json"
+    chmod 644 "$CONFIG_DIR/app-monitor-background-excludes.json"
+    echo "life-parental-install: app-monitor-background-excludes.json installed"
+fi
+
 # --- NetworkManager dispatcher script ---
 NM_DISPATCHER_DST="/etc/NetworkManager/dispatcher.d/99-life-parental-dns"
 NM_DISPATCHER_SRC=""

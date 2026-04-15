@@ -1,11 +1,11 @@
 # Graph Report - .  (2026-04-15)
 
 ## Corpus Check
-- 71 files · ~484,924 words
+- 71 files · ~485,161 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 369 nodes · 543 edges · 91 communities detected
+- 373 nodes · 554 edges · 95 communities detected
 - Extraction: 99% EXTRACTED · 1% INFERRED · 0% AMBIGUOUS · INFERRED: 8 edges (avg confidence: 0.76)
 - Token cost: 0 input · 0 output
 
@@ -101,17 +101,21 @@
 - [[_COMMUNITY_Community 88|Community 88]]
 - [[_COMMUNITY_Community 89|Community 89]]
 - [[_COMMUNITY_Community 90|Community 90]]
+- [[_COMMUNITY_Community 91|Community 91]]
+- [[_COMMUNITY_Community 92|Community 92]]
+- [[_COMMUNITY_Community 93|Community 93]]
+- [[_COMMUNITY_Community 94|Community 94]]
 
 ## God Nodes (most connected - your core abstractions)
-1. `tickScreenTime()` - 30 edges
+1. `tickScreenTime()` - 33 edges
 2. `handleClientCommand()` - 20 edges
 3. `tickAppQuotas()` - 19 edges
 4. `applyFromDefault()` - 15 edges
 5. `localIsoDate()` - 13 edges
 6. `getDefaultConfig()` - 12 edges
-7. `Append Activity Log Entry` - 12 edges
-8. `normalizeLinuxUser()` - 11 edges
-9. `notifyOrSpawn()` - 11 edges
+7. `notifyOrSpawn()` - 12 edges
+8. `Append Activity Log Entry` - 12 edges
+9. `normalizeLinuxUser()` - 11 edges
 10. `iptSync()` - 9 edges
 
 ## Surprising Connections (you probably didn't know these)
@@ -154,12 +158,12 @@
 ## Communities
 
 ### Community 0 - "Community 0"
-Cohesion: 0.06
-Nodes (85): allowedHoursOverrideOptionHHMMs(), allowedHoursPostLogoutOverrideEndHHMM(), anyUserRunningProcess(), appendActivityDaemon(), broadcast(), broadcastWarn(), buildNotifySendEnvPairs(), buildWarningWindowEnvPairs() (+77 more)
-
-### Community 1 - "Community 1"
 Cohesion: 0.1
 Nodes (40): applyDesktopOverride(), applyDnsmasq(), applyFromDefault(), buildApparmorProfile(), buildWebBlockedDomains(), chainExists(), createDefaultSync(), deleteChain() (+32 more)
+
+### Community 1 - "Community 1"
+Cohesion: 0.12
+Nodes (21): buildAndWriteAppCatalog(), bumpExemptMinuteCpuDeltas(), execLineToFullPath(), execLineToProcessName(), findUserXauthorityPath(), getActiveGraphicalSessions(), getExemptAppJiffies(), loadAppMonitorBackgroundExcludeSets() (+13 more)
 
 ### Community 2 - "Community 2"
 Cohesion: 0.09
@@ -170,184 +174,184 @@ Cohesion: 0.11
 Nodes (9): daemonDesktopOverride(), daemonRemoveDnsmasq(), daemonServiceControl(), daemonSyncAppArmorAsync(), daemonWriteConfigAsync(), daemonWriteDnsmasq(), daemonWriteHosts(), daemonWriteKiosk() (+1 more)
 
 ### Community 4 - "Community 4"
+Cohesion: 0.18
+Nodes (20): allowedHoursPostLogoutOverrideEndHHMM(), checkParentPassword(), effectiveScreenMinutes(), handleClientCommand(), hashPassword(), isoWeekday(), localIsoDate(), normalizeLinuxUser() (+12 more)
+
+### Community 5 - "Community 5"
 Cohesion: 0.15
 Nodes (19): AppControlPage Vue Component, AppListItemIcon Vue Component, AppModal Vue Component, AppSidebar Vue Component, DashboardPage Vue Component, KioskPage Vue Component, LockdownWizard Vue Component, MainLayout Vue Component (+11 more)
 
-### Community 5 - "Community 5"
+### Community 6 - "Community 6"
+Cohesion: 0.23
+Nodes (15): allowedHoursOverrideOptionHHMMs(), appendActivityDaemon(), effectiveAllowedHoursEndDayMinutes(), emptyUsage(), ensureUserMinutes(), isExemptAppActivelyUsedThisMinute(), isWithinAllowedHours(), parseOverrideEndDayMinutes() (+7 more)
+
+### Community 7 - "Community 7"
+Cohesion: 0.19
+Nodes (14): broadcast(), broadcastWarn(), buildNotifySendEnvPairs(), buildWarningWindowEnvPairs(), envPairsFromLoginctlSessionEnvironment(), findElectronExecPath(), getActiveSeatSessionId(), getFirstActiveUserInfo() (+6 more)
+
+### Community 8 - "Community 8"
+Cohesion: 0.2
+Nodes (12): desktopIdStem(), desktopIdTailStem(), getDefaultConfig(), loadBlockedAppIds(), loadExemptAppProcessNames(), loadQuotaExemptAppIds(), normalizeQuotaEntriesFromDefault(), preferredLinuxUserForWarnings() (+4 more)
+
+### Community 9 - "Community 9"
 Cohesion: 0.3
 Nodes (11): assertAllowedUrl(), dohIpsUrl(), domainsForEnabledFeeds(), extractListVersion(), feedUrl(), getFeedsMetaForUi(), loadFeedFileText(), parseDnsmasqDomains() (+3 more)
 
-### Community 6 - "Community 6"
+### Community 10 - "Community 10"
 Cohesion: 0.3
 Nodes (8): buildCombinedEntries(), normalizeAllowlist(), persistWebfilterAndHosts(), persistWebFilterEntries(), readWebFilterConfig(), readWebfilterFromConfig(), reapplyWebFilter(), writeHostsSectionAsync()
 
-### Community 7 - "Community 7"
+### Community 11 - "Community 11"
+Cohesion: 0.2
+Nodes (11): anyUserRunningProcess(), catalogHasNonQuotaExemptAppRunning(), clearRequestDaemonWarningTestFlag(), maybeHandleDaemonWarningTestRequest(), pgrepUserProcess(), readAppMonitorUsage(), readMonitorCatalogEntries(), tickAppMonitor() (+3 more)
+
+### Community 12 - "Community 12"
 Cohesion: 0.27
 Nodes (11): Warning Mode (--warning-mode= process flag), Electron App Entry (index.js), Warning Mode Detection (index.js --warning-mode), makeLogoutEnforcementHtml (lockscreenWindow), runLockscreen (lockscreenWindow), runWarningMode (warningModeMain), WARNING_PANEL_CSS (warningPanelTheme), initWarningWindow (warningWindow) (+3 more)
 
-### Community 8 - "Community 8"
+### Community 13 - "Community 13"
 Cohesion: 0.24
 Nodes (4): emptyUsage(), normalizePeriod(), readSchedule(), readUsage()
 
-### Community 9 - "Community 9"
+### Community 14 - "Community 14"
 Cohesion: 0.39
 Nodes (7): atomicWriteJson(), buildFromRaw(), defaultJsonPath(), normalizeSchedule(), patchDefaultJson(), readDefaultJson(), readJsonSafe()
 
-### Community 10 - "Community 10"
-Cohesion: 0.4
-Nodes (5): buildAndWriteAppCatalog(), execLineToFullPath(), execLineToProcessName(), parseDesktopFile(), readAllDesktopApps()
-
-### Community 11 - "Community 11"
+### Community 15 - "Community 15"
 Cohesion: 0.4
 Nodes (0): 
 
-### Community 12 - "Community 12"
+### Community 16 - "Community 16"
 Cohesion: 0.5
 Nodes (0): 
 
-### Community 13 - "Community 13"
+### Community 17 - "Community 17"
 Cohesion: 0.67
 Nodes (4): Quota Exemptions / Whitelisted Apps, Per-User Quota Storage Key Pattern, Quota Usage Key Shared Utility, Screen Time Usage Shared Utility
 
-### Community 14 - "Community 14"
-Cohesion: 0.67
-Nodes (3): daemonOn (daemonClient), daemonRequest (daemonClient), daemonSend (daemonClient)
-
-### Community 15 - "Community 15"
+### Community 18 - "Community 18"
 Cohesion: 0.67
 Nodes (3): analyzeLockdownState (LockdownService), executeLockdown (LockdownService), log/warn/error exports (logger)
 
-### Community 16 - "Community 16"
-Cohesion: 1.0
-Nodes (2): getAppImagePathIfAny(), readAppImagePathFromProcCmdline()
-
-### Community 17 - "Community 17"
-Cohesion: 0.67
-Nodes (3): Read Kiosk Lockdown Summary, Read Plasma Layout Lock Active, Summarize KDE Globals Kiosk
-
-### Community 18 - "Community 18"
-Cohesion: 0.67
-Nodes (3): Global t() Translation Function, Quit With Parent Confirm, Confirm Dialog (SweetAlert2)
-
 ### Community 19 - "Community 19"
 Cohesion: 0.67
-Nodes (3): KDE Kiosk Restriction Module, Kiosk Profile Management (load/save/delete), ProfilesTab Vue Component
+Nodes (3): daemonOn (daemonClient), daemonRequest (daemonClient), daemonSend (daemonClient)
 
 ### Community 20 - "Community 20"
 Cohesion: 1.0
-Nodes (2): getActiveGraphicalSessions (graphicalSessionDetect), parseLoginctlSession (graphicalSessionDetect)
+Nodes (2): getAppImagePathIfAny(), readAppImagePathFromProcCmdline()
 
 ### Community 21 - "Community 21"
-Cohesion: 1.0
-Nodes (2): Read All Desktop Apps, Sync AppArmor Profile
+Cohesion: 0.67
+Nodes (3): Read Kiosk Lockdown Summary, Read Plasma Layout Lock Active, Summarize KDE Globals Kiosk
 
 ### Community 22 - "Community 22"
-Cohesion: 1.0
-Nodes (2): i18n Module (vue-i18n), Renderer Entry Point
+Cohesion: 0.67
+Nodes (3): Global t() Translation Function, Quit With Parent Confirm, Confirm Dialog (SweetAlert2)
 
 ### Community 23 - "Community 23"
-Cohesion: 1.0
-Nodes (2): Session Auto-Lock Idle Duration Settings, Lock Idle Minutes Shared Constant
+Cohesion: 0.67
+Nodes (3): KDE Kiosk Restriction Module, Kiosk Profile Management (load/save/delete), ProfilesTab Vue Component
 
 ### Community 24 - "Community 24"
 Cohesion: 1.0
-Nodes (1): initLogger (src/main/logger)
+Nodes (2): getActiveGraphicalSessions (graphicalSessionDetect), parseLoginctlSession (graphicalSessionDetect)
 
 ### Community 25 - "Community 25"
 Cohesion: 1.0
-Nodes (1): attachRendererLogging (logger)
+Nodes (2): Read All Desktop Apps, Sync AppArmor Profile
 
 ### Community 26 - "Community 26"
 Cohesion: 1.0
-Nodes (1): listDesktopLoginUsers (linuxLoginUsers)
+Nodes (2): i18n Module (vue-i18n), Renderer Entry Point
 
 ### Community 27 - "Community 27"
 Cohesion: 1.0
-Nodes (1): readDesktopSessionEnvForUid (desktopSessionEnviron)
+Nodes (2): Session Auto-Lock Idle Duration Settings, Lock Idle Minutes Shared Constant
 
 ### Community 28 - "Community 28"
 Cohesion: 1.0
-Nodes (1): isSessionGnomeShell (desktopSessionEnviron)
+Nodes (1): initLogger (src/main/logger)
 
 ### Community 29 - "Community 29"
 Cohesion: 1.0
-Nodes (1): daemonConnect (daemonClient)
+Nodes (1): attachRendererLogging (logger)
 
 ### Community 30 - "Community 30"
 Cohesion: 1.0
-Nodes (1): isDaemonConnected (daemonClient)
+Nodes (1): listDesktopLoginUsers (linuxLoginUsers)
 
 ### Community 31 - "Community 31"
 Cohesion: 1.0
-Nodes (1): Main BrowserWindow (index.js)
+Nodes (1): readDesktopSessionEnvForUid (desktopSessionEnviron)
 
 ### Community 32 - "Community 32"
 Cohesion: 1.0
-Nodes (1): registerSettingsDangerIpc (settingsDangerIpc)
+Nodes (1): isSessionGnomeShell (desktopSessionEnviron)
 
 ### Community 33 - "Community 33"
 Cohesion: 1.0
-Nodes (1): desktopIconToDataUrl (desktopIconResolve)
+Nodes (1): daemonConnect (daemonClient)
 
 ### Community 34 - "Community 34"
 Cohesion: 1.0
-Nodes (1): Read Monitor Catalog Entries
+Nodes (1): isDaemonConnected (daemonClient)
 
 ### Community 35 - "Community 35"
 Cohesion: 1.0
-Nodes (1): Write App Monitor Usage
+Nodes (1): Main BrowserWindow (index.js)
 
 ### Community 36 - "Community 36"
 Cohesion: 1.0
-Nodes (1): Normalize Quota Entry
+Nodes (1): registerSettingsDangerIpc (settingsDangerIpc)
 
 ### Community 37 - "Community 37"
 Cohesion: 1.0
-Nodes (1): Load Quota Exempt App IDs
+Nodes (1): desktopIconToDataUrl (desktopIconResolve)
 
 ### Community 38 - "Community 38"
 Cohesion: 1.0
-Nodes (1): Exec Line To Process Name
+Nodes (1): Read Monitor Catalog Entries
 
 ### Community 39 - "Community 39"
 Cohesion: 1.0
-Nodes (1): Register Config IPC Handler
+Nodes (1): Write App Monitor Usage
 
 ### Community 40 - "Community 40"
 Cohesion: 1.0
-Nodes (1): Assert Parental Cron Install Dirs
+Nodes (1): Normalize Quota Entry
 
 ### Community 41 - "Community 41"
 Cohesion: 1.0
-Nodes (1): Web Filter Static Categories
+Nodes (1): Load Quota Exempt App IDs
 
 ### Community 42 - "Community 42"
 Cohesion: 1.0
-Nodes (1): Category To HaGeZi Feed Mapping
+Nodes (1): Exec Line To Process Name
 
 ### Community 43 - "Community 43"
 Cohesion: 1.0
-Nodes (1): Web Filter Quick Add Order
+Nodes (1): Register Config IPC Handler
 
 ### Community 44 - "Community 44"
 Cohesion: 1.0
-Nodes (1): Is Known Web Filter Category
+Nodes (1): Assert Parental Cron Install Dirs
 
 ### Community 45 - "Community 45"
 Cohesion: 1.0
-Nodes (0): 
+Nodes (1): Web Filter Static Categories
 
 ### Community 46 - "Community 46"
 Cohesion: 1.0
-Nodes (1): Set Locale
+Nodes (1): Category To HaGeZi Feed Mapping
 
 ### Community 47 - "Community 47"
 Cohesion: 1.0
-Nodes (0): 
+Nodes (1): Web Filter Quick Add Order
 
 ### Community 48 - "Community 48"
 Cohesion: 1.0
-Nodes (0): 
+Nodes (1): Is Known Web Filter Category
 
 ### Community 49 - "Community 49"
 Cohesion: 1.0
@@ -355,323 +359,341 @@ Nodes (0):
 
 ### Community 50 - "Community 50"
 Cohesion: 1.0
-Nodes (0): 
+Nodes (1): Set Locale
 
 ### Community 51 - "Community 51"
 Cohesion: 1.0
-Nodes (1): LiFE Parental Control README
+Nodes (0): 
 
 ### Community 52 - "Community 52"
 Cohesion: 1.0
-Nodes (1): CLAUDE Project Instructions
+Nodes (0): 
 
 ### Community 53 - "Community 53"
 Cohesion: 1.0
-Nodes (1): DNS Security via dnsmasq Documentation
+Nodes (0): 
 
 ### Community 54 - "Community 54"
 Cohesion: 1.0
-Nodes (1): HaGeZi Fake/Scam DNS Blocklist
+Nodes (0): 
 
 ### Community 55 - "Community 55"
 Cohesion: 1.0
-Nodes (1): HaGeZi NSFW DNS Blocklist
+Nodes (1): LiFE Parental Control README
 
 ### Community 56 - "Community 56"
 Cohesion: 1.0
-Nodes (1): HaGeZi Pop-Up Ads DNS Blocklist
+Nodes (1): CLAUDE Project Instructions
 
 ### Community 57 - "Community 57"
 Cohesion: 1.0
-Nodes (1): HaGeZi Social Networks DNS Blocklist
+Nodes (1): DNS Security via dnsmasq Documentation
 
 ### Community 58 - "Community 58"
 Cohesion: 1.0
-Nodes (1): HaGeZi Gambling DNS Blocklist
+Nodes (1): HaGeZi Fake/Scam DNS Blocklist
 
 ### Community 59 - "Community 59"
 Cohesion: 1.0
-Nodes (1): HaGeZi Anti-Piracy DNS Blocklist
+Nodes (1): HaGeZi NSFW DNS Blocklist
 
 ### Community 60 - "Community 60"
 Cohesion: 1.0
-Nodes (1): Screenshot: Quota Exemptions UI
+Nodes (1): HaGeZi Pop-Up Ads DNS Blocklist
 
 ### Community 61 - "Community 61"
 Cohesion: 1.0
-Nodes (1): Screenshot: KDE Kiosk System Settings
+Nodes (1): HaGeZi Social Networks DNS Blocklist
 
 ### Community 62 - "Community 62"
 Cohesion: 1.0
-Nodes (1): Screenshot: Lockdown Wizard
+Nodes (1): HaGeZi Gambling DNS Blocklist
 
 ### Community 63 - "Community 63"
 Cohesion: 1.0
-Nodes (1): Screenshot: KDE Kiosk Profiles Tab
+Nodes (1): HaGeZi Anti-Piracy DNS Blocklist
 
 ### Community 64 - "Community 64"
 Cohesion: 1.0
-Nodes (1): dnsmasq DNS Security Chain
+Nodes (1): Screenshot: Quota Exemptions UI
 
 ### Community 65 - "Community 65"
 Cohesion: 1.0
-Nodes (1): DoH Canary Domain Blocking
+Nodes (1): Screenshot: KDE Kiosk System Settings
 
 ### Community 66 - "Community 66"
 Cohesion: 1.0
-Nodes (1): DNS4EU Family-Safe Upstream Resolver
+Nodes (1): Screenshot: Lockdown Wizard
 
 ### Community 67 - "Community 67"
 Cohesion: 1.0
-Nodes (1): Lockdown Wizard First-Run Setup
+Nodes (1): Screenshot: KDE Kiosk Profiles Tab
 
 ### Community 68 - "Community 68"
 Cohesion: 1.0
-Nodes (1): HaGeZi DNS Blocklist Category System
+Nodes (1): dnsmasq DNS Security Chain
 
 ### Community 69 - "Community 69"
 Cohesion: 1.0
-Nodes (1): Web Filter Module
+Nodes (1): DoH Canary Domain Blocking
 
 ### Community 70 - "Community 70"
 Cohesion: 1.0
-Nodes (1): LiFE Parental Control App Logo (PNG)
+Nodes (1): DNS4EU Family-Safe Upstream Resolver
 
 ### Community 71 - "Community 71"
 Cohesion: 1.0
-Nodes (1): LiFE Parental Control App Logo (SVG)
+Nodes (1): Lockdown Wizard First-Run Setup
 
 ### Community 72 - "Community 72"
 Cohesion: 1.0
-Nodes (1): System Tray Icon 24px
+Nodes (1): HaGeZi DNS Blocklist Category System
 
 ### Community 73 - "Community 73"
 Cohesion: 1.0
-Nodes (1): Dashboard UI Screenshot
+Nodes (1): Web Filter Module
 
 ### Community 74 - "Community 74"
 Cohesion: 1.0
-Nodes (1): Bildschirmzeit (Screen Time) UI Screenshot
+Nodes (1): LiFE Parental Control App Logo (PNG)
 
 ### Community 75 - "Community 75"
 Cohesion: 1.0
-Nodes (1): Einstellungen (Settings) UI Screenshot
+Nodes (1): LiFE Parental Control App Logo (SVG)
 
 ### Community 76 - "Community 76"
 Cohesion: 1.0
-Nodes (1): Web-Filter UI Screenshot
+Nodes (1): System Tray Icon 24px
 
 ### Community 77 - "Community 77"
 Cohesion: 1.0
-Nodes (1): App-Kontrolle (App Control) UI Screenshot
+Nodes (1): Dashboard UI Screenshot
 
 ### Community 78 - "Community 78"
 Cohesion: 1.0
-Nodes (1): Application Icon 16x16
+Nodes (1): Bildschirmzeit (Screen Time) UI Screenshot
 
 ### Community 79 - "Community 79"
 Cohesion: 1.0
-Nodes (1): Application Icon 32x32
+Nodes (1): Einstellungen (Settings) UI Screenshot
 
 ### Community 80 - "Community 80"
 Cohesion: 1.0
-Nodes (1): Application Icon 48x48
+Nodes (1): Web-Filter UI Screenshot
 
 ### Community 81 - "Community 81"
 Cohesion: 1.0
-Nodes (1): Application Icon 64x64
+Nodes (1): App-Kontrolle (App Control) UI Screenshot
 
 ### Community 82 - "Community 82"
 Cohesion: 1.0
-Nodes (1): Application Icon 128x128
+Nodes (1): Application Icon 16x16
 
 ### Community 83 - "Community 83"
 Cohesion: 1.0
-Nodes (1): Application Icon 256x256
+Nodes (1): Application Icon 32x32
 
 ### Community 84 - "Community 84"
 Cohesion: 1.0
-Nodes (1): Application Icon 512x512
+Nodes (1): Application Icon 48x48
 
 ### Community 85 - "Community 85"
 Cohesion: 1.0
-Nodes (1): Shield + Child Protection Visual Concept
+Nodes (1): Application Icon 64x64
 
 ### Community 86 - "Community 86"
 Cohesion: 1.0
-Nodes (1): Dashboard Overview UI Pattern
+Nodes (1): Application Icon 128x128
 
 ### Community 87 - "Community 87"
 Cohesion: 1.0
-Nodes (1): Screen Time Control UI Pattern
+Nodes (1): Application Icon 256x256
 
 ### Community 88 - "Community 88"
 Cohesion: 1.0
-Nodes (1): Web Filter UI Pattern
+Nodes (1): Application Icon 512x512
 
 ### Community 89 - "Community 89"
 Cohesion: 1.0
-Nodes (1): App Control UI Pattern
+Nodes (1): Shield + Child Protection Visual Concept
 
 ### Community 90 - "Community 90"
+Cohesion: 1.0
+Nodes (1): Dashboard Overview UI Pattern
+
+### Community 91 - "Community 91"
+Cohesion: 1.0
+Nodes (1): Screen Time Control UI Pattern
+
+### Community 92 - "Community 92"
+Cohesion: 1.0
+Nodes (1): Web Filter UI Pattern
+
+### Community 93 - "Community 93"
+Cohesion: 1.0
+Nodes (1): App Control UI Pattern
+
+### Community 94 - "Community 94"
 Cohesion: 1.0
 Nodes (1): Settings / Daemon Management UI Pattern
 
 ## Knowledge Gaps
 - **98 isolated node(s):** `initLogger (src/main/logger)`, `attachRendererLogging (logger)`, `listDesktopLoginUsers (linuxLoginUsers)`, `getActiveGraphicalSessions (graphicalSessionDetect)`, `parseLoginctlSession (graphicalSessionDetect)` (+93 more)
   These have ≤1 connection - possible missing edges or undocumented components.
-- **Thin community `Community 20`** (2 nodes): `getActiveGraphicalSessions (graphicalSessionDetect)`, `parseLoginctlSession (graphicalSessionDetect)`
+- **Thin community `Community 24`** (2 nodes): `getActiveGraphicalSessions (graphicalSessionDetect)`, `parseLoginctlSession (graphicalSessionDetect)`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 21`** (2 nodes): `Read All Desktop Apps`, `Sync AppArmor Profile`
+- **Thin community `Community 25`** (2 nodes): `Read All Desktop Apps`, `Sync AppArmor Profile`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 22`** (2 nodes): `i18n Module (vue-i18n)`, `Renderer Entry Point`
+- **Thin community `Community 26`** (2 nodes): `i18n Module (vue-i18n)`, `Renderer Entry Point`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 23`** (2 nodes): `Session Auto-Lock Idle Duration Settings`, `Lock Idle Minutes Shared Constant`
+- **Thin community `Community 27`** (2 nodes): `Session Auto-Lock Idle Duration Settings`, `Lock Idle Minutes Shared Constant`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 24`** (1 nodes): `initLogger (src/main/logger)`
+- **Thin community `Community 28`** (1 nodes): `initLogger (src/main/logger)`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 25`** (1 nodes): `attachRendererLogging (logger)`
+- **Thin community `Community 29`** (1 nodes): `attachRendererLogging (logger)`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 26`** (1 nodes): `listDesktopLoginUsers (linuxLoginUsers)`
+- **Thin community `Community 30`** (1 nodes): `listDesktopLoginUsers (linuxLoginUsers)`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 27`** (1 nodes): `readDesktopSessionEnvForUid (desktopSessionEnviron)`
+- **Thin community `Community 31`** (1 nodes): `readDesktopSessionEnvForUid (desktopSessionEnviron)`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 28`** (1 nodes): `isSessionGnomeShell (desktopSessionEnviron)`
+- **Thin community `Community 32`** (1 nodes): `isSessionGnomeShell (desktopSessionEnviron)`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 29`** (1 nodes): `daemonConnect (daemonClient)`
+- **Thin community `Community 33`** (1 nodes): `daemonConnect (daemonClient)`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 30`** (1 nodes): `isDaemonConnected (daemonClient)`
+- **Thin community `Community 34`** (1 nodes): `isDaemonConnected (daemonClient)`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 31`** (1 nodes): `Main BrowserWindow (index.js)`
+- **Thin community `Community 35`** (1 nodes): `Main BrowserWindow (index.js)`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 32`** (1 nodes): `registerSettingsDangerIpc (settingsDangerIpc)`
+- **Thin community `Community 36`** (1 nodes): `registerSettingsDangerIpc (settingsDangerIpc)`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 33`** (1 nodes): `desktopIconToDataUrl (desktopIconResolve)`
+- **Thin community `Community 37`** (1 nodes): `desktopIconToDataUrl (desktopIconResolve)`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 34`** (1 nodes): `Read Monitor Catalog Entries`
+- **Thin community `Community 38`** (1 nodes): `Read Monitor Catalog Entries`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 35`** (1 nodes): `Write App Monitor Usage`
+- **Thin community `Community 39`** (1 nodes): `Write App Monitor Usage`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 36`** (1 nodes): `Normalize Quota Entry`
+- **Thin community `Community 40`** (1 nodes): `Normalize Quota Entry`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 37`** (1 nodes): `Load Quota Exempt App IDs`
+- **Thin community `Community 41`** (1 nodes): `Load Quota Exempt App IDs`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 38`** (1 nodes): `Exec Line To Process Name`
+- **Thin community `Community 42`** (1 nodes): `Exec Line To Process Name`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 39`** (1 nodes): `Register Config IPC Handler`
+- **Thin community `Community 43`** (1 nodes): `Register Config IPC Handler`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 40`** (1 nodes): `Assert Parental Cron Install Dirs`
+- **Thin community `Community 44`** (1 nodes): `Assert Parental Cron Install Dirs`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 41`** (1 nodes): `Web Filter Static Categories`
+- **Thin community `Community 45`** (1 nodes): `Web Filter Static Categories`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 42`** (1 nodes): `Category To HaGeZi Feed Mapping`
+- **Thin community `Community 46`** (1 nodes): `Category To HaGeZi Feed Mapping`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 43`** (1 nodes): `Web Filter Quick Add Order`
+- **Thin community `Community 47`** (1 nodes): `Web Filter Quick Add Order`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 44`** (1 nodes): `Is Known Web Filter Category`
+- **Thin community `Community 48`** (1 nodes): `Is Known Web Filter Category`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 45`** (1 nodes): `App.vue`
+- **Thin community `Community 49`** (1 nodes): `App.vue`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 46`** (1 nodes): `Set Locale`
+- **Thin community `Community 50`** (1 nodes): `Set Locale`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 47`** (1 nodes): `appStore.js`
+- **Thin community `Community 51`** (1 nodes): `appStore.js`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 48`** (1 nodes): `WebFilterPage.vue`
+- **Thin community `Community 52`** (1 nodes): `WebFilterPage.vue`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 49`** (1 nodes): `SettingsPage.vue`
+- **Thin community `Community 53`** (1 nodes): `SettingsPage.vue`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 50`** (1 nodes): `index.js`
+- **Thin community `Community 54`** (1 nodes): `index.js`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 51`** (1 nodes): `LiFE Parental Control README`
+- **Thin community `Community 55`** (1 nodes): `LiFE Parental Control README`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 52`** (1 nodes): `CLAUDE Project Instructions`
+- **Thin community `Community 56`** (1 nodes): `CLAUDE Project Instructions`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 53`** (1 nodes): `DNS Security via dnsmasq Documentation`
+- **Thin community `Community 57`** (1 nodes): `DNS Security via dnsmasq Documentation`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 54`** (1 nodes): `HaGeZi Fake/Scam DNS Blocklist`
+- **Thin community `Community 58`** (1 nodes): `HaGeZi Fake/Scam DNS Blocklist`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 55`** (1 nodes): `HaGeZi NSFW DNS Blocklist`
+- **Thin community `Community 59`** (1 nodes): `HaGeZi NSFW DNS Blocklist`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 56`** (1 nodes): `HaGeZi Pop-Up Ads DNS Blocklist`
+- **Thin community `Community 60`** (1 nodes): `HaGeZi Pop-Up Ads DNS Blocklist`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 57`** (1 nodes): `HaGeZi Social Networks DNS Blocklist`
+- **Thin community `Community 61`** (1 nodes): `HaGeZi Social Networks DNS Blocklist`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 58`** (1 nodes): `HaGeZi Gambling DNS Blocklist`
+- **Thin community `Community 62`** (1 nodes): `HaGeZi Gambling DNS Blocklist`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 59`** (1 nodes): `HaGeZi Anti-Piracy DNS Blocklist`
+- **Thin community `Community 63`** (1 nodes): `HaGeZi Anti-Piracy DNS Blocklist`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 60`** (1 nodes): `Screenshot: Quota Exemptions UI`
+- **Thin community `Community 64`** (1 nodes): `Screenshot: Quota Exemptions UI`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 61`** (1 nodes): `Screenshot: KDE Kiosk System Settings`
+- **Thin community `Community 65`** (1 nodes): `Screenshot: KDE Kiosk System Settings`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 62`** (1 nodes): `Screenshot: Lockdown Wizard`
+- **Thin community `Community 66`** (1 nodes): `Screenshot: Lockdown Wizard`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 63`** (1 nodes): `Screenshot: KDE Kiosk Profiles Tab`
+- **Thin community `Community 67`** (1 nodes): `Screenshot: KDE Kiosk Profiles Tab`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 64`** (1 nodes): `dnsmasq DNS Security Chain`
+- **Thin community `Community 68`** (1 nodes): `dnsmasq DNS Security Chain`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 65`** (1 nodes): `DoH Canary Domain Blocking`
+- **Thin community `Community 69`** (1 nodes): `DoH Canary Domain Blocking`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 66`** (1 nodes): `DNS4EU Family-Safe Upstream Resolver`
+- **Thin community `Community 70`** (1 nodes): `DNS4EU Family-Safe Upstream Resolver`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 67`** (1 nodes): `Lockdown Wizard First-Run Setup`
+- **Thin community `Community 71`** (1 nodes): `Lockdown Wizard First-Run Setup`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 68`** (1 nodes): `HaGeZi DNS Blocklist Category System`
+- **Thin community `Community 72`** (1 nodes): `HaGeZi DNS Blocklist Category System`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 69`** (1 nodes): `Web Filter Module`
+- **Thin community `Community 73`** (1 nodes): `Web Filter Module`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 70`** (1 nodes): `LiFE Parental Control App Logo (PNG)`
+- **Thin community `Community 74`** (1 nodes): `LiFE Parental Control App Logo (PNG)`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 71`** (1 nodes): `LiFE Parental Control App Logo (SVG)`
+- **Thin community `Community 75`** (1 nodes): `LiFE Parental Control App Logo (SVG)`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 72`** (1 nodes): `System Tray Icon 24px`
+- **Thin community `Community 76`** (1 nodes): `System Tray Icon 24px`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 73`** (1 nodes): `Dashboard UI Screenshot`
+- **Thin community `Community 77`** (1 nodes): `Dashboard UI Screenshot`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 74`** (1 nodes): `Bildschirmzeit (Screen Time) UI Screenshot`
+- **Thin community `Community 78`** (1 nodes): `Bildschirmzeit (Screen Time) UI Screenshot`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 75`** (1 nodes): `Einstellungen (Settings) UI Screenshot`
+- **Thin community `Community 79`** (1 nodes): `Einstellungen (Settings) UI Screenshot`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 76`** (1 nodes): `Web-Filter UI Screenshot`
+- **Thin community `Community 80`** (1 nodes): `Web-Filter UI Screenshot`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 77`** (1 nodes): `App-Kontrolle (App Control) UI Screenshot`
+- **Thin community `Community 81`** (1 nodes): `App-Kontrolle (App Control) UI Screenshot`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 78`** (1 nodes): `Application Icon 16x16`
+- **Thin community `Community 82`** (1 nodes): `Application Icon 16x16`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 79`** (1 nodes): `Application Icon 32x32`
+- **Thin community `Community 83`** (1 nodes): `Application Icon 32x32`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 80`** (1 nodes): `Application Icon 48x48`
+- **Thin community `Community 84`** (1 nodes): `Application Icon 48x48`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 81`** (1 nodes): `Application Icon 64x64`
+- **Thin community `Community 85`** (1 nodes): `Application Icon 64x64`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 82`** (1 nodes): `Application Icon 128x128`
+- **Thin community `Community 86`** (1 nodes): `Application Icon 128x128`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 83`** (1 nodes): `Application Icon 256x256`
+- **Thin community `Community 87`** (1 nodes): `Application Icon 256x256`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 84`** (1 nodes): `Application Icon 512x512`
+- **Thin community `Community 88`** (1 nodes): `Application Icon 512x512`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 85`** (1 nodes): `Shield + Child Protection Visual Concept`
+- **Thin community `Community 89`** (1 nodes): `Shield + Child Protection Visual Concept`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 86`** (1 nodes): `Dashboard Overview UI Pattern`
+- **Thin community `Community 90`** (1 nodes): `Dashboard Overview UI Pattern`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 87`** (1 nodes): `Screen Time Control UI Pattern`
+- **Thin community `Community 91`** (1 nodes): `Screen Time Control UI Pattern`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 88`** (1 nodes): `Web Filter UI Pattern`
+- **Thin community `Community 92`** (1 nodes): `Web Filter UI Pattern`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 89`** (1 nodes): `App Control UI Pattern`
+- **Thin community `Community 93`** (1 nodes): `App Control UI Pattern`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
-- **Thin community `Community 90`** (1 nodes): `Settings / Daemon Management UI Pattern`
+- **Thin community `Community 94`** (1 nodes): `Settings / Daemon Management UI Pattern`
   Too small to be a meaningful cluster - may be noise or needs more connections extracted.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
+- **Why does `tickScreenTime()` connect `Community 6` to `Community 1`, `Community 4`, `Community 7`, `Community 8`, `Community 11`?**
+  _High betweenness centrality (0.003) - this node is a cross-community bridge._
 - **What connects `initLogger (src/main/logger)`, `attachRendererLogging (logger)`, `listDesktopLoginUsers (linuxLoginUsers)` to the rest of the system?**
   _98 weakly-connected nodes found - possible documentation gaps or missing edges._
 - **Should `Community 0` be split into smaller, more focused modules?**
-  _Cohesion score 0.06 - nodes in this community are weakly interconnected._
-- **Should `Community 1` be split into smaller, more focused modules?**
   _Cohesion score 0.1 - nodes in this community are weakly interconnected._
+- **Should `Community 1` be split into smaller, more focused modules?**
+  _Cohesion score 0.12 - nodes in this community are weakly interconnected._
 - **Should `Community 2` be split into smaller, more focused modules?**
   _Cohesion score 0.09 - nodes in this community are weakly interconnected._
 - **Should `Community 3` be split into smaller, more focused modules?**

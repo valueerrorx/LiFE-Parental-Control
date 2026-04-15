@@ -41,6 +41,8 @@ extraResources:
     to: "life-parental-lockdown.sh"
   - from: "packaging/99-life-parental-dns"
     to: "99-life-parental-dns"
+  - from: "packaging/app-monitor-background-excludes.json"
+    to: "app-monitor-background-excludes.json"
 
 linux:
   executableName: life-parental-control

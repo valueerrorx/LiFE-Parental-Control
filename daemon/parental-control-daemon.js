@@ -25,6 +25,10 @@ const ALLOWED_HOURS_GRACE_MS = 60_000;
 const EXHAUSTED_LOGOUT_GRACE_MS = 60_000; // Same wall-clock UX as allowed-hours; parent may grant bonus via lockscreen before terminate.
 const RELOGIN_BUFFER_MINUTES = 2; // Same slack as post-exhausted minute rollback; allowed-hours uses override end (wall clock).
 
+const APP_MONITOR_BG_EXCLUDES_BASENAME = 'app-monitor-background-excludes.json';
+const EXEMPT_SCREEN_TIME_INFO_COOLDOWN_MS = 15 * 60 * 1000;
+let lastExemptScreenTimeInfoMs = 0;
+
 const NOTIFY_SEND_BIN = (() => {
     try {
         if (fs.existsSync('/usr/bin/notify-send')) return '/usr/bin/notify-send';
@@ -667,9 +671,84 @@ function readAllDesktopApps() {
     return apps.sort((a, b) => a.appName.localeCompare(b.appName));
 }
 
+function loadAppMonitorBackgroundExcludeSets() {
+    const empty = () => ({ appIds: new Set(), processNames: new Set() });
+    const p = path.join(CONFIG_DIR, APP_MONITOR_BG_EXCLUDES_BASENAME);
+    try {
+        if (!fs.existsSync(p)) return empty();
+        const data = JSON.parse(fs.readFileSync(p, 'utf8'));
+        const rows = Array.isArray(data.excludes) ? data.excludes : (Array.isArray(data) ? data : []);
+        const appIds = new Set();
+        const processNames = new Set();
+        for (const row of rows) {
+            if (typeof row === 'string') {
+                const s = row.trim();
+                if (s) processNames.add(s.toLowerCase());
+                continue;
+            }
+            if (row && typeof row === 'object') {
+                if (typeof row.appId === 'string' && row.appId.trim()) appIds.add(row.appId.trim().toLowerCase());
+                if (typeof row.processName === 'string' && row.processName.trim()) processNames.add(row.processName.trim().toLowerCase());
+            }
+        }
+        return { appIds, processNames };
+    } catch (e) {
+        log.warn(`app-monitor-background-excludes: read failed: ${e.message}`);
+        return empty();
+    }
+}
+
+function isAppMonitorCatalogEntryExcluded(entry, sets) {
+    if (!entry || !sets) return false;
+    const aid = String(entry.appId || '').trim().toLowerCase();
+    const proc = String(entry.processName || '').trim().toLowerCase();
+    if (aid && sets.appIds.has(aid)) return true;
+    if (proc && sets.processNames.has(proc)) return true;
+    return false;
+}
+
+async function catalogHasNonQuotaExemptAppRunning(limitLu, activeUsers, exemptIdsRaw) {
+    const entries = readMonitorCatalogEntries();
+    const users = limitLu ? [limitLu] : activeUsers;
+    if (!users.length) return false;
+    const exemptLower = new Set();
+    try {
+        for (const id of exemptIdsRaw) exemptLower.add(String(id).trim().toLowerCase());
+    } catch { /* ignore */ }
+    for (const u of users) {
+        for (const e of entries) {
+            const id = String(e.appId || '').trim();
+            if (id && exemptLower.has(id.toLowerCase())) continue;
+            const proc = String(e.processName || '').trim();
+            if (!proc) continue;
+            if (await pgrepUserProcess(u, proc)) return true;
+        }
+    }
+    return false;
+}
+
+function notifyExemptScreenTimeStillCountingIfNeeded(limitLu) {
+    const now = Date.now();
+    if (now - lastExemptScreenTimeInfoMs < EXEMPT_SCREEN_TIME_INFO_COOLDOWN_MS) return;
+    lastExemptScreenTimeInfoMs = now;
+    const pin = typeof limitLu === 'string' ? limitLu : '';
+    notifyOrSpawn(
+        { type: 'low', subtype: 'exempt-screen-time-counting' },
+        'Bildschirmzeit läuft weiter',
+        'Whitelist-App aktiv, aber andere erfasste Apps laufen — die Bildschirmzeit zählt weiter.',
+        'normal',
+        true,
+        pin
+    );
+}
+
 function buildAndWriteAppCatalog() {
     try {
-        const apps = readAllDesktopApps();
+        const excl = loadAppMonitorBackgroundExcludeSets();
+        const rawApps = readAllDesktopApps();
+        const before = rawApps.length;
+        const apps = rawApps.filter(a => !isAppMonitorCatalogEntryExcluded(a, excl));
+        if (before !== apps.length) log.info(`app-catalog: excluded ${before - apps.length} background/service entries`);
         const payload = {
             updatedAt: new Date().toISOString(),
             apps: apps.filter(a => (a.processName || '').trim().length > 0)
@@ -1647,9 +1726,18 @@ async function tickScreenTime(logMinute) {
     if (logMinute) {
         const exemptAppInUse = exemptProcs.length > 0 && isExemptAppActivelyUsedThisMinute(exemptProcs);
         if (exemptProcs.length > 0) resetExemptMinuteCpuSums(exemptProcs);
-        if (exemptAppInUse) {
-            log.info(`screenTime: exempt app actively used — skipping minute increment`);
-        } else {
+        let skipMinuteForExemptOnly = false;
+        if (exemptAppInUse && exemptProcs.length > 0) {
+            const exemptIds = loadQuotaExemptAppIds();
+            const otherCatalogApp = await catalogHasNonQuotaExemptAppRunning(limitLu, activeUsers, exemptIds);
+            if (!otherCatalogApp) {
+                skipMinuteForExemptOnly = true;
+                log.info(`screenTime: exempt app actively used — skipping minute increment`);
+            } else {
+                notifyExemptScreenTimeStillCountingIfNeeded(limitLu);
+            }
+        }
+        if (!skipMinuteForExemptOnly) {
             if (limitLu) {
                 if (hasSessionForLimit) {
                     ensureUserMinutes(usage, limitLu);
