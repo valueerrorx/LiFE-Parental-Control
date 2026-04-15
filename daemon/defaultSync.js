@@ -59,6 +59,14 @@ const DESKTOP_DIRS = [
 const OVERRIDE_DIR = '/usr/local/share/applications';
 const APPARMOR_PROFILE = '/etc/apparmor.d/life-parental-blocked';
 
+// Resolve apparmor_parser by fixed paths because PATH often omits /usr/sbin.
+function resolveApparmorParserBin() {
+    for (const p of ['/usr/sbin/apparmor_parser', '/usr/bin/apparmor_parser', '/sbin/apparmor_parser']) {
+        try { if (fs.existsSync(p)) return p; } catch { /* ignore */ }
+    }
+    return null;
+}
+
 const DOH_IPS_FILE = 'blocklists/ips/doh.txt';
 const DOH_IPS_URL = 'https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@latest/ips/doh.txt';
 const IPT_CHAIN_V4 = 'LIFE_DOH_BLOCK';
@@ -747,6 +755,11 @@ function applyDesktopOverride(blockedIds) {
 }
 
 function syncAppArmor(blockedIds, log) {
+    const apparmorParser = resolveApparmorParserBin();
+    if (!apparmorParser) {
+        log && log.warn && log.warn('defaultSync: apparmor_parser not found, skipping AppArmor sync');
+        return;
+    }
     const blocked = new Set(blockedIds);
     const entries = [];
     const seenExec = new Set();
@@ -769,7 +782,7 @@ function syncAppArmor(blockedIds, log) {
     // Remove previously loaded profiles from this file before rewriting.
     if (fs.existsSync(APPARMOR_PROFILE)) {
         try {
-            spawnSync('apparmor_parser', ['-R', APPARMOR_PROFILE], { timeout: 5000, stdio: 'ignore' });
+            spawnSync(apparmorParser, ['-R', APPARMOR_PROFILE], { timeout: 5000, stdio: 'ignore' });
         } catch { /* ignore */ }
     }
 
@@ -783,7 +796,7 @@ function syncAppArmor(blockedIds, log) {
 
     if (entries.length > 0) {
         try {
-            spawnSync('apparmor_parser', ['-a', APPARMOR_PROFILE], { timeout: 5000, stdio: 'ignore' });
+            spawnSync(apparmorParser, ['-a', APPARMOR_PROFILE], { timeout: 5000, stdio: 'ignore' });
         } catch { /* ignore */ }
     }
 }
@@ -816,7 +829,7 @@ async function applyFromDefault({ configDir, log }) {
 
     // Enforce webfilter runtime (respects enabled flag; reads entries/feedState/allowlist from default.json).
     const wf = data.webfilter && typeof data.webfilter === 'object' && !Array.isArray(data.webfilter) ? data.webfilter : {};
-    const webfilterEnabled = wf.enabled !== false;
+    const webfilterEnabled = wf.enabled === true;
     const blockedDomains = webfilterEnabled ? buildWebBlockedDomains(wf, configDir) : [];
     await writeHostsBlockedDomains(blockedDomains);
 

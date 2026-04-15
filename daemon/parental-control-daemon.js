@@ -33,11 +33,19 @@ const NOTIFY_SEND_BIN = (() => {
     return 'notify-send';
 })();
 
+// Resolve apparmor_parser without relying on PATH (Electron/daemon environments often omit /usr/sbin).
+const APPARMOR_PARSER_BIN = (() => {
+    for (const p of ['/usr/sbin/apparmor_parser', '/usr/bin/apparmor_parser', '/sbin/apparmor_parser']) {
+        try { if (fs.existsSync(p)) return p; } catch { /* ignore */ }
+    }
+    return null;
+})();
+
 const NOTIFY_APP_NAME = 'LiFE Parental Control';
 
 // --- Exempt-app watchdog constants ---
-const WD_INPUT_WINDOW_MS   = 8_000;  // user counts as "active" if input in last 8s
-const WD_CPU_MIN_JIFFIES   = 5;      // minimum CPU jiffies delta to consider app "responsive"
+const WD_CPU_MIN_JIFFIES = 5;      // minimum sum of CPU jiffies deltas over one logged minute (6 ticks) for exempt-app screen-time pause
+const EXEMPT_INPUT_WINDOW_MS = 60_000; // hardware input must fall within this window at the minute tick (pairs with CPU sum)
 
 // --- File logger ---
 
@@ -86,7 +94,8 @@ let allowedHoursGraceStartMs = 0;
 // Exempt-app watchdog state
 let lastInputTimestamp = 0;   // last hardware input event seen by the input monitor
 let inputMonitorStarted = false;
-const exemptAppJiffies = {};  // processName → last CPU jiffies total
+const exemptAppJiffies = {};  // processName → last CPU jiffies total (updated every tick)
+const exemptMinuteCpuSum = Object.create(null); // processName → accumulated jiffies delta for current logged minute
 
 // Connected socket clients (Electron UI instances)
 const clients = new Set();
@@ -931,21 +940,29 @@ function getExemptAppJiffies(processName) {
     } catch { return 0; }
 }
 
-// Returns true if any exempt app is running AND actively responding to the user's input.
-// Updates exemptAppJiffies cache as a side-effect (must be called every tick).
-function isExemptAppActivelyUsed(processNames) {
-    const recentInput = (Date.now() - lastInputTimestamp) < WD_INPUT_WINDOW_MS;
-    let anyActive = false;
+// Add this tick's jiffies delta per process into exemptMinuteCpuSum (call every 10s tick while exemptions exist).
+function bumpExemptMinuteCpuDeltas(processNames) {
     for (const proc of processNames) {
         const current = getExemptAppJiffies(proc);
-        const prev = exemptAppJiffies[proc] || 0;
-        const delta = current - prev;
+        const prev = exemptAppJiffies[proc] !== undefined ? exemptAppJiffies[proc] : current;
+        let delta = current - prev;
+        if (delta < 0) delta = 0;
         exemptAppJiffies[proc] = current;
-        // Active = app has a process AND input happened recently (CPU delta not required — lightweight
-        // apps like calculators are idle between keystrokes but are still actively used).
-        if (current > 0 && recentInput) anyActive = true;
+        exemptMinuteCpuSum[proc] = (exemptMinuteCpuSum[proc] || 0) + delta;
     }
-    return anyActive;
+}
+
+function resetExemptMinuteCpuSums(processNames) {
+    for (const proc of processNames) exemptMinuteCpuSum[proc] = 0;
+}
+
+// True if there was hardware input recently and at least one exempt app had enough CPU time this logged minute (closes idle-background exploit).
+function isExemptAppActivelyUsedThisMinute(processNames) {
+    if ((Date.now() - lastInputTimestamp) >= EXEMPT_INPUT_WINDOW_MS) return false;
+    for (const proc of processNames) {
+        if ((exemptMinuteCpuSum[proc] || 0) >= WD_CPU_MIN_JIFFIES) return true;
+    }
+    return false;
 }
 
 
@@ -1626,8 +1643,10 @@ async function tickScreenTime(logMinute) {
     // If exempt apps are configured and one is actively used, skip the increment for this minute.
     const exemptProcs = loadExemptAppProcessNames();
     if (exemptProcs.length > 0) startInputMonitor();
+    if (exemptProcs.length > 0) bumpExemptMinuteCpuDeltas(exemptProcs);
     if (logMinute) {
-        const exemptAppInUse = exemptProcs.length > 0 && isExemptAppActivelyUsed(exemptProcs);
+        const exemptAppInUse = exemptProcs.length > 0 && isExemptAppActivelyUsedThisMinute(exemptProcs);
+        if (exemptProcs.length > 0) resetExemptMinuteCpuSums(exemptProcs);
         if (exemptAppInUse) {
             log.info(`screenTime: exempt app actively used — skipping minute increment`);
         } else {
@@ -2410,24 +2429,23 @@ function handleClientCommand(client, cmd) {
     }
 
     if (cmd.type === 'remove-dnsmasq') {
-        // Remove LiFE dnsmasq config, restore resolv.conf to use upstream DNS directly
+        // Remove LiFE webfilter rules, keep dnsmasq enabled as neutral local resolver.
         const DNSMASQ_CONF = '/etc/dnsmasq.conf';
         const RESOLV_CONF  = '/etc/resolv.conf';
-        const UPSTREAM_DNS = '86.54.11.1';
         try {
-            // Remove immutable bit, restore resolv.conf to direct upstream
-            try { execFileSync('chattr', ['-i', RESOLV_CONF], { timeout: 3000 }); } catch { /* not immutable, ok */ }
-            fs.writeFileSync(RESOLV_CONF, `nameserver ${UPSTREAM_DNS}\n`, 'utf8');
+            // Ensure resolv.conf points to local dnsmasq and remains protected.
+            try { execFileSync('chattr', ['-i', RESOLV_CONF], { timeout: 3000 }); } catch { /* ignore */ }
+            fs.writeFileSync(RESOLV_CONF, 'nameserver 127.0.0.1\n', 'utf8');
             try { fs.chmodSync(RESOLV_CONF, 0o644); } catch { /* ignore */ }
+            try { execFileSync('chattr', ['+i', RESOLV_CONF], { timeout: 3000 }); } catch { /* ignore */ }
 
-            // Clear blocked domains file, reset dnsmasq.conf to pass-through
+            // Clear blocked domains file, reset dnsmasq.conf to DHCP-following pass-through.
             try { fs.writeFileSync('/etc/dnsmasq.d/life-parental-blocked.conf', '# LiFE Parental Control — web filter disabled\n', 'utf8'); } catch { /* ignore */ }
             fs.writeFileSync(DNSMASQ_CONF, [
                 '# Generated by LiFE Parental Control — web filter disabled',
                 'listen-address=127.0.0.1',
                 'bind-interfaces',
-                `server=${UPSTREAM_DNS}`,
-                'no-resolv',
+                'resolv-file=/run/NetworkManager/resolv.conf',
                 'no-poll',
                 'cache-size=1000',
                 'domain-needed',
@@ -2436,7 +2454,7 @@ function handleClientCommand(client, cmd) {
             ].join('\n') + '\n', 'utf8');
 
             execFile('systemctl', ['restart', 'dnsmasq.service'], { timeout: 10000 }, () => {});
-            log.info('remove-dnsmasq: filter cleared, resolv.conf restored');
+            log.info('remove-dnsmasq: filter cleared, dnsmasq set to DHCP pass-through');
             client.write(JSON.stringify({ type: 'remove-dnsmasq-result', ok: true }) + '\n');
         } catch (e) {
             log.error('remove-dnsmasq: ' + e.message);
@@ -2548,7 +2566,6 @@ function handleClientCommand(client, cmd) {
         // write /etc/resolv.conf → 127.0.0.1 with chattr +i, enable + start dnsmasq.
         const DNSMASQ_CONF = '/etc/dnsmasq.conf';
         const RESOLV_CONF  = '/etc/resolv.conf';
-        const UPSTREAM_DNS = '86.54.11.100'; // dns4eu unprotected — neutral default before web filter is configured
         try {
             // 1. Stop and disable systemd-resolved so port 53 is free
             try { execFileSync('systemctl', ['disable', '--now', 'systemd-resolved'], { timeout: 10000 }); } catch { /* may not be running */ }
@@ -2559,8 +2576,7 @@ function handleClientCommand(client, cmd) {
                 '# Generated by LiFE Parental Control — initial setup',
                 'listen-address=127.0.0.1',
                 'bind-interfaces',
-                `server=${UPSTREAM_DNS}`,
-                'no-resolv',
+                'resolv-file=/run/NetworkManager/resolv.conf',
                 'no-poll',
                 'cache-size=1000',
                 'domain-needed',
@@ -2619,14 +2635,15 @@ function handleClientCommand(client, cmd) {
         // Write /etc/apparmor.d/life-parental-blocked and reload it
         const APPARMOR_PROFILE = '/etc/apparmor.d/life-parental-blocked';
         try {
+            if (!APPARMOR_PARSER_BIN) throw new Error('apparmor_parser not found');
             const content = typeof cmd.profileContent === 'string' ? cmd.profileContent : '';
             if (fs.existsSync(APPARMOR_PROFILE)) {
-                spawnSync('apparmor_parser', ['-R', APPARMOR_PROFILE], { timeout: 5000, stdio: 'ignore' });
+                spawnSync(APPARMOR_PARSER_BIN, ['-R', APPARMOR_PROFILE], { timeout: 5000, stdio: 'ignore' });
             }
             try { fs.mkdirSync(path.dirname(APPARMOR_PROFILE), { recursive: true }); } catch { /* exists */ }
             fs.writeFileSync(APPARMOR_PROFILE, content, 'utf8');
             if (content.includes('deny')) {
-                spawnSync('apparmor_parser', ['-a', APPARMOR_PROFILE], { timeout: 5000, stdio: 'ignore' });
+                spawnSync(APPARMOR_PARSER_BIN, ['-a', APPARMOR_PROFILE], { timeout: 5000, stdio: 'ignore' });
             }
             log.info('sync-apparmor: ok');
             client.write(JSON.stringify({ type: 'sync-apparmor-result', ok: true }) + '\n');

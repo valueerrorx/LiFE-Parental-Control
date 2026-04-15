@@ -1,0 +1,1 @@
+{"nodes": [{"id": "src_preload_index_js", "label": "index.js", "file_type": "code", "source_file": "src/preload/index.js", "source_location": "L1"}], "edges": [{"source": "src_preload_index_js", "target": "electron", "relation": "imports_from", "confidence": "EXTRACTED", "source_file": "src/preload/index.js", "source_location": "L2", "weight": 1.0}]}

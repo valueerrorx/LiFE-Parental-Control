@@ -79,7 +79,7 @@
 
                         <!-- Status warnings + fix buttons -->
                         <p v-if="nodeCheckReason === 'missing'" class="small text-danger mb-3" v-html="$t('settings.nodeNotFound')" />
-                        <p v-else-if="nodeCheckReason === 'too_old'" class="small text-warning mb-3" v-html="$t('settings.nodeTooOld', { version: nodeVersion, required: nodeRequiredVersion })" />
+                        <p v-else-if="nodeCheckReason === 'too_old'" class="small text-warning mb-3">{{ $t('settings.nodeTooOld') }}</p>
                         <p v-if="appArmorReason !== 'ok'" class="small text-warning mb-3" v-html="$t(`settings.appArmor_${appArmorReason}`)" />
                         <div v-if="appArmorReason === 'profile_not_loaded'" class="border-top pt-3 mt-1 mb-3">
                             <div class="small text-muted mb-2" v-html="$t('settings.apparmorSetupHint')" />
@@ -88,8 +88,8 @@
                             </button>
                             <p v-if="apparmorSetupMsg" class="small mb-0 mt-2" :class="apparmorSetupError ? 'text-danger' : 'text-success'">{{ apparmorSetupMsg }}</p>
                         </div>
-                        <p v-if="!dnsmasqOk" class="small text-warning mb-3" v-html="$t('settings.dnsmasqNotFound')" />
-                        <div v-if="!dnsmasqOk" class="border-top pt-3 mt-1 mb-3">
+                        <p v-if="!dnsmasqOk" class="small text-warning mb-3" v-html="$t(`settings.dnsmasq_${dnsmasqReason}`)" />
+                        <div v-if="!dnsmasqOk && dnsmasqReason === 'not_running'" class="border-top pt-3 mt-1 mb-3">
                             <div class="small text-muted mb-2" v-html="$t('settings.dnsmasqSetupHint')" />
                             <button type="button" class="btn-pc-primary" :disabled="dnsmasqSetupBusy" @click="onSetupDnsmasq">
                                 <i class="bi bi-arrow-repeat me-1" :class="{ 'spin': dnsmasqSetupBusy }" />{{ $t('settings.dnsmasqSetupBtn') }}
@@ -375,6 +375,7 @@ const appArmorOk = ref(false)
 const appArmorReason = ref('ok')
 const dnsmasqOk = ref(false)
 const dnsmasqVersion = ref(null)
+const dnsmasqReason = ref('not_installed')
 const dnsmasqSetupBusy = ref(false)
 const dnsmasqSetupMsg = ref('')
 const dnsmasqSetupError = ref(false)
@@ -413,6 +414,7 @@ async function loadDaemonInfo() {
         appArmorReason.value = apparmorCheck?.reason ?? 'error'
         dnsmasqOk.value = dnsmasqCheck?.ok === true
         dnsmasqVersion.value = dnsmasqCheck?.version ?? null
+        dnsmasqReason.value = dnsmasqCheck?.reason ?? (dnsmasqOk.value ? 'ok' : 'not_installed')
     } else {
         daemonServiceStatus.value = null
         nodeVersion.value = null
@@ -422,6 +424,7 @@ async function loadDaemonInfo() {
         appArmorReason.value = 'error'
         dnsmasqOk.value = false
         dnsmasqVersion.value = null
+        dnsmasqReason.value = 'not_installed'
     }
     daemonRefreshing.value = false
 }

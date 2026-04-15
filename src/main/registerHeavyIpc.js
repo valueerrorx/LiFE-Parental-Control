@@ -94,7 +94,10 @@ export function registerHeavyIpc(ipcMain, { appConfigDir, getMainWindow }) {
 
             let parser = false
             try {
-                await execFileAsync('apparmor_parser', ['--version'], { timeout: 5000 })
+                const apparmorParserBin = ['/usr/sbin/apparmor_parser', '/usr/bin/apparmor_parser', '/sbin/apparmor_parser']
+                    .find(p => fs.existsSync(p))
+                if (!apparmorParserBin) throw new Error('apparmor_parser binary not found')
+                await execFileAsync(apparmorParserBin, ['--version'], { timeout: 5000 })
                 parser = true
             } catch { parser = false }
 
