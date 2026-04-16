@@ -28,6 +28,7 @@ const RELOGIN_BUFFER_MINUTES = 2; // Same slack as post-exhausted minute rollbac
 const APP_MONITOR_BG_EXCLUDES_BASENAME = 'app-monitor-background-excludes.json';
 const EXEMPT_SCREEN_TIME_INFO_COOLDOWN_MS = 15 * 60 * 1000;
 let lastExemptScreenTimeInfoMs = 0;
+const LOGOUT_BLOCKED_INFO_ONCE_TYPES = new Set(); // in-memory: reset when blocking condition clears
 
 const NOTIFY_SEND_BIN = (() => {
     try {
@@ -756,6 +757,20 @@ function notifyExemptScreenTimeStillCountingIfNeeded(limitLu) {
         'normal',
         true,
         pin
+    );
+}
+
+function notifyLogoutBlockedWhileWhitelistOnlyOnce(type, limitLu) {
+    const k = `${String(type || '')}::${String(limitLu || '')}`;
+    if (LOGOUT_BLOCKED_INFO_ONCE_TYPES.has(k)) return;
+    LOGOUT_BLOCKED_INFO_ONCE_TYPES.add(k);
+    notifyOrSpawn(
+        { type: 'low', subtype: 'logout-blocked-whitelist-only' },
+        'Logout blockiert',
+        'Zeit abgelaufen. Logout wird blockiert solange nur Whitelist-Apps laufen.',
+        'normal',
+        true,
+        typeof limitLu === 'string' ? limitLu : ''
     );
 }
 
@@ -1800,6 +1815,11 @@ async function tickScreenTime(logMinute) {
                 return;
             }
             writeUsage(usage);
+            if (await onlyWhitelistedMonitorCatalogAppsRunning(limitLu, activeUsers)) {
+                notifyLogoutBlockedWhileWhitelistOnlyOnce('allowed-hours', limitLu);
+                return;
+            }
+            LOGOUT_BLOCKED_INFO_ONCE_TYPES.delete(`allowed-hours::${String(limitLu || '')}`);
             await terminateSessionsForPolicy(sessions, limitLu);
             allowedHoursGraceStartMs = 0;
             const startM = scheduleStartDayMinutes(period);
@@ -1817,6 +1837,7 @@ async function tickScreenTime(logMinute) {
             return;
         } else if (allowedHoursGraceStartMs !== 0) {
             allowedHoursGraceStartMs = 0;
+            LOGOUT_BLOCKED_INFO_ONCE_TYPES.delete(`allowed-hours::${String(limitLu || '')}`);
         }
 
         // Warn 10/5/2 minutes before allowed-hours end time (only while within the window and session is active)
@@ -1894,6 +1915,12 @@ async function tickScreenTime(logMinute) {
                 usage.warned10 = false; usage.warned5 = false; usage.warned2 = false;
                 delete usage.warnSnapLimit;
             } else {
+                if (await onlyWhitelistedMonitorCatalogAppsRunning(limitLu, activeUsers)) {
+                    notifyLogoutBlockedWhileWhitelistOnlyOnce('exhausted', limitLu);
+                    writeUsage(usage);
+                    return;
+                }
+                LOGOUT_BLOCKED_INFO_ONCE_TYPES.delete(`exhausted::${String(limitLu || '')}`);
                 await terminateSessionsForPolicy(sessions, limitLu);
                 // Roll back 2 minutes so the next login session starts cleanly without immediately triggering exhausted again.
                 const userKey = limitLu || '';
@@ -1908,6 +1935,7 @@ async function tickScreenTime(logMinute) {
         }
     } else {
         if (usage.warnedScreenTimeExhausted) usage.warnedScreenTimeExhausted = false;
+        LOGOUT_BLOCKED_INFO_ONCE_TYPES.delete(`exhausted::${String(limitLu || '')}`);
         if (hasSessionForLimit) {
             if (remaining <= 2 && !usage.warned2) {
                 usage.warned2 = true;
