@@ -707,6 +707,15 @@ function isAppMonitorCatalogEntryExcluded(entry, sets) {
     return false;
 }
 
+function loadQuotaExemptProcessNamesLower() {
+    const out = new Set();
+    for (const n of loadExemptAppProcessNames()) {
+        const s = String(n || '').trim().toLowerCase();
+        if (s) out.add(s);
+    }
+    return out;
+}
+
 async function catalogHasNonQuotaExemptAppRunning(limitLu, activeUsers, exemptIdsRaw) {
     const entries = readMonitorCatalogEntries();
     const users = limitLu ? [limitLu] : activeUsers;
@@ -715,16 +724,24 @@ async function catalogHasNonQuotaExemptAppRunning(limitLu, activeUsers, exemptId
     try {
         for (const id of exemptIdsRaw) exemptLower.add(String(id).trim().toLowerCase());
     } catch { /* ignore */ }
+    const exemptProcLower = loadQuotaExemptProcessNamesLower();
     for (const u of users) {
         for (const e of entries) {
             const id = String(e.appId || '').trim();
             if (id && exemptLower.has(id.toLowerCase())) continue;
             const proc = String(e.processName || '').trim();
             if (!proc) continue;
+            if (exemptProcLower.has(proc.toLowerCase())) continue;
             if (await pgrepUserProcess(u, proc)) return true;
         }
     }
     return false;
+}
+
+// True when every running app-monitor catalog process is quota-exempt (all whitelisted desktop ids and same-binary duplicates); false if any non-exempt catalog app is running.
+async function onlyWhitelistedMonitorCatalogAppsRunning(limitLu, activeUsers) {
+    const hasOther = await catalogHasNonQuotaExemptAppRunning(limitLu, activeUsers, loadQuotaExemptAppIds());
+    return !hasOther;
 }
 
 function notifyExemptScreenTimeStillCountingIfNeeded(limitLu) {
@@ -1728,9 +1745,8 @@ async function tickScreenTime(logMinute) {
         if (exemptProcs.length > 0) resetExemptMinuteCpuSums(exemptProcs);
         let skipMinuteForExemptOnly = false;
         if (exemptAppInUse && exemptProcs.length > 0) {
-            const exemptIds = loadQuotaExemptAppIds();
-            const otherCatalogApp = await catalogHasNonQuotaExemptAppRunning(limitLu, activeUsers, exemptIds);
-            if (!otherCatalogApp) {
+            const onlyWhitelistCatalog = await onlyWhitelistedMonitorCatalogAppsRunning(limitLu, activeUsers);
+            if (onlyWhitelistCatalog) {
                 skipMinuteForExemptOnly = true;
                 log.info(`screenTime: exempt app actively used — skipping minute increment`);
             } else {
