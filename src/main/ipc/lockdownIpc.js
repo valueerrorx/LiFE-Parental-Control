@@ -29,11 +29,11 @@ export function registerLockdownIpc(ipcMain, configDir) {
     })
 
     /** Execute the lockdown script via pkexec and mark wizard complete on success. */
-    ipcMain.handle('lockdown:execute', async (_, { targetUser, adminUser, adminPw, allowInstall, allowUpdate, allowFuse }) => {
+    ipcMain.handle('lockdown:execute', async (_, { targetUser, adminUser, adminPw, allowInstall, allowUpdate, protectGrub, restrictAppImages }) => {
         if (!targetUser || !adminUser || !adminPw) {
             return { ok: false, error: 'Missing required parameters' }
         }
-        const result = await executeLockdown(targetUser, adminUser, adminPw, { allowInstall, allowUpdate, allowFuse })
+        const result = await executeLockdown(targetUser, adminUser, adminPw, { allowInstall, allowUpdate, protectGrub, restrictAppImages })
         if (result.ok) {
             // Persist wizard-finished flag to config
             patchDefaultJson(configDir, (d) => {

@@ -219,10 +219,9 @@ import { normalizeQuotaLinuxUser } from '@shared/quotaUsageKey.js'
 import { useAppStore } from '../stores/appStore.js'
 import { useDesktopLoginUsers, loadDesktopLoginUsers } from '../composables/useDesktopLoginUsers.js'
 
-const { t, tm } = useI18n()
+const { t } = useI18n()
 const appStore = useAppStore()
 const { desktopLoginUsers } = useDesktopLoginUsers()
-const days = computed(() => tm('schedules.days'))
 const schedule = reactive({
     enabled: false,
     screenTimeLinuxUser: '',
@@ -333,16 +332,12 @@ let usageRefreshTimer = null
 
 onMounted(async () => {
     await loadDesktopLoginUsers()
-    console.log('[SchedulesPage] loading schedule from IPC...')
     const saved = await window.api.schedules.get()
-    console.log('[SchedulesPage] IPC schedules:get result:', JSON.stringify(saved))
     if (saved) {
-        const { weekday, weekend, allowedDays: _dropped, ...rest } = saved
+        const { weekday, weekend, ...rest } = saved
         Object.assign(schedule, rest)
-        console.log('[SchedulesPage] after Object.assign(rest) — schedule.enabled:', schedule.enabled, 'weekday.dailyLimitEnabled:', schedule.weekday.dailyLimitEnabled)
         if (weekday) Object.assign(schedule.weekday, weekday)
         if (weekend) Object.assign(schedule.weekend, weekend)
-        console.log('[SchedulesPage] after weekday/weekend assign — weekday.dailyLimitEnabled:', schedule.weekday.dailyLimitEnabled, 'weekend.dailyLimitEnabled:', schedule.weekend.dailyLimitEnabled)
     }
     loading.value = false
     takeSnapshot()

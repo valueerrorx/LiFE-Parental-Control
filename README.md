@@ -8,7 +8,7 @@ Desktop parental control app for **Linux** (KDE Plasma, GNOME, others). Stack: *
 
 | Module | Description |
 |--------|-------------|
-| **Lockdown Wizard** | First-run wizard: creates parent admin, sets root + GRUB password, de-privileges child account, sets up FUSE restrictions |
+| **Lockdown Wizard** | First-run wizard: creates parent admin, sets root password, de-privileges child account; optional GRUB password and optional AppImage/FUSE restriction |
 | **Web filter** | Custom domains + HaGeZi blocklists written to `/etc/hosts`; DNS-based filtering via **dnsmasq** (rewrites blocked domains to `0.0.0.0`); allowlist; category packs; optional **DNS4EU** family-safe upstream resolver; DHCP-discovered DNS used as fallback |
 | **Screen time** | Daily limit + allowed hours (overnight windows supported); quick presets (e.g. school week / holidays) on the Schedules page; bonus minutes via parent password; one-time parent bypass for allowed-hours enforcement |
 | **App blocking** | Blocks apps via **AppArmor** profiles; additionally overrides `.desktop` files under `/usr/local/share/applications/` to hide blocked apps from launchers |
@@ -57,9 +57,9 @@ Appears on first unlock after installation. Guides the parent through:
 
 1. Select child user to restrict
 2. Create (or select existing) parent admin account
-3. Set root + GRUB bootloader password
+3. Set root password (optional: GRUB bootloader password)
 4. De-privilege child: remove from sudo/wheel, strip supplementary groups, remove SSH keys, restrict FUSE/AppImages
-5. Optional: allow child to install apps, run system updates, or use AppImages
+5. Optional: allow child to install apps or run system updates
 
 The wizard can be skipped and will reappear on the next unlock.
 
@@ -68,7 +68,7 @@ The wizard can be skipped and will reappear on the next unlock.
 Installed automatically when you click **Install daemon** in Settings, or via the `.deb` postinst. Can also be run manually as root:
 
 ```bash
-sudo /usr/bin/life-parental-lockdown <targetUser> <adminUser> <password|pwFile> <grubHash> [allowInstall] [allowUpdate] [allowFuse]
+sudo /usr/bin/life-parental-lockdown <targetUser> <adminUser> <password|pwFile> <grubHash> [allowInstall] [allowUpdate] [protectGrub] [restrictAppImages]
 ```
 
 | Argument | Description |
@@ -79,11 +79,12 @@ sudo /usr/bin/life-parental-lockdown <targetUser> <adminUser> <password|pwFile> 
 | `grubHash` | Pre-computed `grub.pbkdf2.sha512…` hash (generate: `grub-mkpasswd-pbkdf2`) — leave empty to skip GRUB |
 | `allowInstall` | `true` to allow package installation (PolKit + sudoers) |
 | `allowUpdate` | `true` to allow system updates (PolKit + sudoers) |
-| `allowFuse` | `true` to add child to fuse group (AppImages) |
+| `protectGrub` | `true` to enable GRUB password step; `false` to skip it |
+| `restrictAppImages` | `true` to restrict AppImages/FUSE for the child user; `false` to skip this step |
 
-Example (manual, no GRUB, allow AppImages):
+Example (manual, no GRUB, no AppImage restriction):
 ```bash
-sudo /usr/bin/life-parental-lockdown student parentadmin "MyPassword" "" false false true
+sudo /usr/bin/life-parental-lockdown student parentadmin "MyPassword" "" false false false false
 ```
 
 ## Development

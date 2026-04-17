@@ -98,9 +98,12 @@ const LOCKDOWN_SCRIPT = '/usr/bin/life-parental-lockdown'
  * @returns {{ ok: boolean, error?: string }}
  */
 export async function executeLockdown(targetUser, adminUser, adminPw, options = {}) {
+    const protectGrub = options.protectGrub !== false
+    const restrictAppImages = options.restrictAppImages !== false
+
     // Pre-compute GRUB hash here (as non-root) — grub-mkpasswd-pbkdf2 needs stdin which pkexec blocks
-    const grubHash = await grubHashPassword(adminPw)
-    log(`[LockdownService] grub hash computed: ${grubHash ? 'ok' : 'unavailable'}`)
+    const grubHash = protectGrub ? await grubHashPassword(adminPw) : ''
+    log(`[LockdownService] grub hash computed: ${protectGrub ? (grubHash ? 'ok' : 'unavailable') : 'skipped'}`)
 
     if (!fs.existsSync(LOCKDOWN_SCRIPT)) {
         const msg = `Lockdown script not found: ${LOCKDOWN_SCRIPT} — run "Install daemon" first`
@@ -120,12 +123,13 @@ export async function executeLockdown(targetUser, adminUser, adminPw, options = 
         log(`[LockdownService] running pkexec lockdown targetUser=${targetUser} adminUser=${adminUser}`)
         const allowInstall = options.allowInstall ? 'true' : 'false'
         const allowUpdate  = options.allowUpdate  ? 'true' : 'false'
-        const allowFuse    = options.allowFuse    ? 'true' : 'false'
+        const protectGrubArg = protectGrub ? 'true' : 'false'
+        const restrictAppImagesArg = restrictAppImages ? 'true' : 'false'
         let stdout = '', stderr = ''
         try {
             // Password passed via temp file path — never visible in dialog or ps aux
             const result = await execFileAsync(
-                'pkexec', [LOCKDOWN_SCRIPT, targetUser, adminUser, tmpPwFile, grubHash, allowInstall, allowUpdate, allowFuse],
+                'pkexec', [LOCKDOWN_SCRIPT, targetUser, adminUser, tmpPwFile, grubHash, allowInstall, allowUpdate, protectGrubArg, restrictAppImagesArg],
                 { timeout: 60_000 }
             )
             stdout = result.stdout ?? ''

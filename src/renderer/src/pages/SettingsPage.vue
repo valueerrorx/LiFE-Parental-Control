@@ -123,7 +123,7 @@
                                 <i class="bi bi-arrow-repeat me-1" :class="{ 'spin': grubRefreshing }" />{{ $t('settings.refresh') }}
                             </button>
                         </div>
-                        <p v-if="!grubUnrestricted" class="small text-warning mb-3" v-html="$t('settings.grubUnrestrictedHint')" />
+                        <p v-if="grubPasswordActive && !grubUnrestricted" class="small text-warning mb-3" v-html="$t('settings.grubUnrestrictedHint')" />
                         <p class="text-muted small mb-3" v-html="$t('settings.grubDesc')" />
                         <div class="mb-3">
                             <label class="form-label small text-muted" for="settings-grub-pw">{{ $t('settings.grubPasswordLabel') }}</label>

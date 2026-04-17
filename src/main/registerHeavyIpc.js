@@ -150,13 +150,49 @@ export function registerHeavyIpc(ipcMain, { appConfigDir, getMainWindow }) {
     })
 
     ipcMain.handle('daemon:grubCheck', () => {
-        const passwordActive = fs.existsSync('/etc/grub.d/40_custom_life_parental')
-        let unrestricted = false
+        const GRUB_D_DIR = '/etc/grub.d'
+        const GRUB_10_LINUX = '/etc/grub.d/10_linux'
+        const GRUB_CFG = '/boot/grub/grub.cfg'
+
+        const hasGrubPasswordMarkers = (text) => {
+            if (!text) return false
+            return text.includes('password_pbkdf2') || text.includes('set superusers=')
+        }
+
+        const safeReadText = (p) => {
+            try { return fs.readFileSync(p, 'utf8') } catch { return '' }
+        }
+
+        let passwordActive = false
         try {
-            const content = fs.readFileSync('/etc/grub.d/10_linux', 'utf8')
-            unrestricted = content.includes('--unrestricted')
+            if (fs.existsSync(GRUB_D_DIR)) {
+                for (const f of fs.readdirSync(GRUB_D_DIR)) {
+                    const p = path.join(GRUB_D_DIR, f)
+                    try {
+                        const st = fs.statSync(p)
+                        if (!st.isFile()) continue
+                    } catch { continue }
+                    if (hasGrubPasswordMarkers(safeReadText(p))) { passwordActive = true; break }
+                }
+            }
+        } catch { /* ignore */ }
+        if (!passwordActive && fs.existsSync(GRUB_CFG)) {
+            if (hasGrubPasswordMarkers(safeReadText(GRUB_CFG))) passwordActive = true
+        }
+
+        let unrestrictedConfigured = false
+        try {
+            const content = fs.readFileSync(GRUB_10_LINUX, 'utf8')
+            unrestrictedConfigured = content.includes('--unrestricted')
         } catch { /* grub not installed */ }
-        return { passwordActive, unrestricted }
+
+        const grubCfgExists = fs.existsSync(GRUB_CFG)
+        const unrestrictedEffective = grubCfgExists
+            ? safeReadText(GRUB_CFG).includes('--unrestricted')
+            : unrestrictedConfigured
+
+        const unrestricted = passwordActive ? unrestrictedEffective : true
+        return { passwordActive, unrestricted, unrestrictedConfigured, grubCfgExists }
     })
 
     ipcMain.handle('daemon:grubEnable', async (_, password) => {
@@ -257,6 +293,17 @@ export function registerHeavyIpc(ipcMain, { appConfigDir, getMainWindow }) {
                 if (fs.existsSync(nmDispatcherSrc)) {
                     fs.mkdirSync(path.join(tmpResBase, 'packaging'), { recursive: true })
                     fs.copyFileSync(nmDispatcherSrc, path.join(tmpResBase, 'packaging', '99-life-parental-dns'))
+                }
+
+                // Copy app-monitor background excludes (required for correct catalog/usage filtering)
+                // packaged: resBase/app-monitor-background-excludes.json  dev: resBase/packaging/app-monitor-background-excludes.json
+                const excludesSrc = fs.existsSync(path.join(resBase, 'app-monitor-background-excludes.json'))
+                    ? path.join(resBase, 'app-monitor-background-excludes.json')
+                    : path.join(resBase, 'packaging', 'app-monitor-background-excludes.json')
+                if (fs.existsSync(excludesSrc)) {
+                    fs.copyFileSync(excludesSrc, path.join(tmpResBase, 'app-monitor-background-excludes.json'))
+                } else {
+                    console.warn(`[LiFE serviceControl/install] WARNING missing app-monitor-background-excludes.json at ${excludesSrc}`)
                 }
 
                 console.log(`[LiFE serviceControl/install] resources staged to ${tmpResBase}, spawning pkexec...`)

@@ -56,11 +56,23 @@
                         </div>
                         <div v-if="!findings.grubPasswordSet" class="lockdown-todo-item">
                             <i class="bi bi-hdd-fill text-secondary me-2" />
-                            {{ $t('lockdown.todoGrub') }}
+                            <div class="form-check m-0">
+                                <input id="opt-grub" v-model="protectGrub" class="form-check-input" type="checkbox" />
+                                <label class="form-check-label small" for="opt-grub">
+                                    {{ $t('lockdown.todoGrub') }}
+                                    <span v-if="!protectGrub" class="text-muted ms-1">({{ $t('lockdown.skipped') }})</span>
+                                </label>
+                            </div>
                         </div>
                         <div class="lockdown-todo-item">
                             <i class="bi bi-box-seam text-warning me-2" />
-                            {{ $t('lockdown.todoFuseRestrict', { user: findings.targetUser || targetUser }) }}
+                            <div class="form-check m-0">
+                                <input id="opt-fuse-restrict" v-model="restrictAppImages" class="form-check-input" type="checkbox" />
+                                <label class="form-check-label small" for="opt-fuse-restrict">
+                                    {{ $t('lockdown.todoFuseRestrict', { user: findings.targetUser || targetUser }) }}
+                                    <span v-if="!restrictAppImages" class="text-muted ms-1">({{ $t('lockdown.skipped') }})</span>
+                                </label>
+                            </div>
                         </div>
                     </div>
 
@@ -105,9 +117,7 @@
                             </select>
                         </template>
 
-                        <label class="form-label small text-muted" for="lockdown-admin-pw">
-                            {{ $t(useExistingAdmin ? 'lockdown.adminPwLabelRootOnly' : 'lockdown.adminPwLabel') }}
-                        </label>
+                        <label class="form-label small text-muted" for="lockdown-admin-pw">{{ $t(adminPwLabelKey) }}</label>
                         <div class="pc-pw-wrap mb-2">
                             <input id="lockdown-admin-pw" v-model="adminPw"
                                    :type="showAdminPw ? 'text' : 'password'" class="pc-input"
@@ -149,12 +159,6 @@
                                 {{ $t('lockdown.optionUpdate') }}
                                 <span v-if="findings.packageKitAvailable" class="text-muted ms-1">({{ $t('lockdown.optionHintGui') }})</span>
                                 <span v-else class="text-warning ms-1">({{ $t('lockdown.optionHintTerminalOnly') }})</span>
-                            </label>
-                        </div>
-                        <div class="form-check">
-                            <input id="opt-fuse" v-model="allowFuse" class="form-check-input" type="checkbox" />
-                            <label class="form-check-label small" for="opt-fuse">
-                                {{ $t('lockdown.optionFuse') }}
                             </label>
                         </div>
                     </div>
@@ -214,7 +218,8 @@ const findings = ref({})
 const useExistingAdmin = ref(false)
 const allowInstall = ref(false)
 const allowUpdate = ref(false)
-const allowFuse = ref(false)
+const protectGrub = ref(true)
+const restrictAppImages = ref(true)
 const showAdminPw = ref(false)
 const showAdminPwConfirm = ref(false)
 
@@ -226,6 +231,11 @@ const adminUserConflict = computed(() => {
     if (useExistingAdmin.value) return false
     if (!adminUser.value) return false
     return loginUsers.value.includes(adminUser.value)
+})
+
+const adminPwLabelKey = computed(() => {
+    if (useExistingAdmin.value) return protectGrub.value ? 'lockdown.adminPwLabelRootOnly' : 'lockdown.adminPwLabelRootOnlyNoGrub'
+    return protectGrub.value ? 'lockdown.adminPwLabel' : 'lockdown.adminPwLabelNoGrub'
 })
 
 onMounted(async () => {
@@ -247,6 +257,8 @@ async function onAnalyze() {
         // Auto-select mode: if existing admins are present, default to picking one
         useExistingAdmin.value = (result.findings.adminGroupMembers?.length ?? 0) > 0
         if (useExistingAdmin.value) adminUser.value = result.findings.adminGroupMembers[0]
+        protectGrub.value = true
+        restrictAppImages.value = true
         step.value = 1
     } finally {
         busy.value = false
@@ -276,7 +288,8 @@ async function onExecute() {
             adminPw: adminPw.value,
             allowInstall: allowInstall.value,
             allowUpdate: allowUpdate.value,
-            allowFuse: allowFuse.value,
+            protectGrub: protectGrub.value,
+            restrictAppImages: restrictAppImages.value,
         })
         if (!result.ok) { stepError.value = result.error || t('lockdown.executeError'); return }
         step.value = 2
@@ -318,7 +331,7 @@ async function onClose() {
 }
 
 .lockdown-card {
-    max-width: 440px;
+    max-width: 540px;
     width: 100%;
     max-height: 90vh;
     overflow-y: auto;

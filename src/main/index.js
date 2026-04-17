@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later; Copyright (c) 2026 Thomas Michael Weissel; Licensed under GPLv3+ (see http://www.gnu.org/licenses/). */
-import { app, BrowserWindow, ipcMain, Menu, shell } from 'electron'
+import { app, BrowserWindow, globalShortcut, ipcMain, Menu, shell } from 'electron'
 import path from 'path'
 import { mkdirSync } from 'fs'
 import { registerConfigIpc } from './ipc/configIpc.js'
@@ -30,6 +30,7 @@ function isSessionLockOnFocusLossEnabled() {
 let mainWindow = null
 let allowAppTermination = false
 let deferredHeavyWorkPromise = null
+let devtoolsShortcutRegistered = false
 
 // Detect warning mode (spawned by daemon as the desktop user, no root)
 const warningModeArg = process.argv.find(a => a.startsWith('--warning-mode='))
@@ -163,6 +164,12 @@ app.whenReady().then(async () => {
             devTools: mainDevtools
         }
     })
+    if (process.env.NODE_ENV === 'development') {
+        devtoolsShortcutRegistered = globalShortcut.register('CommandOrControl+Shift+D', () => {
+            if (!mainWindow || mainWindow.isDestroyed()) return
+            mainWindow.webContents.toggleDevTools()
+        })
+    }
     mainWindow.webContents.once('did-finish-load', () => {
         mainWindow.webContents.insertCSS('body { opacity: 0; transition: opacity 0.35s ease; }').then(() => {
             mainWindow.show()
@@ -182,13 +189,6 @@ app.whenReady().then(async () => {
     let rendererLoaded = false
     mainWindow.webContents.once('did-finish-load', () => {
         rendererLoaded = true
-        if (mainDevtools) {
-            try {
-                mainWindow.webContents.openDevTools()
-            } catch {
-                /* ignore */
-            }
-        }
     })
     const sendSessionLock = () => {
         if (!rendererLoaded || !mainWindow || mainWindow.isDestroyed()) return
@@ -253,6 +253,10 @@ app.whenReady().then(async () => {
 
 app.on('before-quit', () => {
     allowAppTermination = true
+})
+
+app.on('will-quit', () => {
+    if (devtoolsShortcutRegistered) globalShortcut.unregisterAll()
 })
 
 app.on('window-all-closed', () => {

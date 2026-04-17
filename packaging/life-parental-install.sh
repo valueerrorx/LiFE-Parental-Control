@@ -59,12 +59,19 @@ if [ -d "$HAGEZI_SRC" ]; then
 fi
 
 # --- App monitor background excludes (always overwrite) ---
-EXCL_SRC="$RES_BASE/app-monitor-background-excludes.json"
-if [ -f "$EXCL_SRC" ]; then
+EXCL_SRC=""
+if [ -f "$RES_BASE/app-monitor-background-excludes.json" ]; then
+    EXCL_SRC="$RES_BASE/app-monitor-background-excludes.json"
+elif [ -f "$RES_BASE/packaging/app-monitor-background-excludes.json" ]; then
+    EXCL_SRC="$RES_BASE/packaging/app-monitor-background-excludes.json"
+fi
+if [ -n "$EXCL_SRC" ]; then
     mkdir -p "$CONFIG_DIR"
     cp "$EXCL_SRC" "$CONFIG_DIR/app-monitor-background-excludes.json"
     chmod 644 "$CONFIG_DIR/app-monitor-background-excludes.json"
     echo "life-parental-install: app-monitor-background-excludes.json installed"
+else
+    echo "life-parental-install: WARNING missing app-monitor-background-excludes.json under $RES_BASE" >&2
 fi
 
 # --- NetworkManager dispatcher script ---

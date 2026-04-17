@@ -28,6 +28,11 @@ const RELOGIN_BUFFER_MINUTES = 2; // Same slack as post-exhausted minute rollbac
 const APP_MONITOR_BG_EXCLUDES_BASENAME = 'app-monitor-background-excludes.json';
 const EXEMPT_SCREEN_TIME_INFO_COOLDOWN_MS = 15 * 60 * 1000;
 let lastExemptScreenTimeInfoMs = 0;
+const EXEMPT_SCREEN_TIME_PAUSED_INFO_COOLDOWN_MS = 15 * 60 * 1000;
+let lastExemptScreenTimePausedInfoMs = 0;
+let lastExemptScreenTimeInfoState = ''; // '' | 'paused' | 'counting'
+const WHITELIST_ONLY_LOGOUT_DEBOUNCE_MS = 30_000;
+let lastWhitelistOnlyBlockedLogoutMs = 0;
 const LOGOUT_BLOCKED_INFO_ONCE_TYPES = new Set(); // in-memory: reset when blocking condition clears
 
 const NOTIFY_SEND_BIN = (() => {
@@ -47,10 +52,6 @@ const APPARMOR_PARSER_BIN = (() => {
 })();
 
 const NOTIFY_APP_NAME = 'LiFE Parental Control';
-
-// --- Exempt-app watchdog constants ---
-const WD_CPU_MIN_JIFFIES = 5;      // minimum sum of CPU jiffies deltas over one logged minute (6 ticks) for exempt-app screen-time pause
-const EXEMPT_INPUT_WINDOW_MS = 60_000; // hardware input must fall within this window at the minute tick (pairs with CPU sum)
 
 // --- File logger ---
 
@@ -95,12 +96,6 @@ const quotaLinuxUserNoSessionWarnOnce = new Set(); // one warn per appId+linuxUs
 let quotaTickSkippedAppControlWarned = false;
 let quotaTickSkippedNoGraphicalSessionsWarned = false;
 let allowedHoursGraceStartMs = 0;
-
-// Exempt-app watchdog state
-let lastInputTimestamp = 0;   // last hardware input event seen by the input monitor
-let inputMonitorStarted = false;
-const exemptAppJiffies = {};  // processName → last CPU jiffies total (updated every tick)
-const exemptMinuteCpuSum = Object.create(null); // processName → accumulated jiffies delta for current logged minute
 
 // Connected socket clients (Electron UI instances)
 const clients = new Set();
@@ -739,21 +734,100 @@ async function catalogHasNonQuotaExemptAppRunning(limitLu, activeUsers, exemptId
     return false;
 }
 
+async function listNonQuotaExemptRunningCatalogApps(limitLu, activeUsers, exemptIdsRaw) {
+    const entries = readMonitorCatalogEntries();
+    const users = limitLu ? [limitLu] : activeUsers;
+    if (!users.length) return [];
+    const exemptLower = new Set();
+    try {
+        for (const id of exemptIdsRaw) exemptLower.add(String(id).trim().toLowerCase());
+    } catch { /* ignore */ }
+    const exemptProcLower = loadQuotaExemptProcessNamesLower();
+    const out = [];
+    const seen = new Set();
+    for (const u of users) {
+        for (const e of entries) {
+            const id = String(e.appId || '').trim();
+            if (id && exemptLower.has(id.toLowerCase())) continue;
+            const proc = String(e.processName || '').trim();
+            if (!proc) continue;
+            if (exemptProcLower.has(proc.toLowerCase())) continue;
+            if (!await pgrepUserProcess(u, proc)) continue;
+            const key = `${id}\0${proc}`;
+            if (seen.has(key)) continue;
+            seen.add(key);
+            out.push({ appId: id || undefined, appName: e.appName || undefined, processName: proc });
+        }
+    }
+    return out;
+}
+
 // True when every running app-monitor catalog process is quota-exempt (all whitelisted desktop ids and same-binary duplicates); false if any non-exempt catalog app is running.
 async function onlyWhitelistedMonitorCatalogAppsRunning(limitLu, activeUsers) {
     const hasOther = await catalogHasNonQuotaExemptAppRunning(limitLu, activeUsers, loadQuotaExemptAppIds());
     return !hasOther;
 }
 
-function notifyExemptScreenTimeStillCountingIfNeeded(limitLu) {
+async function anyWhitelistedMonitorCatalogAppRunning(limitLu, activeUsers) {
+    const entries = readMonitorCatalogEntries();
+    const users = limitLu ? [limitLu] : activeUsers;
+    if (!users.length) return false;
+    const exemptIds = loadQuotaExemptAppIds();
+    const exemptProcLower = loadQuotaExemptProcessNamesLower();
+    for (const u of users) {
+        for (const e of entries) {
+            const id = String(e.appId || '').trim();
+            const proc = String(e.processName || '').trim();
+            const isExemptId = id && exemptIds.has(id);
+            const isExemptProc = proc && exemptProcLower.has(proc.toLowerCase());
+            if (!isExemptId && !isExemptProc) continue;
+            if (!proc) continue;
+            if (await pgrepUserProcess(u, proc)) return true;
+        }
+    }
+    return false;
+}
+
+function notifyExemptScreenTimeStillCountingIfNeeded(limitLu, otherApps = []) {
     const now = Date.now();
     if (now - lastExemptScreenTimeInfoMs < EXEMPT_SCREEN_TIME_INFO_COOLDOWN_MS) return;
     lastExemptScreenTimeInfoMs = now;
     const pin = typeof limitLu === 'string' ? limitLu : '';
+    const list = Array.isArray(otherApps) ? otherApps : [];
+    const shown = list
+        .map(a => (a && typeof a === 'object' ? (String(a.appName || a.processName || a.appId || '').trim()) : ''))
+        .filter(Boolean)
+        .slice(0, 6);
+    const lines = shown.map(s => `- ${s}`);
+    if (list.length > shown.length) lines.push('- …');
+    const suffix = lines.length ? `\n\nAndere Apps:\n${lines.join('\n')}` : '';
     notifyOrSpawn(
         { type: 'low', subtype: 'exempt-screen-time-counting' },
         'Bildschirmzeit läuft weiter',
-        'Whitelist-App aktiv, aber andere erfasste Apps laufen — die Bildschirmzeit zählt weiter.',
+        `Whitelist-App aktiv, aber andere erfasste Apps laufen — die Bildschirmzeit zählt weiter.${suffix}`,
+        'normal',
+        true,
+        pin
+    );
+}
+
+function notifyExemptScreenTimePausedIfNeeded(limitLu, exemptApps = []) {
+    const now = Date.now();
+    if (now - lastExemptScreenTimePausedInfoMs < EXEMPT_SCREEN_TIME_PAUSED_INFO_COOLDOWN_MS) return;
+    lastExemptScreenTimePausedInfoMs = now;
+    const pin = typeof limitLu === 'string' ? limitLu : '';
+    const list = Array.isArray(exemptApps) ? exemptApps : [];
+    const shown = list
+        .map(a => (a && typeof a === 'object' ? (String(a.appName || a.processName || a.appId || '').trim()) : ''))
+        .filter(Boolean)
+        .slice(0, 6);
+    const lines = shown.map(s => `- ${s}`);
+    if (list.length > shown.length) lines.push('- …');
+    const suffix = lines.length ? `\n\nWhitelist-Apps:\n${lines.join('\n')}` : '';
+    notifyOrSpawn(
+        { type: 'low', subtype: 'exempt-screen-time-paused' },
+        'Bildschirmzeit pausiert',
+        `Nur Whitelist-Apps laufen — die Bildschirmzeit-Zählung ist pausiert.${suffix}`,
         'normal',
         true,
         pin
@@ -1012,68 +1086,6 @@ function loadExemptAppProcessNames() {
 
         return [...names.values()].filter(Boolean)
     } catch { return [] }
-}
-
-// Spawn cat processes on every raw input device so we track when the user is at the keyboard/mouse
-function startInputMonitor() {
-    if (inputMonitorStarted) return;
-    inputMonitorStarted = true;
-    try {
-        const devicesInfo = fs.readFileSync('/proc/bus/input/devices', 'utf8');
-        const matches = devicesInfo.match(/Handlers=.*event(\d+)/g) || [];
-        const eventIds = matches.map(m => m.match(/\d+/)[0]);
-        let started = 0;
-        for (const id of eventIds) {
-            try {
-                const p = spawn('cat', [`/dev/input/event${id}`], { stdio: ['ignore', 'pipe', 'ignore'] });
-                p.stdout.on('data', () => { lastInputTimestamp = Date.now(); });
-                p.on('error', () => { /* device may not be readable */ });
-                started++;
-            } catch { /* skip unreadable device */ }
-        }
-        log.info(`exempt watchdog: input monitor started on ${started}/${eventIds.length} devices`);
-    } catch (e) { log.warn(`exempt watchdog: input monitor failed: ${e.message}`); }
-}
-
-// Sum utime+stime jiffies for all PIDs of a named process
-function getExemptAppJiffies(processName) {
-    try {
-        const r = spawnSync('pgrep', ['-x', '-i', processName], { encoding: 'utf8', timeout: 2000 });
-        const pids = (r.stdout || '').trim().split('\n').filter(Boolean);
-        let total = 0;
-        for (const pid of pids) {
-            try {
-                const stat = fs.readFileSync(`/proc/${pid}/stat`, 'utf8').split(' ');
-                total += (parseInt(stat[13]) || 0) + (parseInt(stat[14]) || 0);
-            } catch { /* pid may have exited */ }
-        }
-        return total;
-    } catch { return 0; }
-}
-
-// Add this tick's jiffies delta per process into exemptMinuteCpuSum (call every 10s tick while exemptions exist).
-function bumpExemptMinuteCpuDeltas(processNames) {
-    for (const proc of processNames) {
-        const current = getExemptAppJiffies(proc);
-        const prev = exemptAppJiffies[proc] !== undefined ? exemptAppJiffies[proc] : current;
-        let delta = current - prev;
-        if (delta < 0) delta = 0;
-        exemptAppJiffies[proc] = current;
-        exemptMinuteCpuSum[proc] = (exemptMinuteCpuSum[proc] || 0) + delta;
-    }
-}
-
-function resetExemptMinuteCpuSums(processNames) {
-    for (const proc of processNames) exemptMinuteCpuSum[proc] = 0;
-}
-
-// True if there was hardware input recently and at least one exempt app had enough CPU time this logged minute (closes idle-background exploit).
-function isExemptAppActivelyUsedThisMinute(processNames) {
-    if ((Date.now() - lastInputTimestamp) >= EXEMPT_INPUT_WINDOW_MS) return false;
-    for (const proc of processNames) {
-        if ((exemptMinuteCpuSum[proc] || 0) >= WD_CPU_MIN_JIFFIES) return true;
-    }
-    return false;
 }
 
 
@@ -1751,23 +1763,64 @@ async function tickScreenTime(logMinute) {
     if (usage.date !== today) usage = emptyUsage(today);
 
     // Accrue screen time every full minute when the pinned user is on seat0 (same gate as warnings/logout); pool mode uses any GUI session.
-    // If exempt apps are configured and one is actively used, skip the increment for this minute.
     const exemptProcs = loadExemptAppProcessNames();
-    if (exemptProcs.length > 0) startInputMonitor();
-    if (exemptProcs.length > 0) bumpExemptMinuteCpuDeltas(exemptProcs);
-    if (logMinute) {
-        const exemptAppInUse = exemptProcs.length > 0 && isExemptAppActivelyUsedThisMinute(exemptProcs);
-        if (exemptProcs.length > 0) resetExemptMinuteCpuSums(exemptProcs);
-        let skipMinuteForExemptOnly = false;
-        if (exemptAppInUse && exemptProcs.length > 0) {
-            const onlyWhitelistCatalog = await onlyWhitelistedMonitorCatalogAppsRunning(limitLu, activeUsers);
-            if (onlyWhitelistCatalog) {
-                skipMinuteForExemptOnly = true;
-                log.info(`screenTime: exempt app actively used — skipping minute increment`);
-            } else {
-                notifyExemptScreenTimeStillCountingIfNeeded(limitLu);
+    let skipMinuteForExemptOnly = false;
+    let wlCtx = null; // { whitelistRunning, onlyWhitelist, others, whitelistApps }
+    async function computeWhitelistContextNow(sessionsNow) {
+        if (!exemptProcs.length) return null;
+        const activeUsersNow = uniqueUsers(sessionsNow);
+        const whitelistRunning = await anyWhitelistedMonitorCatalogAppRunning(limitLu, activeUsersNow);
+        if (!whitelistRunning) return { whitelistRunning: false, onlyWhitelist: false, others: [], whitelistApps: [] };
+        const others = await listNonQuotaExemptRunningCatalogApps(limitLu, activeUsersNow, loadQuotaExemptAppIds());
+        return { whitelistRunning: true, onlyWhitelist: others.length === 0, others, whitelistApps: [] };
+    }
+    if (exemptProcs.length > 0) {
+        const whitelistRunning = await anyWhitelistedMonitorCatalogAppRunning(limitLu, activeUsers);
+        if (whitelistRunning) {
+            const others = await listNonQuotaExemptRunningCatalogApps(limitLu, activeUsers, loadQuotaExemptAppIds());
+            const onlyWhitelist = others.length === 0;
+            let whitelistApps = [];
+            if (onlyWhitelist && lastExemptScreenTimeInfoState !== 'paused') {
+                try {
+                    const entries = readMonitorCatalogEntries();
+                    const exemptIdsLower = new Set([...loadQuotaExemptAppIds()].map(s => String(s || '').trim().toLowerCase()).filter(Boolean));
+                    const exemptProcLower = loadQuotaExemptProcessNamesLower();
+                    whitelistApps = entries
+                        .filter(e => {
+                            const id = String(e?.appId || '').trim().toLowerCase();
+                            const proc = String(e?.processName || '').trim().toLowerCase();
+                            return (id && exemptIdsLower.has(id)) || (proc && exemptProcLower.has(proc));
+                        })
+                        .slice(0, 12)
+                        .map(e => ({ appId: e.appId || undefined, appName: e.appName || undefined, processName: e.processName || undefined }));
+                } catch { /* ignore */ }
             }
+            wlCtx = { whitelistRunning, onlyWhitelist, others, whitelistApps };
+        } else if (lastExemptScreenTimeInfoState) {
+            lastExemptScreenTimeInfoState = '';
         }
+    }
+
+    if (wlCtx && logMinute) {
+        if (wlCtx.onlyWhitelist) {
+            skipMinuteForExemptOnly = true;
+            log.info(`screenTime: whitelisted app running — skipping minute increment`);
+            if (lastExemptScreenTimeInfoState !== 'paused') {
+                lastExemptScreenTimeInfoState = 'paused';
+                lastExemptScreenTimeInfoMs = 0;
+                notifyExemptScreenTimePausedIfNeeded(limitLu, wlCtx.whitelistApps);
+            }
+        } else {
+            if (wlCtx.others.length) log.info(`screenTime: whitelist active but other apps running: ${wlCtx.others.map(a => a.processName || a.appId || '?').join(', ')}`);
+            if (lastExemptScreenTimeInfoState !== 'counting') {
+                lastExemptScreenTimeInfoState = 'counting';
+                lastExemptScreenTimePausedInfoMs = 0;
+            }
+            notifyExemptScreenTimeStillCountingIfNeeded(limitLu, wlCtx.others);
+        }
+    }
+
+    if (logMinute) {
         if (!skipMinuteForExemptOnly) {
             if (limitLu) {
                 if (hasSessionForLimit) {
@@ -1815,11 +1868,17 @@ async function tickScreenTime(logMinute) {
                 return;
             }
             writeUsage(usage);
-            if (await onlyWhitelistedMonitorCatalogAppsRunning(limitLu, activeUsers)) {
+            const wlNow = await computeWhitelistContextNow(sessions);
+            if (wlNow?.whitelistRunning && wlNow.onlyWhitelist) {
                 notifyLogoutBlockedWhileWhitelistOnlyOnce('allowed-hours', limitLu);
+                lastWhitelistOnlyBlockedLogoutMs = Date.now();
                 return;
             }
             LOGOUT_BLOCKED_INFO_ONCE_TYPES.delete(`allowed-hours::${String(limitLu || '')}`);
+            if ((Date.now() - lastWhitelistOnlyBlockedLogoutMs) < WHITELIST_ONLY_LOGOUT_DEBOUNCE_MS) {
+                log.info(`allowedHours: debounce active after whitelist-only block — skipping terminate (cooldown)`);
+                return;
+            }
             await terminateSessionsForPolicy(sessions, limitLu);
             allowedHoursGraceStartMs = 0;
             const startM = scheduleStartDayMinutes(period);
@@ -1915,13 +1974,21 @@ async function tickScreenTime(logMinute) {
                 usage.warned10 = false; usage.warned5 = false; usage.warned2 = false;
                 delete usage.warnSnapLimit;
             } else {
-                if (await onlyWhitelistedMonitorCatalogAppsRunning(limitLu, activeUsers)) {
+                const sessionsNow = await getActiveGraphicalSessions();
+                const wlNow = await computeWhitelistContextNow(sessionsNow);
+                if (wlNow?.whitelistRunning && wlNow.onlyWhitelist) {
                     notifyLogoutBlockedWhileWhitelistOnlyOnce('exhausted', limitLu);
                     writeUsage(usage);
+                    lastWhitelistOnlyBlockedLogoutMs = Date.now();
                     return;
                 }
                 LOGOUT_BLOCKED_INFO_ONCE_TYPES.delete(`exhausted::${String(limitLu || '')}`);
-                await terminateSessionsForPolicy(sessions, limitLu);
+                if ((Date.now() - lastWhitelistOnlyBlockedLogoutMs) < WHITELIST_ONLY_LOGOUT_DEBOUNCE_MS) {
+                    log.info(`exhausted: debounce active after whitelist-only block — skipping terminate (cooldown)`);
+                    writeUsage(usage);
+                    return;
+                }
+                await terminateSessionsForPolicy(sessionsNow, limitLu);
                 // Roll back 2 minutes so the next login session starts cleanly without immediately triggering exhausted again.
                 const userKey = limitLu || '';
                 if (usage.users && usage.users[userKey] && typeof usage.users[userKey].minutes === 'number') {

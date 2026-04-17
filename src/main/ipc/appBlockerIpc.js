@@ -14,7 +14,7 @@ const DESKTOP_DIRS = [
 ]
 // Desktop file overrides placed here (per-system, root-writable)
 const OVERRIDE_DIR = '/usr/local/share/applications'
-const APP_MONITOR_CATALOG = 'app-monitor-catalog.json'
+const APP_MONITOR_BG_EXCLUDES_BASENAME = 'app-monitor-background-excludes.json'
 
 // Best-effort name for pgrep -x: flatpak/snap, shell -c, electron, *.AppImage stem, first real executable.
 function execLineToProcessName(execLine) {
@@ -125,6 +125,41 @@ function execLineToProcessName(execLine) {
         return t
     }
     return ''
+}
+
+function loadAppMonitorBackgroundExcludeSets(configDir) {
+    const empty = () => ({ appIds: new Set(), processNames: new Set() })
+    try {
+        const p = path.join(configDir, APP_MONITOR_BG_EXCLUDES_BASENAME)
+        if (!fs.existsSync(p)) return empty()
+        const data = JSON.parse(fs.readFileSync(p, 'utf8'))
+        const rows = Array.isArray(data?.excludes) ? data.excludes : (Array.isArray(data) ? data : [])
+        const appIds = new Set()
+        const processNames = new Set()
+        for (const row of rows) {
+            if (typeof row === 'string') {
+                const s = row.trim()
+                if (s) processNames.add(s.toLowerCase())
+                continue
+            }
+            if (row && typeof row === 'object') {
+                if (typeof row.appId === 'string' && row.appId.trim()) appIds.add(row.appId.trim().toLowerCase())
+                if (typeof row.processName === 'string' && row.processName.trim()) processNames.add(row.processName.trim().toLowerCase())
+            }
+        }
+        return { appIds, processNames }
+    } catch {
+        return empty()
+    }
+}
+
+function isAppMonitorCatalogEntryExcluded(app, sets) {
+    if (!app || !sets) return false
+    const aid = String(app.id || '').trim().toLowerCase()
+    const proc = String(app.processName || '').trim().toLowerCase()
+    if (aid && sets.appIds.has(aid)) return true
+    if (proc && sets.processNames.has(proc)) return true
+    return false
 }
 
 function parseDesktopFile(filePath) {
@@ -273,19 +308,6 @@ function readAppControlConfig(configDir) {
     return { enabled: def?.appControl?.enabled !== false }
 }
 
-function clearDisabledAppControlState(configDir) {
-    const def = readDefaultJson(configDir)
-    const blocked = Array.isArray(def?.blockedDesktopIds) ? def.blockedDesktopIds : []
-    const quota = Array.isArray(def?.quota) ? def.quota : []
-    if (blocked.length === 0 && quota.length === 0) return
-    // Keep persisted app-control data empty while feature is disabled.
-    patchDefaultJson(configDir, (d) => {
-        d.blockedDesktopIds = []
-        d.quota = []
-        return d
-    })
-}
-
 function saveBlocked(configDir, list) {
     const normalized = normalizeBlockedIds(Array.isArray(list) ? list : [])
     patchDefaultJson(configDir, (d) => {
@@ -334,9 +356,10 @@ function desktopExecResolvedPathMissing(execLine) {
 }
 
 /** Desktop entries only (no icons); same discovery order as App Control. */
-export function readAllDesktopApps() {
+export function readAllDesktopApps(configDir = '/etc/life-parental') {
     const apps = []
     const seen = new Set()
+    const excl = loadAppMonitorBackgroundExcludeSets(configDir)
     for (const dir of DESKTOP_DIRS) {
         if (!fs.existsSync(dir)) continue
         for (const file of fs.readdirSync(dir).filter(f => f.endsWith('.desktop'))) {
@@ -345,22 +368,22 @@ export function readAllDesktopApps() {
             const app = parseDesktopFile(path.join(dir, file))
             if (!app) continue
             if (desktopExecResolvedPathMissing(app.exec)) continue
-            apps.push({
+            const row = {
                 id: file,
                 name: app.name,
                 exec: app.exec,
                 icon: app.icon,
                 filePath: app.filePath,
                 processName: app.processName
-            })
+            }
+            if (isAppMonitorCatalogEntryExcluded(row, excl)) continue
+            apps.push(row)
         }
     }
     return apps.sort((a, b) => a.name.localeCompare(b.name))
 }
 
 // --- AppArmor blocking ---
-
-const APPARMOR_PROFILE = '/etc/apparmor.d/life-parental-blocked'
 
 function buildApparmorProfile(entries) {
     // entries: Array of { execPath, appId }
@@ -377,7 +400,7 @@ function buildApparmorProfile(entries) {
 export function syncAppArmor(configDir) {
     const control = readAppControlConfig(configDir)
     const blocked = control.enabled ? readBlocked(configDir) : []
-    const apps = readAllDesktopApps()
+    const apps = readAllDesktopApps(configDir)
     const appMap = new Map(apps.map(a => [a.id, a]))
 
     const entries = []
@@ -424,7 +447,7 @@ async function applyDesktopOverride(configDir, appId, block) {
 }
 
 export async function replaceBlockedDesktopIds(configDir, nextIds) {
-    const knownApps = readAllDesktopApps()
+    const knownApps = readAllDesktopApps(configDir)
     const nextResolved = resolveBlockedIdsAgainstApps(Array.isArray(nextIds) ? nextIds : [], knownApps)
     const prevResolved = resolveBlockedIdsAgainstApps(readBlocked(configDir), knownApps)
     const next = new Set(nextResolved)
@@ -471,7 +494,7 @@ export function registerAppBlockerIpc(ipcMain, configDir) {
     })
 
     ipcMain.handle('apps:list', () => {
-        const base = readAllDesktopApps()
+        const base = readAllDesktopApps(configDir)
         const resolvedBlocked = resolveBlockedIdsAgainstApps(readBlocked(configDir), base)
         const control = readAppControlConfig(configDir)
         const blocked = new Set(resolvedBlocked)
@@ -521,7 +544,7 @@ export function registerAppBlockerIpc(ipcMain, configDir) {
     })
 
     ipcMain.handle('apps:getBlocked', () => {
-        const base = readAllDesktopApps()
+        const base = readAllDesktopApps(configDir)
         return resolveBlockedIdsAgainstApps(readBlocked(configDir), base)
     })
 }

@@ -1,9 +1,11 @@
 #!/bin/bash
 # LiFE Parental Control – Lockdown script
 # Called via pkexec from the frontend (runs as root).
-# Usage: life-parental-lockdown.sh <targetUser> <adminUser> <pwFile|password> <grubHash> <allowInstall> <allowUpdate> <allowFuse>
+# Usage: life-parental-lockdown.sh <targetUser> <adminUser> <pwFile|password> <grubHash> <allowInstall> <allowUpdate> <protectGrub> <restrictAppImages>
 #   $3 can be a path to a temp file (app usage) or a plain password string (manual/test usage)
-#   $5 $6 $7 are optional booleans (true/false), default false
+#   $5 $6 are optional booleans (true/false), default false
+#   $7 is optional boolean (true/false), default true
+#   $8 is optional boolean (true/false), default true
 #
 # SPDX-License-Identifier: GPL-3.0-or-later; Copyright (c) 2026 Thomas Michael Weissel
 
@@ -15,7 +17,8 @@ PW_FILE="${3:-}"       # path to temp file containing password (deleted immediat
 GRUB_HASH="${4:-}"     # pre-computed pbkdf2 hash
 ALLOW_INSTALL="${5:-false}"  # allow target user to install packages via PackageKit
 ALLOW_UPDATE="${6:-false}"   # allow target user to run system updates via PackageKit
-ALLOW_FUSE="${7:-false}"     # add target user to fuse group (needed for AppImages)
+PROTECT_GRUB="${7:-true}"    # protect bootloader with GRUB password
+RESTRICT_APPIMAGES="${8:-true}" # disable AppImages by restricting FUSE group
 
 # Example with default values (for manual invocation / testing):
 # TARGET_USER="${1:-student}"
@@ -25,7 +28,7 @@ ALLOW_FUSE="${7:-false}"     # add target user to fuse group (needed for AppImag
 # ALLOW_INSTALL="${5:-false}"
 # ALLOW_UPDATE="${6:-false}"
 # ALLOW_FUSE="${7:-false}"
-# → sudo ./life-parental-lockdown.sh student parentadmin "MeinPasswort123" "" false false true
+# → sudo ./life-parental-lockdown.sh student parentadmin "MeinPasswort123" "" false false true true
 
 if [ -z "$TARGET_USER" ] || [ -z "$ADMIN_USER" ] || [ -z "$PW_FILE" ]; then
     echo "status: error - missing arguments" >&2
@@ -99,28 +102,34 @@ find "/home/$TARGET_USER" /tmp /var/tmp -xdev -perm /6000 -type f -user root \
 # Remove SSH authorized_keys (prevents remote persistence via key)
 rm -f "/home/$TARGET_USER/.ssh/authorized_keys" 2>/dev/null || true
 
-# Set up FUSE group — always done to restrict AppImage usage for the target user.
-# The target user is NOT added here; that only happens in Phase 4 if ALLOW_FUSE=true.
-groupadd -f fuse 2>/dev/null || true
-for BIN in /usr/bin/fusermount /usr/bin/fusermount3 /bin/fusermount /bin/fusermount3; do
-    [ -x "$BIN" ] || continue
-    chgrp fuse "$BIN" 2>/dev/null || true
-    chmod u+s "$BIN"  2>/dev/null || true  # SUID required for unprivileged mounts
-done
-cat > /etc/udev/rules.d/99-life-parental-fuse.rules << 'EOF'
+if [ "$RESTRICT_APPIMAGES" = "true" ]; then
+    # Set up FUSE group — always done to restrict AppImage usage for the target user.
+    # The target user is NOT added here; that only happens in Phase 4 if ALLOW_FUSE=true.
+    groupadd -f fuse 2>/dev/null || true
+    for BIN in /usr/bin/fusermount /usr/bin/fusermount3 /bin/fusermount /bin/fusermount3; do
+        [ -x "$BIN" ] || continue
+        chgrp fuse "$BIN" 2>/dev/null || true
+        chmod u+s "$BIN"  2>/dev/null || true  # SUID required for unprivileged mounts
+    done
+    cat > /etc/udev/rules.d/99-life-parental-fuse.rules << 'EOF'
 KERNEL=="fuse", GROUP="fuse", MODE="0660"
 EOF
-udevadm control --reload-rules 2>/dev/null || true
-udevadm trigger --name-match=fuse 2>/dev/null || true
-usermod -aG fuse root          2>/dev/null || true
-usermod -aG fuse "$ADMIN_USER" 2>/dev/null || true
-# Explicitly remove target user from fuse group (may have been member before)
-gpasswd -d "$TARGET_USER" fuse 2>/dev/null || true
-echo "status: fuse-restricted"
+    udevadm control --reload-rules 2>/dev/null || true
+    udevadm trigger --name-match=fuse 2>/dev/null || true
+    usermod -aG fuse root          2>/dev/null || true
+    usermod -aG fuse "$ADMIN_USER" 2>/dev/null || true
+    # Explicitly remove target user from fuse group (may have been member before)
+    gpasswd -d "$TARGET_USER" fuse 2>/dev/null || true
+    echo "status: fuse-restricted"
+else
+    echo "status: fuse-skip (disabled)"
+fi
 
 # --- PHASE 3: GRUB bootloader password ---
 # Hash was pre-computed by the frontend (grub-mkpasswd-pbkdf2 needs a TTY, pkexec blocks stdin)
-if [ -d /etc/grub.d ] && [ -n "$GRUB_HASH" ]; then
+if [ "$PROTECT_GRUB" != "true" ]; then
+    echo "status: grub-skip (disabled)"
+elif [ -d /etc/grub.d ] && [ -n "$GRUB_HASH" ]; then
     cat > /etc/grub.d/40_custom_life_parental << EOF
 #!/bin/sh
 exec tail -n +3 \$0
@@ -142,7 +151,7 @@ EOF
     fi
     echo "status: grub-password-set"
 else
-    echo "status: grub-skip (no grub.d or no hash available)" >&2
+    echo "status: grub-skip (no grub.d or no hash available)"
 fi
 
 # --- PHASE 4: OPTIONAL PERMISSIONS ---
@@ -257,11 +266,6 @@ EOF
     } > /etc/sudoers.d/55-life-parental-update-"$TARGET_USER"
     chmod 440 /etc/sudoers.d/55-life-parental-update-"$TARGET_USER"
     echo "status: allow-update-set"
-fi
-
-# Add target user to fuse group — only if parent explicitly allows it (checkbox)
-if [ "$ALLOW_FUSE" = "true" ]; then
-    usermod -aG fuse "$TARGET_USER" && echo "status: allow-fuse-set" || true
 fi
 
 echo "status: success"

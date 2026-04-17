@@ -184,7 +184,7 @@
                                     :style="donutGradient ? { background: donutGradient } : {}"
                                 >
                                     <div class="donut-hole">
-                                        <div class="donut-center-value">{{ donutModel.screen }}</div>
+                                        <div class="donut-center-value">{{ donutCenterValue }}</div>
                                         <div class="text-muted small">{{ donutMinCaption }}</div>
                                         <div v-if="dailyCapSubtitle" class="text-muted small mt-1">{{ dailyCapSubtitle }}</div>
                                     </div>
@@ -537,6 +537,8 @@ const donutLegend = computed(() => donutModel.value.slices.map((s, i) => ({
     color: DONUT_COLORS[i % DONUT_COLORS.length]
 })))
 
+const donutCenterValue = computed(() => formatDonutLegendMinutes(donutModel.value.screen))
+
 const dailyCapSubtitle = computed(() => {
     if (selectedDonutDate.value !== null) return ''
     const s = store.schedule
@@ -554,7 +556,8 @@ function formatDonutLegendMinutes(raw) {
     const h = Math.floor(m / 60)
     const rest = m % 60
     if (rest === 0) return `${h}h`
-    return `${h}h ${rest}m`
+    const restStr = String(rest).padStart(2, '0')
+    return `${h}h ${restStr}m`
 }
 
 function weekBarFillPx(minutes) {

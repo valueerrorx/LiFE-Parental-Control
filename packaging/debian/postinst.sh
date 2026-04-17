@@ -65,10 +65,14 @@ if [ -d "$hagezi_src" ]; then
 fi
 
 # App monitor background excludes (always refresh on install/upgrade)
-excl_src="${pkg_res}/app-monitor-background-excludes.json"
-if [ -f "$excl_src" ]; then
+excl_src=""
+[ -f "${pkg_res}/app-monitor-background-excludes.json" ] && excl_src="${pkg_res}/app-monitor-background-excludes.json"
+[ -z "$excl_src" ] && [ -f "${pkg_res}/packaging/app-monitor-background-excludes.json" ] && excl_src="${pkg_res}/packaging/app-monitor-background-excludes.json"
+if [ -n "$excl_src" ]; then
     mkdir -p /etc/life-parental
     install -D -m 644 "$excl_src" /etc/life-parental/app-monitor-background-excludes.json
+else
+    echo "$PKG postinst: WARNING missing app-monitor-background-excludes.json under ${pkg_res}" >&2
 fi
 
 # Install NetworkManager dispatcher script

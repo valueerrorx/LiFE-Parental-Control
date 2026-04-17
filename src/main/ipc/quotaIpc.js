@@ -1,6 +1,6 @@
 import fs from 'fs'
 import path from 'path'
-import { normalizeQuotaLinuxUser, quotaUsageKey, quotaBonusMinutes } from '@shared/quotaUsageKey.js'
+import { normalizeQuotaLinuxUser, quotaUsageKey } from '@shared/quotaUsageKey.js'
 import { pruneUsageArchives } from './usageArchivePrune.js'
 import { localIsoDate } from './localCalendarDay.js'
 import { appendActivity } from './activityLog.js'
