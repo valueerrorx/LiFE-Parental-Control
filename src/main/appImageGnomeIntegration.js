@@ -31,18 +31,36 @@ export function ensureGnomeDesktopAndIconsOnStart({ imagesDir, appImagePath }) {
     const desktopDir = path.join(homeDir, '.local', 'share', 'applications')
     const desktopDestPath = path.join(desktopDir, DESKTOP_FILENAME)
 
-    const hasAtLeastOneIconSize =
-        ICON_SIZES.some(s => isFileSync(path.join(homeDir, '.local', 'share', 'icons', 'hicolor', `${s}x${s}`, 'apps', ICON_BASENAME)))
-
+    const desiredExec = `${JSON.stringify(appImagePath)} --no-sandbox %U`
     const desktopExists = isFileSync(desktopDestPath)
-    if (desktopExists && hasAtLeastOneIconSize) return
+    const existingDesktopContent = desktopExists ? fs.readFileSync(desktopDestPath, 'utf8') : ''
+    const existingExecMatch = existingDesktopContent.match(/^Exec=(.*)$/m)
+    const desktopExecMatches = Boolean(existingExecMatch && existingExecMatch[1] === desiredExec)
+
+    const missingIconSizes = ICON_SIZES.filter((size) => {
+        const destIconPath = path.join(
+            homeDir,
+            '.local',
+            'share',
+            'icons',
+            'hicolor',
+            `${size}x${size}`,
+            'apps',
+            ICON_BASENAME
+        )
+        return !isFileSync(destIconPath)
+    })
+
+    const needDesktopUpdate = !desktopExists || !desktopExecMatches
+    const needIconCopy = missingIconSizes.length > 0
+    if (!needDesktopUpdate && !needIconCopy) return
 
     ensureDirSync(desktopDir)
 
     const desktopContent =
         `[Desktop Entry]\n` +
         `Name=LiFE Parental Control\n` +
-        `Exec=${JSON.stringify(appImagePath)} --no-sandbox %U\n` +
+        `Exec=${desiredExec}\n` +
         `Terminal=false\n` +
         `Type=Application\n` +
         `Icon=${ICON_THEME_NAME}\n` +
@@ -50,9 +68,11 @@ export function ensureGnomeDesktopAndIconsOnStart({ imagesDir, appImagePath }) {
         `X-GNOME-WMClass=${ICON_THEME_NAME}\n` +
         `Categories=System;\n`
 
-    fs.writeFileSync(desktopDestPath, desktopContent, { encoding: 'utf8', mode: 0o644 })
+    if (needDesktopUpdate) {
+        fs.writeFileSync(desktopDestPath, desktopContent, { encoding: 'utf8', mode: 0o644 })
+    }
 
-    for (const size of ICON_SIZES) {
+    if (needIconCopy) for (const size of missingIconSizes) {
         const srcIconPath = path.join(mountRoot, 'usr', 'share', 'icons', 'hicolor', `${size}x${size}`, 'apps', ICON_BASENAME)
         const destIconDir = path.join(homeDir, '.local', 'share', 'icons', 'hicolor', `${size}x${size}`, 'apps')
         const destIconPath = path.join(destIconDir, ICON_BASENAME)

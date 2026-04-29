@@ -136,8 +136,12 @@ app.whenReady().then(async () => {
         ? path.join(app.getPath('userData'), 'profiles')
         : path.join(__dirname, '../../profiles')
 
-    // Ensure GNOME can resolve app icon from a persistent desktop/icon install in the user home.
-    ensureGnomeDesktopAndIconsOnStart({ imagesDir, appImagePath: process.env.APPIMAGE })
+    // Ensure GNOME can resolve app icon via a persistent desktop/icon install in user home.
+    try {
+        ensureGnomeDesktopAndIconsOnStart({ imagesDir, appImagePath: process.env.APPIMAGE })
+    } catch (e) {
+        console.error('[LiFE] GNOME integration failed:', e)
+    }
 
     initWarningWindow(imagesDir)
     mkdirSync(profilesDir, { recursive: true })
