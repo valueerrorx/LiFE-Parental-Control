@@ -26,6 +26,9 @@ const EXHAUSTED_LOGOUT_GRACE_MS = 60_000; // Same wall-clock UX as allowed-hours
 const RELOGIN_BUFFER_MINUTES = 2; // Same slack as post-exhausted minute rollback; allowed-hours uses override end (wall clock).
 
 const APP_MONITOR_BG_EXCLUDES_BASENAME = 'app-monitor-background-excludes.json';
+const PORTABLE_APPIMAGES_FILE = 'portable-appimages.json';
+const PORTABLE_APPIMAGES_TTL_DAYS = 30;
+const PORTABLE_SCAN_MIN_MS = 60_000;
 const EXEMPT_SCREEN_TIME_INFO_COOLDOWN_MS = 15 * 60 * 1000;
 let lastExemptScreenTimeInfoMs = 0;
 const EXEMPT_SCREEN_TIME_PAUSED_INFO_COOLDOWN_MS = 15 * 60 * 1000;
@@ -96,6 +99,7 @@ const quotaLinuxUserNoSessionWarnOnce = new Set(); // one warn per appId+linuxUs
 let quotaTickSkippedAppControlWarned = false;
 let quotaTickSkippedNoGraphicalSessionsWarned = false;
 let allowedHoursGraceStartMs = 0;
+let lastPortableScanMs = 0;
 
 // Connected socket clients (Electron UI instances)
 const clients = new Set();
@@ -268,6 +272,14 @@ function resolveBlockedIdsAgainstInstalled(rawIds, installedIds) {
     for (const rawId of ids) {
         const raw = String(rawId || '').trim()
         if (!raw) continue
+        // Portable IDs are already canonical and must not be rewritten to ".desktop".
+        // Keeping them stable is critical for daemon enforcement + UI consistency.
+        if (raw.startsWith('appimage:')) {
+            if (seen.has(raw)) continue
+            seen.add(raw)
+            out.push(raw)
+            continue
+        }
         const withExt = raw.endsWith('.desktop') ? raw : `${raw}.desktop`
 
         let resolved = ''
@@ -614,10 +626,18 @@ function parseDesktopFile(filePath) {
         };
         const name = get('Name\\[de\\]') || get('Name');
         const exec = get('Exec');
+        const icon = get('Icon');
         const noDisplay = get('NoDisplay').toLowerCase() === 'true';
         const hidden = get('Hidden').toLowerCase() === 'true';
         if (!name || !exec || noDisplay || hidden) return null;
-        return { appId: path.basename(filePath), appName: name, exec, processName: execLineToProcessName(exec) };
+        return {
+            appId: path.basename(filePath),
+            appName: name,
+            exec,
+            icon,
+            filePath,
+            processName: execLineToProcessName(exec)
+        };
     } catch { return null; }
 }
 
@@ -660,8 +680,7 @@ function readAllDesktopApps() {
                 // Skip apps whose binary is not on disk
                 const fullPath = execLineToFullPath(app.exec);
                 if (fullPath !== null && !fs.existsSync(fullPath)) continue;
-                const { exec: _exec, ...catalogEntry } = app;
-                apps.push(catalogEntry);
+                apps.push(app);
             }
         } catch { /* skip unreadable dir */ }
     }
@@ -702,6 +721,136 @@ function isAppMonitorCatalogEntryExcluded(entry, sets) {
     if (aid && sets.appIds.has(aid)) return true;
     if (proc && sets.processNames.has(proc)) return true;
     return false;
+}
+
+function portableIdForAppImagePath(execPath) {
+    try {
+        const abs = path.resolve(String(execPath || ''));
+        const h = crypto.createHash('sha1').update(abs).digest('hex').slice(0, 16);
+        return `appimage:${h}`;
+    } catch {
+        return '';
+    }
+}
+
+function readPortableAppImagesState() {
+    const p = path.join(CONFIG_DIR, PORTABLE_APPIMAGES_FILE);
+    try {
+        const raw = JSON.parse(fs.readFileSync(p, 'utf8'));
+        const list = Array.isArray(raw?.apps) ? raw.apps : (Array.isArray(raw) ? raw : []);
+        const out = new Map();
+        for (const a of list) {
+            if (!a || typeof a !== 'object') continue;
+            const id = typeof a.appId === 'string' ? a.appId.trim() : '';
+            const execPath = typeof a.execPath === 'string' ? a.execPath.trim() : '';
+            if (!id || !execPath) continue;
+            out.set(id, {
+                appId: id,
+                appName: typeof a.appName === 'string' ? a.appName : '',
+                processName: typeof a.processName === 'string' ? a.processName : '',
+                execPath,
+                lastSeenAt: typeof a.lastSeenAt === 'string' ? a.lastSeenAt : ''
+            });
+        }
+        return out;
+    } catch {
+        return new Map();
+    }
+}
+
+function writePortableAppImagesState(map) {
+    const list = [];
+    for (const v of map.values()) {
+        if (!v?.appId || !v?.execPath) continue;
+        list.push({
+            appId: v.appId,
+            appName: v.appName || '',
+            processName: v.processName || '',
+            execPath: v.execPath,
+            lastSeenAt: v.lastSeenAt || new Date().toISOString()
+        });
+    }
+    const p = path.join(CONFIG_DIR, PORTABLE_APPIMAGES_FILE);
+    const tmp = p + `.tmp-${process.pid}-${Date.now()}`;
+    fs.mkdirSync(CONFIG_DIR, { recursive: true });
+    fs.writeFileSync(tmp, JSON.stringify({ apps: list }, null, 2) + '\n', { encoding: 'utf8', mode: 0o644 });
+    fs.renameSync(tmp, p);
+    try { fs.chmodSync(p, 0o644); } catch { /* ignore */ }
+}
+
+function scanRunningAppImagesProc() {
+    const out = new Map(); // appId → entry
+    if (process.platform !== 'linux') return out;
+    let dirs = [];
+    try { dirs = fs.readdirSync('/proc', { withFileTypes: true }); } catch { return out; }
+    for (const d of dirs) {
+        if (!d.isDirectory()) continue;
+        if (!/^\d+$/.test(d.name)) continue;
+        const cmdlinePath = path.join('/proc', d.name, 'cmdline');
+        let buf;
+        try { buf = fs.readFileSync(cmdlinePath); } catch { continue; }
+        if (!buf || buf.length === 0) continue;
+        let i = 0;
+        while (i < buf.length) {
+            let j = buf.indexOf(0, i);
+            if (j === -1) j = buf.length;
+            if (j > i) {
+                const token = buf.subarray(i, j).toString('utf8').trim();
+                if (/\.appimage$/i.test(token)) {
+                    const full = path.isAbsolute(token) ? token : path.resolve('/', token);
+                    try {
+                        if (fs.existsSync(full) && fs.statSync(full).isFile()) {
+                            const base = path.basename(full);
+                            const stem = base.replace(/\.appimage$/i, '');
+                            const appId = portableIdForAppImagePath(full);
+                            if (appId && !out.has(appId)) {
+                                out.set(appId, {
+                                    appId,
+                                    appName: stem || base,
+                                    processName: stem || base,
+                                    execPath: full,
+                                    lastSeenAt: new Date().toISOString()
+                                });
+                            }
+                        }
+                    } catch { /* ignore */ }
+                }
+            }
+            i = j + 1;
+        }
+    }
+    return out;
+}
+
+function updatePortableAppImagesCache() {
+    const nowIso = new Date().toISOString();
+    const prev = readPortableAppImagesState();
+    const found = scanRunningAppImagesProc();
+    for (const [id, e] of found) {
+        prev.set(id, { ...e, lastSeenAt: nowIso });
+    }
+    const keepMs = PORTABLE_APPIMAGES_TTL_DAYS * 86400_000;
+    const cutoff = Date.now() - keepMs;
+    const blocked = loadBlockedAppIds();
+    for (const [id, e] of prev) {
+        if (blocked.has(id)) continue;
+        const t = Date.parse(e.lastSeenAt || '');
+        if (!Number.isFinite(t) || t < cutoff) prev.delete(id);
+    }
+    writePortableAppImagesState(prev);
+    return prev;
+}
+
+function portableAppImageCatalogEntries() {
+    const st = readPortableAppImagesState();
+    return Array.from(st.values()).map((e) => ({
+        appId: e.appId,
+        appName: e.appName,
+        processName: e.processName,
+        execPath: e.execPath,
+        portableKind: 'appimage',
+        lastSeenAt: e.lastSeenAt
+    }));
 }
 
 function loadQuotaExemptProcessNamesLower() {
@@ -857,8 +1006,10 @@ function buildAndWriteAppCatalog() {
     try {
         const excl = loadAppMonitorBackgroundExcludeSets();
         const rawApps = readAllDesktopApps();
-        const before = rawApps.length;
-        const apps = rawApps.filter(a => !isAppMonitorCatalogEntryExcluded(a, excl));
+        const portable = portableAppImageCatalogEntries();
+        const mergedRaw = rawApps.concat(portable);
+        const before = mergedRaw.length;
+        const apps = mergedRaw.filter(a => !isAppMonitorCatalogEntryExcluded(a, excl));
         if (before !== apps.length) log.info(`app-catalog: excluded ${before - apps.length} background/service entries`);
         const payload = {
             updatedAt: new Date().toISOString(),
@@ -2255,6 +2406,14 @@ async function tickWork(logMinute) {
     maybeHandleDaemonWarningTestRequest();
     if (logMinute) {
         try { await defaultSync.maybeSync(); } catch (e) { log.warn(`defaultSync tick: ${e && e.message ? e.message : String(e)}`); }
+    }
+    if (logMinute) {
+        const now = Date.now();
+        if (now - lastPortableScanMs >= PORTABLE_SCAN_MIN_MS) {
+            lastPortableScanMs = now;
+            try { updatePortableAppImagesCache(); } catch (e) { log.warn(`portable appimages scan failed: ${e && e.message ? e.message : String(e)}`); }
+            try { buildAndWriteAppCatalog(); } catch (e) { log.warn(`app-catalog: portable refresh failed: ${e && e.message ? e.message : String(e)}`); }
+        }
     }
     try { await tickScreenTime(logMinute); } catch (e) { log.error(`tick screen-time: ${e.message}`); }
     try { await tickAppQuotas(logMinute); } catch (e) { log.error(`tick quotas: ${e.message}`); }

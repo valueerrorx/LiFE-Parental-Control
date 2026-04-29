@@ -16,6 +16,7 @@ const DESKTOP_DIRS = [
 // Desktop file overrides placed here (per-system, root-writable)
 const OVERRIDE_DIR = '/usr/local/share/applications'
 const APP_MONITOR_BG_EXCLUDES_BASENAME = 'app-monitor-background-excludes.json'
+const APP_MONITOR_CATALOG_FILE = 'app-monitor-catalog.json'
 
 // Best-effort name for pgrep -x: flatpak/snap, shell -c, electron, *.AppImage stem, first real executable.
 function execLineToProcessName(execLine) {
@@ -180,6 +181,15 @@ function parseDesktopFile(filePath) {
     } catch { return null }
 }
 
+function readDaemonAppCatalog(configDir) {
+    try {
+        const c = JSON.parse(fs.readFileSync(path.join(configDir, APP_MONITOR_CATALOG_FILE), 'utf8'))
+        return Array.isArray(c?.apps) ? c.apps : []
+    } catch {
+        return []
+    }
+}
+
 function normalizeBlockedIds(raw) {
     if (!Array.isArray(raw)) return []
     return raw.map(item => (typeof item === 'string' ? item : item?.id)).filter(Boolean)
@@ -246,6 +256,8 @@ function resolveBlockedIdsAgainstApps(ids, apps) {
     }
 
     function fuzzyResolve(rawWithExt) {
+        const raw = String(rawWithExt || '').trim()
+        if (raw.startsWith('appimage:')) return appIds.has(raw) ? raw : raw
         const rawStem = desktopIdStem(rawWithExt)
         const rawTail = desktopIdTailStem(rawWithExt)
         const maxLen = Math.max(rawStem.length, rawTail.length)
@@ -271,6 +283,10 @@ function resolveBlockedIdsAgainstApps(ids, apps) {
     for (const rawId of ids || []) {
         const raw = String(rawId || '').trim()
         if (!raw) continue
+        if (raw.startsWith('appimage:')) {
+            if (!seen.has(raw)) { seen.add(raw); out.push(raw) }
+            continue
+        }
         const withExt = raw.endsWith('.desktop') ? raw : `${raw}.desktop`
         let resolved = ''
 
@@ -386,13 +402,22 @@ export function readAllDesktopApps(configDir = '/etc/life-parental') {
 
 // --- AppArmor blocking ---
 
+function apparmorEscapePath(p) {
+    return String(p || '')
+        .replace(/\\/g, '\\\\')
+        .replace(/ /g, '\\040')
+        .replace(/\t/g, '\\011')
+        .replace(/\n/g, '\\012')
+        .replace(/\r/g, '\\015')
+}
+
 function buildApparmorProfile(entries) {
     // entries: Array of { execPath, appId }
     const header = '# Managed by LiFE Parental Control — do not edit manually\n' +
                    '# Rewritten automatically on block/unblock. Do not edit by hand.\n\n'
     if (entries.length === 0) return header
     return header + entries.map(({ execPath, appId }) =>
-        `${execPath} {\n  # ${appId} — blocked by parental controls\n  deny /** rwxl,\n}\n`
+        `${apparmorEscapePath(execPath)} {\n  # ${appId} — blocked by parental controls\n  deny /** rwxl,\n}\n`
     ).join('\n')
 }
 
@@ -401,15 +426,18 @@ function buildApparmorProfile(entries) {
 export function syncAppArmor(configDir) {
     const control = readAppControlConfig(configDir)
     const blocked = control.enabled ? readBlocked(configDir) : []
-    const apps = readAllDesktopApps(configDir)
-    const appMap = new Map(apps.map(a => [a.id, a]))
+    const catalog = readDaemonAppCatalog(configDir)
+    const apps = Array.isArray(catalog) && catalog.length ? catalog : readAllDesktopApps(configDir)
+    const appMap = new Map(apps.map(a => [a.appId || a.id, a]))
 
     const entries = []
     const seen = new Set()
     for (const id of blocked) {
         const app = appMap.get(id)
         if (!app) continue
-        const execPath = execLineToFullPath(app.exec).fullPath
+        const execPath = typeof app.execPath === 'string' && app.execPath.trim()
+            ? app.execPath.trim()
+            : execLineToFullPath(app.exec).fullPath
         if (!execPath || seen.has(execPath)) continue
         seen.add(execPath)
         entries.push({ execPath, appId: id })
@@ -420,6 +448,7 @@ export function syncAppArmor(configDir) {
 
 async function applyDesktopOverride(configDir, appId, block) {
     void configDir
+    if (typeof appId !== 'string' || !appId.endsWith('.desktop')) return
     if (block) {
         // Build modified .desktop content locally (reading original is unprivileged — files are 0644)
         let content = null
@@ -448,7 +477,10 @@ async function applyDesktopOverride(configDir, appId, block) {
 }
 
 export async function replaceBlockedDesktopIds(configDir, nextIds) {
-    const knownApps = readAllDesktopApps(configDir)
+    const catalog = readDaemonAppCatalog(configDir)
+    const knownApps = Array.isArray(catalog) && catalog.length
+        ? catalog.map(a => ({ id: a.appId || a.id }))
+        : readAllDesktopApps(configDir)
     const nextResolved = resolveBlockedIdsAgainstApps(Array.isArray(nextIds) ? nextIds : [], knownApps)
     const prevResolved = resolveBlockedIdsAgainstApps(readBlocked(configDir), knownApps)
     const next = new Set(nextResolved)
@@ -495,7 +527,16 @@ export function registerAppBlockerIpc(ipcMain, configDir) {
     })
 
     ipcMain.handle('apps:list', () => {
-        const base = readAllDesktopApps(configDir)
+        const catalog = readDaemonAppCatalog(configDir)
+        const base = Array.isArray(catalog) && catalog.length ? catalog.map((a) => ({
+            id: a.appId || a.id || '',
+            name: a.appName || a.name || '',
+            exec: a.exec || '',
+            execPath: a.execPath || null,
+            icon: a.icon || '',
+            filePath: a.filePath || '',
+            processName: a.processName || ''
+        })).filter(a => a.id) : readAllDesktopApps(configDir)
         const resolvedBlocked = resolveBlockedIdsAgainstApps(readBlocked(configDir), base)
         const control = readAppControlConfig(configDir)
         const blocked = new Set(resolvedBlocked)
@@ -510,12 +551,15 @@ export function registerAppBlockerIpc(ipcMain, configDir) {
                 processName: app.processName,
                 blocked: control.enabled ? blocked.has(file) : false
             }
-            const stem = path.basename(file, '.desktop')
-            const iconDataUrl = desktopIconToDataUrl(app.icon, app.filePath, [
-                stem,
-                execLineToProcessName(app.exec)
-            ])
-            if (iconDataUrl) row.iconDataUrl = iconDataUrl
+            if (app.execPath) row.execPath = app.execPath
+            if (file.endsWith('.desktop') && app.filePath) {
+                const stem = path.basename(file, '.desktop')
+                const iconDataUrl = desktopIconToDataUrl(app.icon, app.filePath, [
+                    stem,
+                    execLineToProcessName(app.exec)
+                ])
+                if (iconDataUrl) row.iconDataUrl = iconDataUrl
+            }
             return row
         })
         redeployQuotaFromDisk(configDir)
