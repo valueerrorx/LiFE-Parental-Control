@@ -8,6 +8,7 @@ import { registerSystemIpc } from './ipc/systemIpc.js'
 import { registerSettingsIpc } from './ipc/settingsIpc.js'
 import { resolveWindowIconPath } from './windowIcon.js'
 import { initWarningWindow } from './warningWindow.js'
+import { ensureGnomeDesktopAndIconsOnStart } from './appImageGnomeIntegration.js'
 
 const APP_CONFIG_DIR = '/etc/life-parental'
 
@@ -134,6 +135,9 @@ app.whenReady().then(async () => {
     const profilesDir = app.isPackaged
         ? path.join(app.getPath('userData'), 'profiles')
         : path.join(__dirname, '../../profiles')
+
+    // Ensure GNOME can resolve app icon from a persistent desktop/icon install in the user home.
+    ensureGnomeDesktopAndIconsOnStart({ imagesDir, appImagePath: process.env.APPIMAGE })
 
     initWarningWindow(imagesDir)
     mkdirSync(profilesDir, { recursive: true })
