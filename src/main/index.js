@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later; Copyright (c) 2026 Thomas Michael Weissel; Licensed under GPLv3+ (see http://www.gnu.org/licenses/). */
 import { app, BrowserWindow, globalShortcut, ipcMain, Menu, shell } from 'electron'
 import path from 'path'
-import { mkdirSync } from 'fs'
+import { mkdirSync, existsSync } from 'fs'
 import { registerConfigIpc } from './ipc/configIpc.js'
 import { registerProfileIpc } from './ipc/profileIpc.js'
 import { registerSystemIpc } from './ipc/systemIpc.js'
@@ -168,6 +168,7 @@ app.whenReady().then(async () => {
     }
 
     const windowIconPath = resolveWindowIconPath(imagesDir)
+    console.error('[LiFE] iconPath=', windowIconPath, 'exists=', Boolean(windowIconPath && existsSync(windowIconPath)))
     const mainDevtools = isMainWindowDevtoolsEnabled()
 
     mainWindow = new BrowserWindow({
