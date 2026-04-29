@@ -52,6 +52,8 @@ if (process.platform === 'linux' && process.env.APPIMAGE) {
 }
 
 if (process.platform === 'linux') {
+    // Keep Linux app identity stable so dock/window matching resolves the bundled desktop icon.
+    app.setName('life-parental-control')
     // Force desktop-file binding so Wayland/GNOME resolves the app icon from AppImage metadata.
     app.setDesktopName('life-parental-control.desktop')
 }

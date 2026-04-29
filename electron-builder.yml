@@ -51,6 +51,7 @@ linux:
       Name: "LiFE Parental Control"
       Icon: "life-parental-control"
       StartupWMClass: "life-parental-control"
+      X-GNOME-WMClass: "life-parental-control"
   target:
     - target: AppImage
       arch: [x64]
