@@ -4,6 +4,7 @@
     { "appId": "org.kde.kdeconnect.desktop", "processName": "kdeconnectd" },
     { "processName": "kwalletd5" },
     { "processName": "kwalletd6" },
+    { "appId": "org.kde.kwalletmanager5.desktop", "processName": "kwalletmanager5" },
     { "appId": "org.kde.akregator.desktop", "processName": "akregator" },
     { "appId": "org.kde.klipper.desktop", "processName": "klipper" },
     { "appId": "org.kde.kgpg.desktop", "processName": "kgpg" },

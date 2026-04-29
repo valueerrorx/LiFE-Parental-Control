@@ -786,37 +786,76 @@ function scanRunningAppImagesProc() {
     for (const d of dirs) {
         if (!d.isDirectory()) continue;
         if (!/^\d+$/.test(d.name)) continue;
-        const cmdlinePath = path.join('/proc', d.name, 'cmdline');
-        let buf;
-        try { buf = fs.readFileSync(cmdlinePath); } catch { continue; }
-        if (!buf || buf.length === 0) continue;
-        let i = 0;
-        while (i < buf.length) {
-            let j = buf.indexOf(0, i);
-            if (j === -1) j = buf.length;
-            if (j > i) {
-                const token = buf.subarray(i, j).toString('utf8').trim();
-                if (/\.appimage$/i.test(token)) {
-                    const full = path.isAbsolute(token) ? token : path.resolve('/', token);
-                    try {
-                        if (fs.existsSync(full) && fs.statSync(full).isFile()) {
-                            const base = path.basename(full);
-                            const stem = base.replace(/\.appimage$/i, '');
-                            const appId = portableIdForAppImagePath(full);
-                            if (appId && !out.has(appId)) {
-                                out.set(appId, {
-                                    appId,
-                                    appName: stem || base,
-                                    processName: stem || base,
-                                    execPath: full,
-                                    lastSeenAt: new Date().toISOString()
-                                });
-                            }
-                        }
-                    } catch { /* ignore */ }
+        const pid = d.name;
+        const cmdlinePath = path.join('/proc', pid, 'cmdline');
+        const environPath = path.join('/proc', pid, 'environ');
+        const commPath = path.join('/proc', pid, 'comm');
+        let cmdBuf = null;
+        let envBuf = null;
+        try { cmdBuf = fs.readFileSync(cmdlinePath); } catch { /* ignore */ }
+        try { envBuf = fs.readFileSync(environPath); } catch { /* ignore */ }
+
+        const cmdTokens = [];
+        if (cmdBuf && cmdBuf.length) {
+            let i = 0;
+            while (i < cmdBuf.length) {
+                let j = cmdBuf.indexOf(0, i);
+                if (j === -1) j = cmdBuf.length;
+                if (j > i) {
+                    const token = cmdBuf.subarray(i, j).toString('utf8').trim();
+                    if (token) cmdTokens.push(token);
                 }
+                i = j + 1;
             }
-            i = j + 1;
+        }
+
+        let comm = '';
+        try { comm = String(fs.readFileSync(commPath, 'utf8') || '').trim(); } catch { /* ignore */ }
+        const argv0Base = cmdTokens.length ? path.basename(cmdTokens[0]) : '';
+
+        let appImageFromEnv = '';
+        if (envBuf && envBuf.length) {
+            let i = 0;
+            while (i < envBuf.length) {
+                let j = envBuf.indexOf(0, i);
+                if (j === -1) j = envBuf.length;
+                if (j > i) {
+                    const kv = envBuf.subarray(i, j).toString('utf8');
+                    if (kv.startsWith('APPIMAGE=')) {
+                        const v = kv.slice('APPIMAGE='.length).trim();
+                        if (v) { appImageFromEnv = v; break; }
+                    }
+                }
+                i = j + 1;
+            }
+        }
+
+        const candidatePaths = [];
+        if (appImageFromEnv) candidatePaths.push(appImageFromEnv);
+        for (const t of cmdTokens) {
+            if (/\.appimage$/i.test(t)) candidatePaths.push(t);
+        }
+
+        for (const p of candidatePaths) {
+            const full = path.isAbsolute(p) ? p : path.resolve('/', p);
+            try {
+                if (!fs.existsSync(full) || !fs.statSync(full).isFile()) continue;
+                const base = path.basename(full);
+                const stem = base.replace(/\.appimage$/i, '');
+                const appId = portableIdForAppImagePath(full);
+                if (!appId) continue;
+                const procName = comm || argv0Base || stem || base;
+                const existing = out.get(appId);
+                if (!existing || (existing.processName || '').length < (procName || '').length) {
+                    out.set(appId, {
+                        appId,
+                        appName: stem || base,
+                        processName: procName,
+                        execPath: full,
+                        lastSeenAt: new Date().toISOString()
+                    });
+                }
+            } catch { /* ignore */ }
         }
     }
     return out;
