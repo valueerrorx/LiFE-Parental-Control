@@ -9,7 +9,6 @@
     "main": "out/main/index.js",
     "scripts": {
         "cleanbuild": "sudo rm -r ./out && npm run build",
-       
         "dev": "sudo rm -rf ./out && npx electron-vite dev",
         "compile": "electron-vite build",
         "check": "npm run lint && npm run compile",

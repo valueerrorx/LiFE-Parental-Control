@@ -7,10 +7,6 @@ copyright: "Copyright © 2024 Thomas Michael Weissel"
 electronFuses:
   enableNodeOptionsEnvironmentVariable: false
 
-# AppImage uses static runtime (no FUSE2 dependency on target systems).
-toolsets:
-  appimage: "1.0.2"
-
 directories:
   output: "dist"
 
@@ -53,6 +49,8 @@ linux:
   desktop:
     entry:
       Name: "LiFE Parental Control"
+      Icon: "life-parental-control"
+      StartupWMClass: "life-parental-control"
   target:
     - target: AppImage
       arch: [x64]
@@ -61,7 +59,7 @@ linux:
   category: System
   maintainer: "Thomas Michael Weissel"
   description: "Parental controls for Linux: kiosk lockdown, web filter, screen time, app blocking and daily app quotas."
-  icon: images/icons
+  icon: images/pc.png
 
 deb:
   depends:

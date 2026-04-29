@@ -45,6 +45,12 @@ if (isRunningAsRoot()) {
     app.exit(1)
 }
 
+// AppImage on some Ubuntu/AppArmor setups needs no-sandbox to start without user-side sysctl changes.
+if (process.platform === 'linux' && process.env.APPIMAGE) {
+    app.commandLine.appendSwitch('no-sandbox')
+    app.commandLine.appendSwitch('disable-setuid-sandbox')
+}
+
 // Main UI only: optional Ozone/GPU from env — never mix with warning-mode spawn logic.
 if (process.platform === 'linux' && !isWarningMode) {
     const oz = process.env.LIFE_OZONE_PLATFORM || process.env.ELECTRON_OZONE_PLATFORM_HINT

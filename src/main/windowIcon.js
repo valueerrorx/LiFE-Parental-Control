@@ -3,8 +3,16 @@ import fs from 'fs'
 import path from 'path'
 import { app } from 'electron'
 
-// Resolve window icon for BrowserWindow + overlays (tray support removed: no system tray anymore).
-const WINDOW_ICON_CANDIDATES = ['tray-64.png', 'tray-24.png', 'dashboard.png']
+// Resolve BrowserWindow icon from real app assets before any legacy/screenshot fallback.
+const WINDOW_ICON_CANDIDATES = [
+    'pc.png',
+    'icons/512x512.png',
+    'icons/256x256.png',
+    'icons/128x128.png',
+    'tray-64.png',
+    'tray-24.png',
+    'dashboard.png'
+]
 
 function orderedPaths(imagesDir, filename) {
     const list = [path.join(imagesDir, filename)]
