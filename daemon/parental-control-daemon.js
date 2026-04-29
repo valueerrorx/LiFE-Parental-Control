@@ -170,7 +170,8 @@ const AUTH_JSON_FILE = 'auth.json'
 const DESKTOP_DIRS = [
     '/usr/share/applications',
     '/usr/local/share/applications',
-    '/var/lib/flatpak/exports/share/applications'
+    '/var/lib/flatpak/exports/share/applications',
+    '/var/lib/snapd/desktop/applications'
 ]
 
 let cachedDefaultMtimeMs = 0
@@ -725,10 +726,12 @@ async function catalogHasNonQuotaExemptAppRunning(limitLu, activeUsers, exemptId
         for (const e of entries) {
             const id = String(e.appId || '').trim();
             if (id && exemptLower.has(id.toLowerCase())) continue;
-            const proc = String(e.processName || '').trim();
-            if (!proc) continue;
-            if (exemptProcLower.has(proc.toLowerCase())) continue;
-            if (await pgrepUserProcess(u, proc)) return true;
+            const candidates = processNameCandidatesForAppEntry(e.processName, e.appId);
+            if (!candidates.length) continue;
+            const isExemptProc = candidates.some(c => exemptProcLower.has(String(c).toLowerCase()));
+            if (isExemptProc) continue;
+            const matched = await pgrepUserAnyCandidate(u, candidates);
+            if (matched) return true;
         }
     }
     return false;
@@ -749,14 +752,16 @@ async function listNonQuotaExemptRunningCatalogApps(limitLu, activeUsers, exempt
         for (const e of entries) {
             const id = String(e.appId || '').trim();
             if (id && exemptLower.has(id.toLowerCase())) continue;
-            const proc = String(e.processName || '').trim();
-            if (!proc) continue;
-            if (exemptProcLower.has(proc.toLowerCase())) continue;
-            if (!await pgrepUserProcess(u, proc)) continue;
-            const key = `${id}\0${proc}`;
+            const candidates = processNameCandidatesForAppEntry(e.processName, e.appId);
+            if (!candidates.length) continue;
+            const isExemptProc = candidates.some(c => exemptProcLower.has(String(c).toLowerCase()));
+            if (isExemptProc) continue;
+            const matchedProc = await pgrepUserAnyCandidate(u, candidates);
+            if (!matchedProc) continue;
+            const key = `${id}\0${matchedProc}`;
             if (seen.has(key)) continue;
             seen.add(key);
-            out.push({ appId: id || undefined, appName: e.appName || undefined, processName: proc });
+            out.push({ appId: id || undefined, appName: e.appName || undefined, processName: matchedProc });
         }
     }
     return out;
@@ -777,12 +782,12 @@ async function anyWhitelistedMonitorCatalogAppRunning(limitLu, activeUsers) {
     for (const u of users) {
         for (const e of entries) {
             const id = String(e.appId || '').trim();
-            const proc = String(e.processName || '').trim();
             const isExemptId = id && exemptIds.has(id);
-            const isExemptProc = proc && exemptProcLower.has(proc.toLowerCase());
+            const candidates = processNameCandidatesForAppEntry(e.processName, e.appId);
+            const isExemptProc = candidates.some(c => exemptProcLower.has(String(c).toLowerCase()));
             if (!isExemptId && !isExemptProc) continue;
-            if (!proc) continue;
-            if (await pgrepUserProcess(u, proc)) return true;
+            const matched = await pgrepUserAnyCandidate(u, candidates);
+            if (matched) return true;
         }
     }
     return false;
@@ -857,7 +862,7 @@ function buildAndWriteAppCatalog() {
         if (before !== apps.length) log.info(`app-catalog: excluded ${before - apps.length} background/service entries`);
         const payload = {
             updatedAt: new Date().toISOString(),
-            apps: apps.filter(a => (a.processName || '').trim().length > 0)
+            apps: apps.filter(a => (a.processName || '').trim().length > 0 || desktopIdTailStem(a.appId))
         };
         fs.mkdirSync(CONFIG_DIR, { recursive: true });
         fs.writeFileSync(
@@ -992,6 +997,24 @@ async function pgrepUserProcess(user, processName) {
         const { stdout } = await execFileAsync('pgrep', ['-u', user, '-x', '-i', processName], { timeout: 3000 });
         return String(stdout || '').trim().length > 0;
     } catch { return false; }
+}
+
+function processNameCandidatesForAppEntry(processName, appId) {
+    const out = new Set();
+    const p = String(processName || '').trim();
+    if (p) out.add(p);
+    if (p && p.includes('.')) out.add(p.slice(p.lastIndexOf('.') + 1));
+    const tail = desktopIdTailStem(appId);
+    if (tail) out.add(tail);
+    return Array.from(out).filter(Boolean);
+}
+
+async function pgrepUserAnyCandidate(user, candidates) {
+    const list = Array.isArray(candidates) ? candidates.filter(Boolean) : [];
+    for (const c of list) {
+        if (await pgrepUserProcess(user, c)) return c;
+    }
+    return '';
 }
 
 async function anyUserRunningProcess(users, processName) {
@@ -1763,18 +1786,18 @@ async function tickScreenTime(logMinute) {
     if (usage.date !== today) usage = emptyUsage(today);
 
     // Accrue screen time every full minute when the pinned user is on seat0 (same gate as warnings/logout); pool mode uses any GUI session.
-    const exemptProcs = loadExemptAppProcessNames();
+    const exemptAppIds = loadQuotaExemptAppIds();
     let skipMinuteForExemptOnly = false;
     let wlCtx = null; // { whitelistRunning, onlyWhitelist, others, whitelistApps }
     async function computeWhitelistContextNow(sessionsNow) {
-        if (!exemptProcs.length) return null;
+        if (!exemptAppIds || exemptAppIds.size === 0) return null;
         const activeUsersNow = uniqueUsers(sessionsNow);
         const whitelistRunning = await anyWhitelistedMonitorCatalogAppRunning(limitLu, activeUsersNow);
         if (!whitelistRunning) return { whitelistRunning: false, onlyWhitelist: false, others: [], whitelistApps: [] };
         const others = await listNonQuotaExemptRunningCatalogApps(limitLu, activeUsersNow, loadQuotaExemptAppIds());
         return { whitelistRunning: true, onlyWhitelist: others.length === 0, others, whitelistApps: [] };
     }
-    if (exemptProcs.length > 0) {
+    if (exemptAppIds && exemptAppIds.size > 0) {
         const whitelistRunning = await anyWhitelistedMonitorCatalogAppRunning(limitLu, activeUsers);
         if (whitelistRunning) {
             const others = await listNonQuotaExemptRunningCatalogApps(limitLu, activeUsers, loadQuotaExemptAppIds());
@@ -2066,14 +2089,22 @@ async function tickAppQuotas(logMinute) {
     if (state.date !== today) { state.date = today; state.usage = {}; state.appExtra = {}; }
     const appUsage = state.usage;
     const appExtra = state.appExtra;
+    const monitorEntries = readMonitorCatalogEntries();
+    const procByAppIdLower = new Map();
+    for (const e of monitorEntries) {
+        const id = String(e?.appId || '').trim();
+        const proc = String(e?.processName || '').trim();
+        if (!id || !proc) continue;
+        procByAppIdLower.set(id.toLowerCase(), proc);
+    }
 
     for (const q of quotas) {
         const appId = q.appId || '';
-        const proc = String(q.processName || '').trim();
+        const procFromQuota = String(q.processName || '').trim();
         const baseLimit = Math.max(1, Math.floor(Number(q.minutesPerDay) || 60));
-        const name = q.appName || proc;
+        const name = q.appName || procFromQuota;
         const lu = normalizeLinuxUser(q.linuxUser);
-        if (!proc || !appId) continue;
+        if (!appId) continue;
 
         const usersForQuota = lu ? activeUsers.filter(u => u === lu) : activeUsers;
         if (lu && usersForQuota.length === 0) {
@@ -2084,7 +2115,18 @@ async function tickAppQuotas(logMinute) {
             }
             continue;
         }
-        const isRunning = usersForQuota.length > 0 && await anyUserRunningProcess(usersForQuota, proc);
+        const catProc = procByAppIdLower.get(String(appId).trim().toLowerCase()) || '';
+        const candidatesSet = new Set([
+            ...processNameCandidatesForAppEntry(procFromQuota, appId),
+            ...processNameCandidatesForAppEntry(catProc, appId)
+        ].filter(Boolean));
+        const procCandidates = Array.from(candidatesSet);
+        const runningCandidates = [];
+        for (const cand of procCandidates) {
+            if (await anyUserRunningProcess(usersForQuota, cand)) runningCandidates.push(cand);
+        }
+        const isRunning = runningCandidates.length > 0;
+        const procForMsg = runningCandidates[0] || procFromQuota;
         const uk = quotaUsageKey(appId, lu);
         const bonus = quotaBonusMinutes(appExtra, appId, lu);
         const limit = baseLimit + bonus;
@@ -2095,25 +2137,25 @@ async function tickAppQuotas(logMinute) {
             for (const k of appQuotaWarnOnce) { if (k.startsWith(uk + ':')) appQuotaWarnOnce.delete(k); }
         }
 
-        if (logMinute) log.info(`quota app=${name} proc=${proc} running=${isRunning} used=${usedBefore} limit=${limit} bonus=${bonus}`);
+        if (logMinute) log.info(`quota app=${name} proc=${procForMsg} running=${isRunning} used=${usedBefore} limit=${limit} bonus=${bonus}`);
 
         if (isRunning) {
             if (!exempt.has(appId) && usedBefore >= limit) {
                 const key = `${uk}:kill`;
                 if (!appQuotaWarnOnce.has(key)) {
                     appQuotaWarnOnce.add(key);
-                    const warnPayload = { type: 'app-exhausted', appId, appName: name, processName: proc, effectiveLimit: limit, usedMinutes: usedBefore, linuxUser: lu || undefined };
+                    const warnPayload = { type: 'app-exhausted', appId, appName: name, processName: procForMsg, effectiveLimit: limit, usedMinutes: usedBefore, linuxUser: lu || undefined };
                     notifyOrSpawn(warnPayload, `${name}: Zeit aufgebraucht`, `Tageslimit von ${limit} Min. erreicht.`, 'critical');
                 }
-                await pkillAllUsers(usersForQuota, proc);
-                appendActivityDaemon({ action: 'app_killed_quota_exhausted', appId, appName: name, processName: proc, usedMinutes: usedBefore, limit, linuxUser: lu || undefined });
+                for (const cand of runningCandidates) await pkillAllUsers(usersForQuota, cand);
+                appendActivityDaemon({ action: 'app_killed_quota_exhausted', appId, appName: name, processName: procForMsg, usedMinutes: usedBefore, limit, linuxUser: lu || undefined });
             } else if (!exempt.has(appId) && usedBefore === limit - 1) {
                 if (logMinute) {
                     appUsage[uk] = limit;
                     const k = `${uk}:final`;
                     if (!appQuotaWarnOnce.has(k)) {
                         appQuotaWarnOnce.add(k);
-                        const warnPayload = { type: 'app-final', appId, appName: name, processName: proc, effectiveLimit: limit, usedMinutes: usedBefore, linuxUser: lu || undefined };
+                        const warnPayload = { type: 'app-final', appId, appName: name, processName: procForMsg, effectiveLimit: limit, usedMinutes: usedBefore, linuxUser: lu || undefined };
                         notifyOrSpawn(warnPayload, `${name}: Letzte Minute`, `Letzte Minute für ${name}. Arbeit speichern!`, 'normal');
                     }
                 }
@@ -2129,14 +2171,14 @@ async function tickAppQuotas(logMinute) {
             const k = `${uk}:2`;
             if (!appQuotaWarnOnce.has(k)) {
                 appQuotaWarnOnce.add(k);
-                const low2Payload = { type: 'app-low', appId, appName: name, processName: proc, effectiveLimit: limit, usedMinutes: used, remaining: 2, linuxUser: lu || undefined };
+                const low2Payload = { type: 'app-low', appId, appName: name, processName: procForMsg, effectiveLimit: limit, usedMinutes: used, remaining: 2, linuxUser: lu || undefined };
                 notifyOrSpawn(low2Payload, `${name}: Zeit fast aufgebraucht`, `Noch 2 Min. für ${name}.`, 'normal');
             }
         } else if (remaining === 5 && isRunning) {
             const k = `${uk}:5`;
             if (!appQuotaWarnOnce.has(k)) {
                 appQuotaWarnOnce.add(k);
-                const low5Payload = { type: 'app-five', appId, appName: name, processName: proc, effectiveLimit: limit, usedMinutes: used, remaining: 5, linuxUser: lu || undefined };
+                const low5Payload = { type: 'app-five', appId, appName: name, processName: procForMsg, effectiveLimit: limit, usedMinutes: used, remaining: 5, linuxUser: lu || undefined };
                 notifyOrSpawn(low5Payload, `${name}: Zeit fast aufgebraucht`, `Noch 5 Min. für ${name}.`, 'normal');
             }
         }
@@ -2162,10 +2204,11 @@ async function tickAppMonitor(logMinute) {
     for (const entry of entries) {
         if (!entry || typeof entry !== 'object') continue;
         const appId = entry.appId || entry.id || '';
-        const proc = String(entry.processName || '').trim();
-        if (!appId || !proc) continue;
+        const candidates = processNameCandidatesForAppEntry(entry.processName, appId);
+        if (!appId || !candidates.length) continue;
         for (const user of activeUsers) {
-            if (await pgrepUserProcess(user, proc) && logMinute) {
+            const matched = await pgrepUserAnyCandidate(user, candidates);
+            if (matched && logMinute) {
                 const key = `${user}:${appId}`;
                 track[key] = (track[key] || 0) + 1;
             }

@@ -10,7 +10,8 @@ import { patchDefaultJson, readDefaultJson } from '../defaultProfileStore.js'
 const DESKTOP_DIRS = [
     '/usr/share/applications',
     '/usr/local/share/applications',
-    '/var/lib/flatpak/exports/share/applications'
+    '/var/lib/flatpak/exports/share/applications',
+    '/var/lib/snapd/desktop/applications'
 ]
 // Desktop file overrides placed here (per-system, root-writable)
 const OVERRIDE_DIR = '/usr/local/share/applications'

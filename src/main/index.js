@@ -49,10 +49,9 @@ if (isRunningAsRoot()) {
 // Linux build: enforce Chromium sandbox flags for consistent startup across launch methods.
 // (AppImage vs desktop-launch can differ in env vars, so avoid relying on process.env.APPIMAGE.)
 
-// app.commandLine.appendSwitch('no-sandbox')
-// app.commandLine.appendSwitch('disable-setuid-sandbox')
+//app.commandLine.appendSwitch('no-sandbox')
+//app.commandLine.appendSwitch('disable-setuid-sandbox')
 
-app.enableSandbox()
 
 
 console.error('[LiFE] sandbox switches:', {
