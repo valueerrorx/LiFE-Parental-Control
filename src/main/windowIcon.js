@@ -5,6 +5,7 @@ import { app } from 'electron'
 
 // Resolve BrowserWindow icon from real app assets before any legacy/screenshot fallback.
 const WINDOW_ICON_CANDIDATES = [
+    'life-parental-control.png',
     'pc.png',
     'icons/512x512.png',
     'icons/256x256.png',
@@ -18,6 +19,10 @@ function orderedPaths(imagesDir, filename) {
     const list = [path.join(imagesDir, filename)]
     if (app.isPackaged && process.resourcesPath) {
         list.push(path.join(process.resourcesPath, 'images', filename))
+    }
+    if (app.isPackaged) {
+        // AppImage stores generated icons at the squashfs root; check there too.
+        list.push(path.join(imagesDir, '..', '..', filename))
     }
     if (!app.isPackaged) {
         list.push(path.join(process.cwd(), 'images', filename))

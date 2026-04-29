@@ -43,6 +43,8 @@ extraResources:
     to: "99-life-parental-dns"
   - from: "packaging/app-monitor-background-excludes.json"
     to: "app-monitor-background-excludes.json"
+
+extraFiles:
   - from: "images/icons/16x16.png"
     to: "usr/share/icons/hicolor/16x16/apps/life-parental-control.png"
   - from: "images/icons/32x32.png"
