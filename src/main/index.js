@@ -11,6 +11,10 @@ import { initWarningWindow } from './warningWindow.js'
 
 const APP_CONFIG_DIR = '/etc/life-parental'
 
+function isRunningAsRoot() {
+    return typeof process.getuid === 'function' && process.getuid() === 0
+}
+
 // Set LIFE_DEVTOOLS=1 when debugging a packaged build (e.g. white window on Ubuntu); opens DevTools after load.
 function isMainWindowDevtoolsEnabled() {
     if (process.env.NODE_ENV === 'development') return true
@@ -35,6 +39,11 @@ let devtoolsShortcutRegistered = false
 // Detect warning mode (spawned by daemon as the desktop user, no root)
 const warningModeArg = process.argv.find(a => a.startsWith('--warning-mode='))
 const isWarningMode = Boolean(warningModeArg)
+
+if (isRunningAsRoot()) {
+    console.error('[LiFE Parental Control] Refusing to start as root. Please run without sudo.')
+    app.exit(1)
+}
 
 // Main UI only: optional Ozone/GPU from env — never mix with warning-mode spawn logic.
 if (process.platform === 'linux' && !isWarningMode) {

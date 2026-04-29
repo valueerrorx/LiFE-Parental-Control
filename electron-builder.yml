@@ -7,6 +7,10 @@ copyright: "Copyright © 2024 Thomas Michael Weissel"
 electronFuses:
   enableNodeOptionsEnvironmentVariable: false
 
+# AppImage uses static runtime (no FUSE2 dependency on target systems).
+toolsets:
+  appimage: "1.0.2"
+
 directories:
   output: "dist"
 
