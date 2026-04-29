@@ -43,13 +43,27 @@ extraResources:
     to: "99-life-parental-dns"
   - from: "packaging/app-monitor-background-excludes.json"
     to: "app-monitor-background-excludes.json"
+  - from: "images/icons/16x16.png"
+    to: "usr/share/icons/hicolor/16x16/apps/life-parental-control.png"
+  - from: "images/icons/32x32.png"
+    to: "usr/share/icons/hicolor/32x32/apps/life-parental-control.png"
+  - from: "images/icons/48x48.png"
+    to: "usr/share/icons/hicolor/48x48/apps/life-parental-control.png"
+  - from: "images/icons/64x64.png"
+    to: "usr/share/icons/hicolor/64x64/apps/life-parental-control.png"
+  - from: "images/icons/128x128.png"
+    to: "usr/share/icons/hicolor/128x128/apps/life-parental-control.png"
+  - from: "images/icons/256x256.png"
+    to: "usr/share/icons/hicolor/256x256/apps/life-parental-control.png"
+  - from: "images/icons/512x512.png"
+    to: "usr/share/icons/hicolor/512x512/apps/life-parental-control.png"
 
 linux:
   executableName: life-parental-control
   desktop:
     entry:
       Name: "LiFE Parental Control"
-      Icon: "life-parental-control"
+      Icon: "life-parental-control.png"
       StartupWMClass: "life-parental-control"
       X-GNOME-WMClass: "life-parental-control"
   target:
