@@ -55,7 +55,7 @@ if (process.platform === 'linux') {
     // Keep Linux app identity stable so dock/window matching resolves the bundled desktop icon.
     app.setName('life-parental-control')
     // Force desktop-file binding so Wayland/GNOME resolves the app icon from AppImage metadata.
-    app.setDesktopName('life-parental-control.desktop')
+    app.setDesktopName('life-parental-control')
 }
 
 // Main UI only: optional Ozone/GPU from env — never mix with warning-mode spawn logic.
@@ -178,6 +178,7 @@ app.whenReady().then(async () => {
         show: false,
         title: 'LiFE Parental Control',
         ...(windowIconPath ? { icon: windowIconPath } : {}),
+        ...(process.platform === 'linux' ? { appId: 'life-parental-control' } : {}),
         webPreferences: {
             preload: path.join(__dirname, '../preload/index.js'),
             contextIsolation: true,
