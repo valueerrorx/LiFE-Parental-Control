@@ -51,6 +51,11 @@ if (process.platform === 'linux' && process.env.APPIMAGE) {
     app.commandLine.appendSwitch('disable-setuid-sandbox')
 }
 
+if (process.platform === 'linux') {
+    // Force desktop-file binding so Wayland/GNOME resolves the app icon from AppImage metadata.
+    app.setDesktopName('life-parental-control.desktop')
+}
+
 // Main UI only: optional Ozone/GPU from env — never mix with warning-mode spawn logic.
 if (process.platform === 'linux' && !isWarningMode) {
     const oz = process.env.LIFE_OZONE_PLATFORM || process.env.ELECTRON_OZONE_PLATFORM_HINT
