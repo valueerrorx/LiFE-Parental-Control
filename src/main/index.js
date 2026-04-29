@@ -46,11 +46,16 @@ if (isRunningAsRoot()) {
     app.exit(1)
 }
 
-// AppImage on some Ubuntu/AppArmor setups needs no-sandbox to start without user-side sysctl changes.
-if (process.platform === 'linux' && process.env.APPIMAGE) {
-    app.commandLine.appendSwitch('no-sandbox')
-    app.commandLine.appendSwitch('disable-setuid-sandbox')
-}
+// Linux build: enforce Chromium sandbox flags for consistent startup across launch methods.
+// (AppImage vs desktop-launch can differ in env vars, so avoid relying on process.env.APPIMAGE.)
+
+app.commandLine.appendSwitch('no-sandbox')
+app.commandLine.appendSwitch('disable-setuid-sandbox')
+
+
+console.error('[LiFE] sandbox switches:', {
+    APPIMAGE: process.env.APPIMAGE ? '(set)' : '(unset)',
+})
 
 if (process.platform === 'linux') {
     // Keep Linux app identity stable so dock/window matching resolves the bundled desktop icon.
