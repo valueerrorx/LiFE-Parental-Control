@@ -343,12 +343,15 @@ function normalizeQuotaEntriesFromDefault(defaultQuota, installedIds) {
         if (!e || typeof e !== 'object') continue
         const rawAppId = typeof e.appId === 'string' ? e.appId : ''
         if (!rawAppId) continue
-        const appId = rawAppId.endsWith('.desktop') ? rawAppId : `${rawAppId}.desktop`
+        const rawTrim = rawAppId.trim()
+        if (!rawTrim) continue
+        const isPortable = rawTrim.startsWith('appimage:')
+        const appId = isPortable ? rawTrim : (rawTrim.endsWith('.desktop') ? rawTrim : `${rawTrim}.desktop`)
         const proc = typeof e.processName === 'string' ? e.processName.trim() : ''
         if (!proc) continue
         const mp = Number(e.minutesPerDay)
         if (!Number.isFinite(mp)) continue
-        const canonAppId = resolveBlockedIdsAgainstInstalled([appId], installedIds)[0] || appId
+        const canonAppId = isPortable ? appId : (resolveBlockedIdsAgainstInstalled([appId], installedIds)[0] || appId)
         out.push({
             appId: canonAppId,
             appName: typeof e.appName === 'string' ? e.appName : proc,
@@ -781,15 +784,119 @@ function writePortableAppImagesState(map) {
 function scanRunningAppImagesProc() {
     const out = new Map(); // appId → entry
     if (process.platform !== 'linux') return out;
+    const helperCommLower = new Set([
+        'binfmt-bypass',
+        'chrome_crashpad',
+        'crashpad_handler',
+        'crashpad-handler',
+        'xdg-dbus-proxy',
+        'xdg-document-portal',
+        'xdg-desktop-portal',
+        'xdg-desktop-portal-gtk',
+        'xdg-desktop-portal-kde',
+        'zygote',
+        'zygote64',
+        'gpu-process',
+        'utility',
+        'broker',
+        'appimageruntime',
+        'apprun',
+    ]);
+
+    function scoreCandidate({ comm, exeBase, argv0Base, stem }) {
+        const commLower = String(comm || '').trim().toLowerCase();
+        const exeLower = String(exeBase || '').trim().toLowerCase();
+        const argvLower = String(argv0Base || '').trim().toLowerCase();
+        const stemLower = String(stem || '').trim().toLowerCase();
+
+        let score = 0;
+        if (commLower) score += 20;
+        if (exeLower) score += 12;
+        if (argvLower) score += 5;
+
+        if (stemLower && commLower === stemLower) score += 40;
+        if (stemLower && exeLower === stemLower) score += 25;
+
+        if (helperCommLower.has(commLower)) score -= 120;
+        if (helperCommLower.has(exeLower)) score -= 80;
+        if (helperCommLower.has(argvLower)) score -= 40;
+
+        // Prefer non-generic names even if they don't match the stem exactly.
+        if (commLower && commLower.length >= 6) score += 8;
+        if (exeLower && exeLower.length >= 6) score += 5;
+
+        return score;
+    }
+
+    function pickProcessName({ comm, exeBase, argv0Base, stem, base }) {
+        const c = String(comm || '').trim();
+        if (c && !helperCommLower.has(c.toLowerCase())) return c;
+        const e = String(exeBase || '').trim();
+        if (e && !helperCommLower.has(e.toLowerCase())) return e;
+        const a0 = String(argv0Base || '').trim();
+        if (a0 && !helperCommLower.has(a0.toLowerCase())) return a0;
+        const s = String(stem || '').trim();
+        if (s) return s;
+        return String(base || '').trim();
+    }
+
+    function readProcStatPpid(pid) {
+        try {
+            const s = fs.readFileSync(path.join('/proc', pid, 'stat'), 'utf8');
+            const r = String(s || '').trim();
+            if (!r) return '';
+            const end = r.lastIndexOf(')');
+            if (end === -1) return '';
+            const tail = r.slice(end + 1).trim().split(/\s+/);
+            // Fields: pid (comm) state ppid ...
+            return tail.length >= 2 ? String(tail[1] || '') : '';
+        } catch {
+            return '';
+        }
+    }
+
+    function readProcBasics(pid) {
+        const commPath = path.join('/proc', pid, 'comm');
+        const exePath = path.join('/proc', pid, 'exe');
+        const cmdlinePath = path.join('/proc', pid, 'cmdline');
+        let comm = '';
+        let exeBase = '';
+        let argv0Base = '';
+        try { comm = String(fs.readFileSync(commPath, 'utf8') || '').trim(); } catch { /* ignore */ }
+        try { exeBase = path.basename(fs.readlinkSync(exePath) || ''); } catch { /* ignore */ }
+        try {
+            const buf = fs.readFileSync(cmdlinePath);
+            if (buf && buf.length) {
+                const i0 = buf.indexOf(0);
+                const token = (i0 === -1 ? buf : buf.subarray(0, i0)).toString('utf8').trim();
+                if (token) argv0Base = path.basename(token);
+            }
+        } catch { /* ignore */ }
+        return { comm, exeBase, argv0Base };
+    }
+
     let dirs = [];
     try { dirs = fs.readdirSync('/proc', { withFileTypes: true }); } catch { return out; }
+    const pidList = [];
+    for (const d of dirs) {
+        if (!d.isDirectory()) continue;
+        if (!/^\d+$/.test(d.name)) continue;
+        pidList.push(d.name);
+    }
+    const childrenByPpid = new Map();
+    for (const pid of pidList) {
+        const ppid = readProcStatPpid(pid);
+        if (!ppid) continue;
+        if (!childrenByPpid.has(ppid)) childrenByPpid.set(ppid, []);
+        childrenByPpid.get(ppid).push(pid);
+    }
+
     for (const d of dirs) {
         if (!d.isDirectory()) continue;
         if (!/^\d+$/.test(d.name)) continue;
         const pid = d.name;
         const cmdlinePath = path.join('/proc', pid, 'cmdline');
         const environPath = path.join('/proc', pid, 'environ');
-        const commPath = path.join('/proc', pid, 'comm');
         let cmdBuf = null;
         let envBuf = null;
         try { cmdBuf = fs.readFileSync(cmdlinePath); } catch { /* ignore */ }
@@ -809,8 +916,6 @@ function scanRunningAppImagesProc() {
             }
         }
 
-        let comm = '';
-        try { comm = String(fs.readFileSync(commPath, 'utf8') || '').trim(); } catch { /* ignore */ }
         const argv0Base = cmdTokens.length ? path.basename(cmdTokens[0]) : '';
 
         let appImageFromEnv = '';
@@ -844,19 +949,41 @@ function scanRunningAppImagesProc() {
                 const stem = base.replace(/\.appimage$/i, '');
                 const appId = portableIdForAppImagePath(full);
                 if (!appId) continue;
-                const procName = comm || argv0Base || stem || base;
+
+                // Prefer a meaningful descendant process if this PID is only a wrapper (binfmt_misc).
+                let best = { comm: '', exeBase: '', argv0Base: '', pid, score: -9999 };
+                const seen = new Set();
+                const q = [pid];
+                let budget = 140; // bound /proc reads
+                while (q.length && budget-- > 0) {
+                    const cur = q.shift();
+                    if (!cur || seen.has(cur)) continue;
+                    seen.add(cur);
+                    const b = readProcBasics(cur);
+                    const s = scoreCandidate({ ...b, stem });
+                    if (s > best.score) best = { ...b, pid: cur, score: s };
+                    const kids = childrenByPpid.get(cur) || [];
+                    for (const k of kids) q.push(k);
+                }
+
+                const procName = pickProcessName({ ...best, stem, base });
+                const score = best.score;
                 const existing = out.get(appId);
-                if (!existing || (existing.processName || '').length < (procName || '').length) {
+                if (!existing || (Number(existing._score) || 0) < score) {
                     out.set(appId, {
                         appId,
                         appName: stem || base,
                         processName: procName,
                         execPath: full,
-                        lastSeenAt: new Date().toISOString()
+                        lastSeenAt: new Date().toISOString(),
+                        _score: score
                     });
                 }
             } catch { /* ignore */ }
         }
+    }
+    for (const [id, e] of out) {
+        if (e && typeof e === 'object' && '_score' in e) delete e._score;
     }
     return out;
 }

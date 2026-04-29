@@ -25,13 +25,15 @@ function saveQuotas(configDir, quotas) {
 
 export function normalizeQuotaEntry(e) {
     if (!e || typeof e !== 'object') return null
-    if (typeof e.appId !== 'string' || !e.appId.endsWith('.desktop')) return null
+    const appId = typeof e.appId === 'string' ? e.appId.trim() : ''
+    if (!appId) return null
+    if (!appId.endsWith('.desktop') && !appId.startsWith('appimage:')) return null
     if (typeof e.processName !== 'string' || !e.processName.trim()) return null
     const mp = Number(e.minutesPerDay)
     const minutesPerDay = Math.max(1, Math.min(24 * 60, Math.floor(Number.isFinite(mp) && mp > 0 ? mp : 60)))
     const appName = typeof e.appName === 'string' && e.appName.length ? e.appName : e.processName
     const linuxUser = normalizeQuotaLinuxUser(e.linuxUser)
-    const out = { appId: e.appId, appName, processName: e.processName.trim(), minutesPerDay }
+    const out = { appId, appName, processName: e.processName.trim(), minutesPerDay }
     if (linuxUser) out.linuxUser = linuxUser
     return out
 }
@@ -162,7 +164,7 @@ export function redeployQuotaFromDisk(configDir) {
 export function replaceQuotaEntries(configDir, entries) {
     const list = Array.isArray(entries)
         ? entries.filter(e =>
-            e && typeof e.appId === 'string' && e.appId.endsWith('.desktop')
+            e && typeof e.appId === 'string' && (e.appId.endsWith('.desktop') || e.appId.trim().startsWith('appimage:'))
                 && typeof e.processName === 'string' && e.processName.length > 0
                 && Number.isFinite(Number(e.minutesPerDay)))
         : []
