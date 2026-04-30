@@ -86,16 +86,16 @@
                             <button type="button" class="btn-pc-primary" :disabled="apparmorSetupBusy" @click="onSetupApparmor">
                                 <i class="bi bi-arrow-repeat me-1" :class="{ 'spin': apparmorSetupBusy }" />{{ $t('settings.apparmorSetupBtn') }}
                             </button>
-                            <p v-if="apparmorSetupMsg" class="small mb-0 mt-2" :class="apparmorSetupError ? 'text-danger' : 'text-success'">{{ apparmorSetupMsg }}</p>
                         </div>
+                        <p v-if="apparmorSetupMsg" class="small mb-0 mt-2" :class="apparmorSetupError ? 'text-danger' : 'text-success'">{{ apparmorSetupMsg }}</p>
                         <p v-if="!dnsmasqOk" class="small text-warning mb-3" v-html="$t(`settings.dnsmasq_${dnsmasqReason}`)" />
                         <div v-if="!dnsmasqOk && dnsmasqReason === 'not_running'" class="border-top pt-3 mt-1 mb-3">
                             <div class="small text-muted mb-2" v-html="$t('settings.dnsmasqSetupHint')" />
                             <button type="button" class="btn-pc-primary" :disabled="dnsmasqSetupBusy" @click="onSetupDnsmasq">
                                 <i class="bi bi-arrow-repeat me-1" :class="{ 'spin': dnsmasqSetupBusy }" />{{ $t('settings.dnsmasqSetupBtn') }}
                             </button>
-                            <p v-if="dnsmasqSetupMsg" class="small mb-0 mt-2" :class="dnsmasqSetupError ? 'text-danger' : 'text-success'">{{ dnsmasqSetupMsg }}</p>
                         </div>
+                        <p v-if="dnsmasqSetupMsg" class="small mb-0 mt-2" :class="dnsmasqSetupError ? 'text-danger' : 'text-success'">{{ dnsmasqSetupMsg }}</p>
 
 
                     </div>

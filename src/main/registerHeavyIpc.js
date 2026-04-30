@@ -100,12 +100,21 @@ export function registerHeavyIpc(ipcMain, { appConfigDir, getMainWindow }) {
 
             const profileExists = fs.existsSync(profilePath)
 
-            // Check if the apparmor service is active via systemctl
+            // Check if apparmor.service ran successfully.
+            // Type=oneshot without RemainAfterExit exits with code 3 ("inactive") even when
+            // AppArmor IS loaded — so fall back to checking Result=success in that case.
             let serviceActive = false
             try {
                 const { stdout: svcOut } = await execFileAsync('systemctl', ['is-active', 'apparmor.service'], { timeout: 3000 })
                 serviceActive = String(svcOut).trim() === 'active'
-            } catch { serviceActive = false }
+            } catch {
+                try {
+                    const { stdout: showOut } = await execFileAsync(
+                        'systemctl', ['show', 'apparmor.service', '--property=Result'], { timeout: 3000 }
+                    )
+                    serviceActive = String(showOut).trim() === 'Result=success'
+                } catch { serviceActive = false }
+            }
 
             const ok = Boolean(enabled && parser && profileExists && serviceActive)
             const reason = ok
