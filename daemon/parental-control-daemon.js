@@ -2466,18 +2466,20 @@ async function tickAppQuotas(logMinute) {
                 }
                 for (const cand of runningCandidates) await pkillAllUsers(usersForQuota, cand);
                 appendActivityDaemon({ action: 'app_killed_quota_exhausted', appId, appName: name, processName: procForMsg, usedMinutes: usedBefore, limit, linuxUser: lu || undefined });
-            } else if (!exempt.has(appId) && usedBefore === limit - 1) {
-                if (logMinute) {
-                    appUsage[uk] = limit;
+            } else if (logMinute) {
+                if (!exempt.has(appId) && usedBefore === limit - 1) {
                     const k = `${uk}:final`;
                     if (!appQuotaWarnOnce.has(k)) {
+                        // First time hitting limit-1: warn but don't increment yet — gives ~60s grace before kill.
                         appQuotaWarnOnce.add(k);
                         const warnPayload = { type: 'app-final', appId, appName: name, processName: procForMsg, effectiveLimit: limit, usedMinutes: usedBefore, linuxUser: lu || undefined };
                         notifyOrSpawn(warnPayload, `${name}: Letzte Minute`, `Letzte Minute für ${name}. Arbeit speichern!`, 'normal');
+                    } else {
+                        appUsage[uk] = usedBefore + 1;
                     }
+                } else {
+                    appUsage[uk] = usedBefore + 1;
                 }
-            } else if (logMinute) {
-                appUsage[uk] = usedBefore + 1;
             }
         }
 

@@ -70,11 +70,8 @@ export function registerHeavyIpc(ipcMain, { appConfigDir, getMainWindow }) {
             const major = Number(m[1])
             const minor = Number(m[2])
             const patch = Number(m[3])
-            const requiredMajor = 22
-            const requiredMinor = 22
-            const ok = major > requiredMajor
-                || (major === requiredMajor && (minor > requiredMinor || (minor === requiredMinor && patch >= 0)))
-            return { ok, version, reason: ok ? 'ok' : 'too_old', required: '>=22.22.0' }
+            const ok = major >= 22
+            return { ok, version, reason: ok ? 'ok' : 'too_old', required: '>=22.0.0' }
         } catch {
             return { ok: false, version: null, reason: 'missing', error: '/usr/bin/node nicht gefunden — nodejs-Paket installieren.' }
         }
