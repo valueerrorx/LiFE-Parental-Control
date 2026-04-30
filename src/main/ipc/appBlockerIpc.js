@@ -2,7 +2,7 @@ import fs from 'fs'
 import path from 'path'
 import { spawnSync } from 'child_process'
 import { desktopIconToDataUrl } from './desktopIconResolve.js'
-import { daemonSyncAppArmorAsync, daemonDesktopOverride } from '../daemonPrivilegedOps.js'
+import { daemonSyncAppArmorAsync, daemonDesktopOverride, daemonGetAppCatalog } from '../daemonPrivilegedOps.js'
 import { redeployQuotaFromDisk } from './quotaIpc.js'
 import { appendActivity } from './activityLog.js'
 import { patchDefaultJson, readDefaultJson } from '../defaultProfileStore.js'
@@ -188,6 +188,12 @@ function readDaemonAppCatalog(configDir) {
     } catch {
         return []
     }
+}
+
+async function getAppCatalog(configDir) {
+    const r = await daemonGetAppCatalog()
+    if (r.ok && Array.isArray(r.apps) && r.apps.length) return r.apps
+    return readDaemonAppCatalog(configDir)
 }
 
 function normalizeBlockedIds(raw) {
@@ -423,11 +429,10 @@ function buildApparmorProfile(entries) {
 
 // Sync the AppArmor profile file with the current blocked list and reload.
 // Delegates write + reload to daemon (root); frontend sends profile content.
-export function syncAppArmor(configDir) {
+export async function syncAppArmor(configDir) {
     const control = readAppControlConfig(configDir)
     const blocked = control.enabled ? readBlocked(configDir) : []
-    const catalog = readDaemonAppCatalog(configDir)
-    const apps = Array.isArray(catalog) && catalog.length ? catalog : readAllDesktopApps(configDir)
+    const apps = await getAppCatalog(configDir)
     const appMap = new Map(apps.map(a => [a.appId || a.id, a]))
 
     const entries = []
@@ -477,10 +482,8 @@ async function applyDesktopOverride(configDir, appId, block) {
 }
 
 export async function replaceBlockedDesktopIds(configDir, nextIds) {
-    const catalog = readDaemonAppCatalog(configDir)
-    const knownApps = Array.isArray(catalog) && catalog.length
-        ? catalog.map(a => ({ id: a.appId || a.id }))
-        : readAllDesktopApps(configDir)
+    const catalog = await getAppCatalog(configDir)
+    const knownApps = catalog.map(a => ({ id: a.appId || a.id }))
     const nextResolved = resolveBlockedIdsAgainstApps(Array.isArray(nextIds) ? nextIds : [], knownApps)
     const prevResolved = resolveBlockedIdsAgainstApps(readBlocked(configDir), knownApps)
     const next = new Set(nextResolved)
@@ -508,7 +511,7 @@ export function registerAppBlockerIpc(ipcMain, configDir) {
                 return d
             })
             if (cfg.enabled) {
-                syncAppArmor(configDir)
+                await syncAppArmor(configDir)
             } else {
                 const blocked = readBlocked(configDir)
                 for (const appId of blocked) await applyDesktopOverride(configDir, appId, false)
@@ -517,7 +520,7 @@ export function registerAppBlockerIpc(ipcMain, configDir) {
                     d.quota = []
                     return d
                 })
-                syncAppArmor(configDir)
+                await syncAppArmor(configDir)
             }
             appendActivity(configDir, { action: 'app_control_toggle', enabled: cfg.enabled })
             return { ok: true, ...cfg }
@@ -526,9 +529,9 @@ export function registerAppBlockerIpc(ipcMain, configDir) {
         }
     })
 
-    ipcMain.handle('apps:list', () => {
-        const catalog = readDaemonAppCatalog(configDir)
-        const base = Array.isArray(catalog) && catalog.length ? catalog.map((a) => ({
+    ipcMain.handle('apps:list', async () => {
+        const catalog = await getAppCatalog(configDir)
+        const base = catalog.map((a) => ({
             id: a.appId || a.id || '',
             name: a.appName || a.name || '',
             exec: a.exec || '',
@@ -536,7 +539,7 @@ export function registerAppBlockerIpc(ipcMain, configDir) {
             icon: a.icon || '',
             filePath: a.filePath || '',
             processName: a.processName || ''
-        })).filter(a => a.id) : readAllDesktopApps(configDir)
+        })).filter(a => a.id)
         const resolvedBlocked = resolveBlockedIdsAgainstApps(readBlocked(configDir), base)
         const control = readAppControlConfig(configDir)
         const blocked = new Set(resolvedBlocked)
@@ -578,7 +581,7 @@ export function registerAppBlockerIpc(ipcMain, configDir) {
             saveBlocked(configDir, list)
             if (control.enabled) {
                 await applyDesktopOverride(configDir, appId, block)
-                syncAppArmor(configDir)
+                await syncAppArmor(configDir)
             }
             appendActivity(configDir, { action: block ? 'app_blocked' : 'app_unblocked', appId })
             return { ok: true }
@@ -588,8 +591,8 @@ export function registerAppBlockerIpc(ipcMain, configDir) {
         }
     })
 
-    ipcMain.handle('apps:getBlocked', () => {
-        const base = readAllDesktopApps(configDir)
-        return resolveBlockedIdsAgainstApps(readBlocked(configDir), base)
+    ipcMain.handle('apps:getBlocked', async () => {
+        const base = await getAppCatalog(configDir)
+        return resolveBlockedIdsAgainstApps(readBlocked(configDir), base.map(a => ({ id: a.appId || a.id })))
     })
 }

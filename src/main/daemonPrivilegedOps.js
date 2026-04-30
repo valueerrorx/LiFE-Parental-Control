@@ -120,6 +120,13 @@ export async function daemonResetTodayQuotaUsage() {
     catch (e) { return { ok: false, error: e.message } }
 }
 
+/** Get app catalog from daemon (builds on-demand if empty). Awaitable. */
+export async function daemonGetAppCatalog() {
+    if (!isDaemonConnected()) return { ok: false, apps: [] }
+    try { return await daemonRequest({ type: 'get-app-catalog' }, 'get-app-catalog-result', 30_000) }
+    catch (e) { return { ok: false, apps: [] } }
+}
+
 /** Delete old usage/quota/app-usage archive files. Awaitable. */
 export async function daemonPruneArchives() {
     if (!isDaemonConnected()) return { ok: false, error: 'Daemon nicht verbunden.' }

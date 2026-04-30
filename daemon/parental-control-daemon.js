@@ -3270,9 +3270,12 @@ function handleClientCommand(client, cmd) {
     }
 
     if (cmd.type === 'get-app-catalog') {
-        // Return the current app-monitor-catalog.json content built from .desktop files
         try {
-            const entries = readMonitorCatalogEntries();
+            let entries = readMonitorCatalogEntries();
+            if (!entries.length) {
+                buildAndWriteAppCatalog();
+                entries = readMonitorCatalogEntries();
+            }
             client.write(JSON.stringify({ type: 'get-app-catalog-result', ok: true, apps: entries }) + '\n');
         } catch (e) {
             log.error('get-app-catalog: ' + e.message);
