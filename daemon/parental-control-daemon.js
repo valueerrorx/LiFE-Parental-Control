@@ -2872,17 +2872,19 @@ function handleClientCommand(client, cmd) {
             const dhcpFallbackDns = typeof cmd.dhcpFallbackDns === 'string' ? cmd.dhcpFallbackDns : null;
             let upstreamDns;
             if (dnsMode === 'dhcp') {
-                // Read current DNS from NetworkManager (DHCP-assigned)
-                try {
-                    const { stdout } = execFileSync('nmcli', ['-t', '-f', 'IP4.DNS', 'dev', 'show'], { timeout: 5000, encoding: 'utf8' });
-                    const match = stdout.match(/IP4\.DNS\[1\]:([^\n]+)/);
-                    upstreamDns = match ? match[1].trim() : null;
-                } catch { upstreamDns = null; }
+                // Use cached DHCP DNS from config first (written by NM dispatcher on every network-up)
+                upstreamDns = dhcpFallbackDns || null;
                 if (!upstreamDns) {
-                    // fallback: read from /run/systemd/resolve/resolv.conf or any pre-existing resolv.conf copy
                     try {
-                        const resolvContent = fs.readFileSync('/run/systemd/resolve/resolv.conf', 'utf8');
-                        const m = resolvContent.match(/^nameserver\s+([^\s]+)/m);
+                        const out = execFileSync('nmcli', ['-t', '-f', 'IP4.DNS', 'dev', 'show'], { timeout: 5000, encoding: 'utf8' });
+                        const match = out.match(/IP4\.DNS\[1\]:([^\n]+)/);
+                        upstreamDns = match ? match[1].trim() : null;
+                    } catch { upstreamDns = null; }
+                }
+                if (!upstreamDns) {
+                    try {
+                        const out = fs.readFileSync('/run/NetworkManager/resolv.conf', 'utf8');
+                        const m = out.match(/^nameserver\s+([^\s]+)/m);
                         upstreamDns = m ? m[1] : null;
                     } catch { upstreamDns = null; }
                 }

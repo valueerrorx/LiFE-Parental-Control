@@ -306,6 +306,16 @@ export function registerHeavyIpc(ipcMain, { appConfigDir, getMainWindow }) {
                     console.warn(`[LiFE serviceControl/install] WARNING missing app-monitor-background-excludes.json at ${excludesSrc}`)
                 }
 
+                // Copy bundled HaGeZi feeds (best-effort)
+                const hageziSrc = path.join(resBase, 'hagezi')
+                if (fs.existsSync(hageziSrc)) {
+                    const hageziDst = path.join(tmpResBase, 'hagezi')
+                    fs.mkdirSync(hageziDst, { recursive: true })
+                    for (const f of fs.readdirSync(hageziSrc).filter(f => f.endsWith('.txt'))) {
+                        fs.copyFileSync(path.join(hageziSrc, f), path.join(hageziDst, f))
+                    }
+                }
+
                 console.log(`[LiFE serviceControl/install] resources staged to ${tmpResBase}, spawning pkexec...`)
                 console.log(`[LiFE serviceControl/pkexec-env] DBUS=${process.env.DBUS_SESSION_BUS_ADDRESS} DISPLAY=${process.env.DISPLAY} WAYLAND=${process.env.WAYLAND_DISPLAY} XDG_RUNTIME=${process.env.XDG_RUNTIME_DIR}`)
                 const { stdout, stderr } = await execFileAsync('pkexec', [tmpScript, tmpResBase, app.getVersion()], { timeout: 120_000 })

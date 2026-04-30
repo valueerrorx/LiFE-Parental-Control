@@ -51,11 +51,15 @@ fi
 mkdir -p /etc/systemd/system
 cp "$SERVICE_SRC" "$SYSTEMD_UNIT"
 
-# --- HaGeZi bundled feeds (best-effort) ---
+# --- HaGeZi bundled feeds (seed only — don't overwrite newer cached versions) ---
 HAGEZI_SRC="$RES_BASE/hagezi"
 if [ -d "$HAGEZI_SRC" ]; then
     mkdir -p "$HAGEZI_DST"
-    cp -r "$HAGEZI_SRC/." "$HAGEZI_DST/"
+    for F in "$HAGEZI_SRC"/*.txt; do
+        [ -f "$F" ] || continue
+        DEST="$HAGEZI_DST/$(basename "$F")"
+        [ -f "$DEST" ] || cp "$F" "$DEST"
+    done
 fi
 
 # --- App monitor background excludes (always overwrite) ---
