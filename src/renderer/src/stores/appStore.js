@@ -14,6 +14,7 @@ export const useAppStore = defineStore('app', () => {
     const schedule = ref(null)
     const todayUsageMinutes = ref(0)
     const todayExtraAllowanceMinutes = ref(0)
+    const todayUsageUsers = ref({})
     const kioskStatus = ref({ active: false, restrictionCount: 0, plasmaLayoutLocked: false, ok: true })
     const appQuotas = ref([])
     const appQuotaUsage = ref({})
@@ -121,6 +122,7 @@ export const useAppStore = defineStore('app', () => {
         schedule.value = sched
         todayUsageMinutes.value = usage?.minutes ?? 0
         todayExtraAllowanceMinutes.value = usage?.extraAllowanceMinutes ?? 0
+        todayUsageUsers.value = usage?.users && typeof usage.users === 'object' ? usage.users : {}
     }
 
     async function loadKioskStatus() {
@@ -180,7 +182,7 @@ export const useAppStore = defineStore('app', () => {
     }
 
     return {
-        webFilterEntries, webFilterFeedState, webFilterHostRuleCount, webFilterAllowlist, blockedApps, appControlEnabled, quotaExemptAllowedIds, schedule, todayUsageMinutes, todayExtraAllowanceMinutes, kioskStatus,
+        webFilterEntries, webFilterFeedState, webFilterHostRuleCount, webFilterAllowlist, blockedApps, appControlEnabled, quotaExemptAllowedIds, schedule, todayUsageMinutes, todayExtraAllowanceMinutes, todayUsageUsers, kioskStatus,
         appQuotas, appQuotaUsage, appQuotaExtra, appMonitorUsage, appMonitorLabels, statusMessage, whitelistEnabled, runningAsRoot, xdgCurrentDesktop,
         invokingLinuxUser, quotaViewLinuxUser,
         webFilterEnabled, webFilterDnsMode, webFilterDohIptablesEnabled, webFilterDohIptablesStatus, installedApps,

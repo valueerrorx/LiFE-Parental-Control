@@ -31,7 +31,6 @@
                 <div class="pc-card-body">
                     <div class="d-flex flex-wrap align-items-center gap-3">
                         <select v-model="schedule.screenTimeLinuxUser" class="pc-input" style="max-width:280px;">
-                            <option value="">{{ $t('schedules.allSessions') }}</option>
                             <option v-for="u in screenTimeUserOptions" :key="u" :value="u">{{ u }}</option>
                         </select>
                     </div>
@@ -339,10 +338,13 @@ onMounted(async () => {
         if (weekday) Object.assign(schedule.weekday, weekday)
         if (weekend) Object.assign(schedule.weekend, weekend)
     }
+    if (!normalizeQuotaLinuxUser(schedule.screenTimeLinuxUser) && desktopLoginUsers.value.length > 0) {
+        schedule.screenTimeLinuxUser = desktopLoginUsers.value[0]
+    }
     loading.value = false
     takeSnapshot()
     await refreshUsageData()
-    usageRefreshTimer = setInterval(refreshUsageData, 30_000)
+    usageRefreshTimer = setInterval(refreshUsageData, 10_000)
 })
 
 onUnmounted(() => {

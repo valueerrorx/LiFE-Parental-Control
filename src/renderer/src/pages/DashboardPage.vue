@@ -447,7 +447,14 @@ const kioskBadgeLabel = computed(() => {
 })
 
 const screenMinutesForDonut = computed(() => {
-    if (selectedDonutDate.value === null) return Math.max(0, Number(store.todayUsageMinutes) || 0)
+    const u = appMonitorViewUser.value
+    if (selectedDonutDate.value === null) {
+        if (u) {
+            const entry = store.todayUsageUsers[u]
+            return Math.max(0, Number(entry?.minutes) || 0)
+        }
+        return Math.max(0, Number(store.todayUsageMinutes) || 0)
+    }
     const row = weekUsage.value.find((x) => x.date === selectedDonutDate.value)
     return row ? Math.max(0, Number(row.minutes) || 0) : 0
 })

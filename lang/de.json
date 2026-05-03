@@ -531,7 +531,7 @@
     "adminUserPlaceholder": "z. B. parentadmin",
     "adminPwLabel": "Passwort (für Admin-Account, Root + GRUB-Bootloader)",
     "adminPwLabelNoGrub": "Passwort (für Admin-Account + Root)",
-    "adminPwLabelRootOnly": "Passwort für Root-Account + GRUB-Bootloader",
+    "adminPwLabelRootOnly": "Passwort für Root-Account (+ GRUB-Bootloader)",
     "adminPwLabelRootOnlyNoGrub": "Passwort für Root-Account",
     "adminPwPlaceholder": "Sicheres Passwort eingeben",
     "adminPwConfirmLabel": "Passwort bestätigen",

@@ -70,6 +70,15 @@ function emptyUsage(today) {
     }
 }
 
+/** Sum of all per-user minutes in a usage object (ignores pool key ''). Falls back to pool key if no named users exist. */
+function totalMinutesFromUsage(usage) {
+    const users = usage && typeof usage.users === 'object' && usage.users ? usage.users : {}
+    const named = Object.entries(users).filter(([k]) => k !== '')
+    if (named.length > 0) return named.reduce((sum, [, v]) => sum + Math.max(0, Number(v?.minutes) || 0), 0)
+    // legacy pool key fallback
+    return Math.max(0, Number(users['']?.minutes) || 0)
+}
+
 /** Raw today usage (users map); does not include legacy top-level minutes. */
 export function readUsage(configDir) {
     const today = localIsoDate()
@@ -106,7 +115,7 @@ export function writeUsage(configDir, usage) {
     fs.writeFileSync(file, JSON.stringify(usage, null, 2), 'utf8')
 }
 
-function readUsageHistory(configDir, maxDays, screenTimeLinuxUser) {
+function readUsageHistory(configDir, maxDays, linuxUser) {
     const re = /^usage-(\d{4}-\d{2}-\d{2})\.json$/
     const entries = []
     for (const name of fs.readdirSync(configDir)) {
@@ -115,7 +124,9 @@ function readUsageHistory(configDir, maxDays, screenTimeLinuxUser) {
         const dateStr = m[1]
         try {
             const data = JSON.parse(fs.readFileSync(path.join(configDir, name), 'utf8'))
-            const minutes = effectiveScreenMinutesFromFileData(data, dateStr, screenTimeLinuxUser)
+            const minutes = linuxUser !== undefined
+                ? effectiveScreenMinutesFromFileData(data, dateStr, linuxUser)
+                : (data.date === dateStr ? totalMinutesFromUsage(data) : 0)
             entries.push({ date: dateStr, minutes })
         } catch {
             entries.push({ date: dateStr, minutes: 0 })
@@ -156,19 +167,17 @@ export function registerSchedulesIpc(ipcMain, configDir) {
     ipcMain.handle('schedules:get', () => readSchedule(configDir))
 
     ipcMain.handle('schedules:getUsage', (_, linuxUser) => {
-        const schedule = readSchedule(configDir)
         const usage = readUsage(configDir)
-        const user = linuxUser !== undefined ? linuxUser : schedule.screenTimeLinuxUser
-        const minutes = effectiveScreenMinutes(usage, user)
+        const lu = typeof linuxUser === 'string' && linuxUser.trim() ? linuxUser.trim() : null
+        const minutes = lu ? effectiveScreenMinutes(usage, lu) : totalMinutesFromUsage(usage)
         return { ...usage, minutes }
     })
 
     ipcMain.handle('schedules:getUsageHistory', (_, rawMax, linuxUser) => {
         try {
             const maxDays = Math.min(90, Math.max(1, Number(rawMax) || 14))
-            const schedule = readSchedule(configDir)
-            const user = linuxUser !== undefined ? linuxUser : schedule.screenTimeLinuxUser
-            return { days: readUsageHistory(configDir, maxDays, user) }
+            const lu = typeof linuxUser === 'string' && linuxUser.trim() ? linuxUser.trim() : undefined
+            return { days: readUsageHistory(configDir, maxDays, lu) }
         } catch (e) {
             return { days: [], error: e.message }
         }
@@ -215,8 +224,7 @@ export function registerSchedulesIpc(ipcMain, configDir) {
             if (!result.ok) return { error: result.error }
             // Re-read usage after daemon wrote the updated file (file is 0644, readable by frontend)
             const updatedUsage = readUsage(configDir)
-            const schedule = readSchedule(configDir)
-            const minutesLogged = effectiveScreenMinutes(updatedUsage, schedule.screenTimeLinuxUser)
+            const minutesLogged = totalMinutesFromUsage(updatedUsage)
             const nextExtra = Math.max(0, Number(updatedUsage.extraAllowanceMinutes) || 0)
             appendActivity(configDir, {
                 action: 'screen_time_bonus',

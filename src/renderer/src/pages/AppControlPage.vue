@@ -152,7 +152,6 @@
                         <div>
                             <label class="form-label small text-muted mb-1 d-block">{{ $t('appControl.linuxAccount') }}</label>
                             <select v-model="addLinuxUser" class="pc-input" style="min-width:180px;">
-                                <option value="">{{ $t('common.allAccounts') }}</option>
                                 <option v-for="u in addQuotaLinuxUserOptions" :key="u" :value="u">{{ u }}</option>
                             </select>
                         </div>
@@ -316,6 +315,8 @@ onMounted(async () => {
     savedAppControlEnabled.value = appControlEnabled.value
     apps.value = appsResult
     if (!addAppId.value) addAppId.value = appsForQuota.value[0]?.id ?? ''
+    if (!normalizeQuotaLinuxUser(addLinuxUser.value) && desktopLoginUsers.value.length > 0)
+        addLinuxUser.value = desktopLoginUsers.value[0]
     loading.value = false
 })
 

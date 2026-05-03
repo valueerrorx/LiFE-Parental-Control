@@ -2162,14 +2162,13 @@ async function tickScreenTime(logMinute) {
 
     if (logMinute) {
         if (!skipMinuteForExemptOnly) {
-            if (limitLu) {
-                if (hasSessionForLimit) {
-                    ensureUserMinutes(usage, limitLu);
-                    usage.users[limitLu].minutes = Math.max(0, Number(usage.users[limitLu].minutes) || 0) + 1;
-                }
-            } else if (activeUsers.length > 0) {
-                ensureUserMinutes(usage, '');
-                usage.users[''].minutes = Math.max(0, Number(usage.users[''].minutes) || 0) + 1;
+            // Always track per the physically active seat0 user, independent of screentime enforcement config.
+            const activeSid = getActiveSeatSessionId();
+            const seatHit = activeSid ? sessions.find((s) => String(s.sid) === String(activeSid)) : null;
+            const trackUser = seatHit ? normalizeLinuxUser(seatHit.user) : (activeUsers[0] || null);
+            if (trackUser && activeUsers.includes(trackUser)) {
+                ensureUserMinutes(usage, trackUser);
+                usage.users[trackUser].minutes = Math.max(0, Number(usage.users[trackUser].minutes) || 0) + 1;
             }
         }
     }
@@ -2515,7 +2514,16 @@ async function tickAppMonitor(logMinute) {
     const entries = readMonitorCatalogEntries();
     if (!entries.length) return;
     const sessions = await getActiveGraphicalSessions();
-    const activeUsers = uniqueUsers(sessions);
+    const allUsers = uniqueUsers(sessions);
+    if (allUsers.length === 0) return;
+
+    // Only track the user whose session is currently on seat0 (the physically active screen).
+    // Without this guard a secondary TTY or display-manager session would multiply the
+    // minute count for any process visible across users.
+    const activeSid = getActiveSeatSessionId();
+    const seatHit = activeSid ? sessions.find((s) => String(s.sid) === String(activeSid)) : null;
+    const seatUser = seatHit ? normalizeLinuxUser(seatHit.user) : null;
+    const activeUsers = seatUser ? [seatUser] : allUsers;
     if (activeUsers.length === 0) return;
 
     let track = readAppMonitorUsage();

@@ -13,7 +13,11 @@ export function registerSettingsDangerIpc(ipcMain, configDir) {
             persistSchedule(configDir, { ...DEFAULT_SCHEDULE })
             replaceQuotaEntries(configDir, [])
             replaceBlockedDesktopIds(configDir, [])
-            await persistWebFilterEntries(configDir, [], {}, [], { enabled: false })
+            await persistWebFilterEntries(configDir, [], {}, [], {
+                enabled: false,
+                dohIptablesEnabled: false,
+                dnsMode: 'dhcp'
+            })
             replaceProcessWhitelistFromBackup(configDir, { enabled: false, allowedIds: [] })
             const kiosk = readKioskLockdownSummary()
             if (kiosk.active) persistKioskConfigText(configDir, '')

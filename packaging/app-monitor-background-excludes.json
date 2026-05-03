@@ -51,6 +51,8 @@
     { "processName": "avahi-daemon" },
     { "processName": "bluetoothd" },
     { "processName": "power-profiles-daemon" },
+    { "appId": "reboot-to-uefi.desktop", "processName": "systemctl" },
+    { "appId": "suspend-then-hibernate.desktop", "processName": "systemctl" },
     { "processName": "udisksd" }
   ]
 }

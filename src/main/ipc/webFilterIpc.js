@@ -341,9 +341,17 @@ export function runStartupHageziSync(configDir) {
         })
 }
 
-export async function persistWebFilterEntries(configDir, entries, feedState = undefined, listAllowlist = undefined, { background = false, enabled: enabledOverride } = {}) {
+export async function persistWebFilterEntries(configDir, entries, feedState = undefined, listAllowlist = undefined, {
+    background = false,
+    enabled: enabledOverride,
+    dohIptablesEnabled: dohOverride,
+    dnsMode: dnsModeOverride
+} = {}) {
     const wf = readWebfilterFromConfig(configDir)
     if (enabledOverride !== undefined) wf.enabled = enabledOverride !== false
+    if (enabledOverride === false) wf.dhcpFallbackDns = null
+    if (dohOverride !== undefined) wf.dohIptablesEnabled = dohOverride === true
+    if (dnsModeOverride !== undefined && VALID_DNS_MODES.includes(dnsModeOverride)) wf.dnsMode = dnsModeOverride
     wf.entries = Array.isArray(entries)
         ? entries.filter(e => e && typeof e.domain === 'string').map(e => ({
             domain: String(e.domain).toLowerCase(),
@@ -356,6 +364,7 @@ export async function persistWebFilterEntries(configDir, entries, feedState = un
     if (listAllowlist !== undefined) {
         wf.listAllowlist = normalizeAllowlist(listAllowlist)
     }
+    if (wf.enabled === false) wf.dohIptablesEnabled = false
     await persistWebfilterAndHosts(configDir, wf, { background })
 }
 
