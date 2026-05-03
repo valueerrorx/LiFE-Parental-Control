@@ -168,6 +168,25 @@
                 </div>
 
                 <div class="pc-card mt-3">
+                    <div class="pc-card-header"><h6><i class="bi bi-mortarboard me-2" />{{ $t('settings.schoolTimesTitle') }}</h6></div>
+                    <div class="pc-card-body">
+                        <p class="text-muted small mb-3">{{ $t('settings.schoolTimesHint') }}</p>
+                        <div v-for="key in schoolTimeKeys" :key="key" class="school-times-row">
+                            <span class="small text-muted school-times-day">{{ $t(`settings.schoolDay_${key}`) }}</span>
+                            <span class="school-times-pair">
+                                <input v-model="schoolTimes[key].from" type="text" class="pc-input school-time-input" maxlength="5" inputmode="numeric" autocomplete="off"
+                                       :placeholder="$t('settings.schoolTimesPlaceholder')" @blur="onSchoolTimeBlur(key, 'from')" />
+                                <span class="text-muted small school-times-sep">–</span>
+                                <input v-model="schoolTimes[key].to" type="text" class="pc-input school-time-input" maxlength="5" inputmode="numeric" autocomplete="off"
+                                       :placeholder="$t('settings.schoolTimesPlaceholder')" @blur="onSchoolTimeBlur(key, 'to')" />
+                            </span>
+                        </div>
+                        <p v-if="schoolTimesMsg" class="small mb-2 mt-2" :class="schoolTimesError ? 'text-danger' : 'text-success'">{{ schoolTimesMsg }}</p>
+                        <button type="button" class="btn-pc-outline" @click="onSaveSchoolTimes">{{ $t('common.save') }}</button>
+                    </div>
+                </div>
+
+                <div class="pc-card mt-3">
                     <div class="pc-card-header"><h6><i class="bi bi-archive me-2" />{{ $t('settings.backupRestore') }}</h6></div>
                     <div class="pc-card-body">
                         <p class="text-muted small mb-3" v-html="$t('settings.backupDesc')" />
@@ -330,6 +349,7 @@
 import { reactive, ref, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { confirm } from '../composables/useConfirm.js'
+import { SCHOOL_TIME_WEEKDAY_KEYS, defaultSchoolTimes, normalizeTimeHHMM, normalizeSchoolTimes } from '@shared/schoolTimes.js'
 import { normalizedLockIdleMinutesOrUndefined, LOCK_IDLE_OPTIONS } from '@shared/lockIdleMinutes.js'
 import { useAppStore } from '../stores/appStore.js'
 
@@ -339,6 +359,10 @@ const appInfo = ref(null)
 const sessionPrefs = reactive({ lockIdleMinutes: 15 })
 const sessionPrefsMsg = ref('')
 const sessionPrefsError = ref(false)
+const schoolTimeKeys = SCHOOL_TIME_WEEKDAY_KEYS
+const schoolTimes = reactive(defaultSchoolTimes())
+const schoolTimesMsg = ref('')
+const schoolTimesError = ref(false)
 
 const changePw = reactive({ current: '', new1: '', new2: '' })
 const pwMsg = ref('')
@@ -544,6 +568,11 @@ onMounted(async () => {
     appInfo.value = await window.api.system.getAppInfo()
     const cfg = await window.api.settings.getConfig()
     sessionPrefs.lockIdleMinutes = normalizedLockIdleMinutesOrUndefined(cfg.lockIdleMinutes) ?? 15
+    const st = await window.api.settings.getSchoolTimes()
+    for (const k of SCHOOL_TIME_WEEKDAY_KEYS) {
+        schoolTimes[k].from = st[k].from
+        schoolTimes[k].to = st[k].to
+    }
     await loadDaemonInfo()
     await loadGrubInfo()
 })
@@ -562,6 +591,29 @@ async function onSaveSessionPrefs() {
         sessionPrefsError.value = true
     }
     setTimeout(() => { sessionPrefsMsg.value = '' }, 5000)
+}
+
+function onSchoolTimeBlur(dayKey, field) {
+    const fb = defaultSchoolTimes()[dayKey][field]
+    schoolTimes[dayKey][field] = normalizeTimeHHMM(schoolTimes[dayKey][field], fb)
+}
+
+async function onSaveSchoolTimes() {
+    schoolTimesMsg.value = ''
+    try {
+        const normalized = normalizeSchoolTimes(JSON.parse(JSON.stringify(schoolTimes)))
+        await window.api.settings.saveSchoolTimes(normalized)
+        for (const k of SCHOOL_TIME_WEEKDAY_KEYS) {
+            schoolTimes[k].from = normalized[k].from
+            schoolTimes[k].to = normalized[k].to
+        }
+        schoolTimesMsg.value = t('settings.schoolTimesSaved')
+        schoolTimesError.value = false
+    } catch (e) {
+        schoolTimesMsg.value = e?.message || t('settings.saveFailed')
+        schoolTimesError.value = true
+    }
+    setTimeout(() => { schoolTimesMsg.value = '' }, 5000)
 }
 
 async function onChangePassword() {
@@ -740,5 +792,35 @@ async function onBackupImport() {
 .session-lock-field-input {
     display: block;
     margin-top: 4px;
+}
+.school-times-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem 0.75rem;
+    margin-bottom: 0.35rem;
+}
+.school-times-day {
+    flex: 0 0 auto;
+    min-width: 2rem;
+}
+.school-times-pair {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.2rem;
+    flex: 0 0 auto;
+}
+.school-times-sep {
+    line-height: 1;
+    user-select: none;
+}
+.school-time-input {
+    box-sizing: border-box;
+    width: 5.5ch;
+    min-width: 5.5ch;
+    max-width: 5.5ch;
+    padding: 0.2rem 0.25rem;
+    text-align: center;
+    font-variant-numeric: tabular-nums;
 }
 </style>

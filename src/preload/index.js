@@ -93,6 +93,8 @@ contextBridge.exposeInMainWorld('api', {
         changePassword: (oldPass, newPass) => ipcRenderer.invoke('settings:changePassword', oldPass, newPass),
         getConfig: () => ipcRenderer.invoke('settings:getConfig'),
         saveConfig: (cfg) => ipcRenderer.invoke('settings:saveConfig', cfg),
+        getSchoolTimes: () => ipcRenderer.invoke('settings:getSchoolTimes'),
+        saveSchoolTimes: (data) => ipcRenderer.invoke('settings:saveSchoolTimes', data),
         pruneUsageArchives: () => ipcRenderer.invoke('settings:pruneUsageArchives'),
         stopAllProtections: () => ipcRenderer.invoke('settings:stopAllProtections'),
         deleteAllUsageHistory: () => ipcRenderer.invoke('settings:deleteAllUsageHistory'),

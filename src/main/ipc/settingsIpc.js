@@ -1,5 +1,6 @@
 import { normalizedLockIdleMinutesOrUndefined } from '@shared/lockIdleMinutes.js'
 import { normalizeQuotaLinuxUser } from '@shared/quotaUsageKey.js'
+import { normalizeSchoolTimes } from '@shared/schoolTimes.js'
 import { appendActivity } from './activityLog.js'
 import { readDefaultJson, patchDefaultJson, invalidateDefaultJsonCache } from '../defaultProfileStore.js'
 import { daemonPruneArchives, daemonAuthIsSet, daemonAuthCheck, daemonAuthSet, daemonAuthChange } from '../daemonPrivilegedOps.js'
@@ -111,6 +112,20 @@ export function registerSettingsIpc(ipcMain, configDir) {
         appendActivity(configDir, { action: 'settings_config_saved', ...logFields })
     })
 
+    ipcMain.handle('settings:getSchoolTimes', () => {
+        const st = readDefaultJson(configDir)?.schoolTimes
+        return normalizeSchoolTimes(st)
+    })
+
+    ipcMain.handle('settings:saveSchoolTimes', (_, data) => {
+        if (!data || typeof data !== 'object' || Array.isArray(data)) return
+        const normalized = normalizeSchoolTimes(data)
+        patchDefaultJson(configDir, (d) => {
+            d.schoolTimes = normalized
+            return d
+        })
+        appendActivity(configDir, { action: 'school_times_saved' })
+    })
 
     ipcMain.handle('settings:queueDaemonWarningTest', () => {
         try {

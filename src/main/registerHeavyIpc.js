@@ -15,6 +15,7 @@ import { registerSettingsDangerIpc } from './ipc/settingsDangerIpc.js'
 import { registerLockdownIpc } from './ipc/lockdownIpc.js'
 import { daemonConnect, daemonOn, daemonSend, daemonRequest, isDaemonConnected } from './daemonClient.js'
 import { daemonServiceControl, daemonRegisterClient } from './daemonPrivilegedOps.js'
+import { ensureSchoolTimesPersistedOnDisk } from './defaultProfileStore.js'
 
 const execFileAsync = promisify(execFile)
 
@@ -403,6 +404,9 @@ export function runDeferredStartupTasks(appConfigDir) {
     // Register exec path with daemon on every (re)connect so warning windows can be spawned.
     // AppImage: use process.env.APPIMAGE (the actual .AppImage file) so the daemon can re-spawn
     // it correctly as the desktop user with APPIMAGE_EXTRACT_AND_RUN=1.
-    daemonOn('connect', () => daemonRegisterClient(process.env.APPIMAGE || app.getPath('exe')))
+    daemonOn('connect', () => {
+        daemonRegisterClient(process.env.APPIMAGE || app.getPath('exe'))
+        ensureSchoolTimesPersistedOnDisk(appConfigDir)
+    })
     daemonConnect()
 }

@@ -1,5 +1,6 @@
 import fs from 'fs'
 import path from 'path'
+import { defaultSchoolTimes, normalizeSchoolTimes } from '@shared/schoolTimes.js'
 import { daemonWriteConfigAsync } from './daemonPrivilegedOps.js'
 
 const DEFAULT_JSON_FILE = 'default.json'
@@ -31,7 +32,8 @@ const EMPTY_DEFAULT = {
         allowedIds: []
     },
     quota: [],
-    requestDaemonWarningTest: false
+    requestDaemonWarningTest: false,
+    schoolTimes: defaultSchoolTimes()
 }
 
 function defaultJsonPath(configDir) {
@@ -102,6 +104,9 @@ function buildFromRaw(raw) {
     }
     if (Array.isArray(raw.quota)) next.quota = raw.quota
     if (raw.finishedLockdownWizard === true) next.finishedLockdownWizard = true
+    if (raw.schoolTimes != null && typeof raw.schoolTimes === 'object' && !Array.isArray(raw.schoolTimes)) {
+        next.schoolTimes = normalizeSchoolTimes(raw.schoolTimes)
+    }
     return next
 }
 
@@ -129,6 +134,19 @@ export function patchDefaultJson(configDir, patcher) {
     _cache = JSON.parse(JSON.stringify(next))
     atomicWriteJson(configDir, next)
     return next
+}
+
+/** If default.json on disk lacks a valid schoolTimes object, persist merged defaults via daemon write. */
+export function ensureSchoolTimesPersistedOnDisk(configDir) {
+    const raw = readJsonSafe(defaultJsonPath(configDir))
+    if (!raw || typeof raw !== 'object') return
+    const st = raw.schoolTimes
+    const ok = st != null && typeof st === 'object' && !Array.isArray(st) && Object.keys(st).length > 0
+    if (ok) return
+    patchDefaultJson(configDir, (d) => {
+        d.schoolTimes = normalizeSchoolTimes(st)
+        return d
+    })
 }
 
 

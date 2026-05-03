@@ -5,6 +5,7 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const { execFile, execFileSync, spawnSync } = require('child_process');
+const { defaultSchoolTimes } = require('./schoolTimesDefaults.js');
 
 const DEFAULT_JSON_FILE = 'default.json';
 
@@ -31,7 +32,8 @@ const EMPTY_DEFAULT = {
         enabled: false,
         allowedIds: []
     },
-    quota: []
+    quota: [],
+    schoolTimes: defaultSchoolTimes()
 };
 
 const HOSTS_FILE = '/etc/hosts';

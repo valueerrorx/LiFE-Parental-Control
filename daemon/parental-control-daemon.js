@@ -10,6 +10,7 @@ const { execFile, execFileSync, spawn, spawnSync } = require('child_process');
 const { promisify } = require('util');
 const crypto = require('crypto');
 const { createDefaultSync, dohIptablesStatus } = require('./defaultSync.js');
+const { defaultSchoolTimes } = require('./schoolTimesDefaults.js');
 
 const execFileAsync = promisify(execFile);
 
@@ -669,24 +670,47 @@ function execLineToFullPath(execLine) {
     return null;
 }
 
+function listHomeLocalShareApplicationsDirs() {
+    const out = [];
+    const homeRoot = '/home';
+    try {
+        if (!fs.existsSync(homeRoot)) return out;
+        for (const name of fs.readdirSync(homeRoot)) {
+            if (name === '.' || name === '..') continue;
+            const userHome = path.join(homeRoot, name);
+            let st;
+            try {
+                st = fs.statSync(userHome);
+            } catch {
+                continue;
+            }
+            if (!st.isDirectory()) continue;
+            const appsDir = path.join(userHome, '.local', 'share', 'applications');
+            try {
+                if (fs.existsSync(appsDir)) out.push(appsDir);
+            } catch { /* ignore */ }
+        }
+    } catch { /* ignore */ }
+    return out.sort((a, b) => a.localeCompare(b));
+}
+
 function readAllDesktopApps() {
-    const apps = [];
-    const seen = new Set();
-    for (const dir of DESKTOP_DIRS) {
+    const dirs = [...DESKTOP_DIRS, ...listHomeLocalShareApplicationsDirs()];
+    const collected = [];
+    for (const dir of dirs) {
         try {
             if (!fs.existsSync(dir)) continue;
             for (const file of fs.readdirSync(dir).filter(f => f.endsWith('.desktop'))) {
-                if (seen.has(file)) continue;
-                seen.add(file);
                 const app = parseDesktopFile(path.join(dir, file));
                 if (!app) continue;
-                // Skip apps whose binary is not on disk
                 const fullPath = execLineToFullPath(app.exec);
+                if (fullPath === '/usr/bin/false' || fullPath === '/bin/false') continue;
                 if (fullPath !== null && !fs.existsSync(fullPath)) continue;
-                apps.push(app);
+                collected.push(app);
             }
         } catch { /* skip unreadable dir */ }
     }
+    const apps = dedupeAppsByMonitoringIdentity(collected);
     return apps.sort((a, b) => a.appName.localeCompare(b.appName));
 }
 
@@ -1173,7 +1197,7 @@ function buildAndWriteAppCatalog() {
         const excl = loadAppMonitorBackgroundExcludeSets();
         const rawApps = readAllDesktopApps();
         const portable = portableAppImageCatalogEntries();
-        const mergedRaw = rawApps.concat(portable);
+        const mergedRaw = dedupeAppsByMonitoringIdentity(rawApps.concat(portable));
         const before = mergedRaw.length;
         const apps = mergedRaw.filter(a => !isAppMonitorCatalogEntryExcluded(a, excl));
         if (before !== apps.length) log.info(`app-catalog: excluded ${before - apps.length} background/service entries`);
@@ -1324,6 +1348,29 @@ function processNameCandidatesForAppEntry(processName, appId) {
     const tail = desktopIdTailStem(appId);
     if (tail) out.add(tail);
     return Array.from(out).filter(Boolean);
+}
+
+// Stable key: same pgrep candidate set => same monitored/killable identity (first entry wins).
+function appMonitoringIdentityKey(app) {
+    const c = processNameCandidatesForAppEntry(app.processName, app.appId);
+    const parts = [...new Set(c.map(x => String(x).trim().toLowerCase()).filter(Boolean))].sort();
+    return parts.join('\0');
+}
+
+function dedupeAppsByMonitoringIdentity(apps) {
+    const seen = new Set();
+    const out = [];
+    for (const a of apps) {
+        const k = appMonitoringIdentityKey(a);
+        if (!k) {
+            out.push(a);
+            continue;
+        }
+        if (seen.has(k)) continue;
+        seen.add(k);
+        out.push(a);
+    }
+    return out;
 }
 
 async function pgrepUserAnyCandidate(user, candidates) {
@@ -3614,18 +3661,28 @@ try {
     const authJsonPath = path.join(CONFIG_DIR, AUTH_JSON_FILE);
 
     if (!fs.existsSync(defaultJsonPath)) {
-        const empty = { label: 'Default', schedule: { enabled: false, dailyLimitEnabled: false, dailyLimitMinutes: 120, screenTimeLinuxUser: '', allowedHoursEnabled: false, allowedHoursStart: '07:00', allowedHoursEnd: '22:00', allowedDays: [1,2,3,4,5,6,7] }, webfilter: { enabled: false, feedState: {}, entries: [], listAllowlist: [] }, appControl: { enabled: false }, preferences: { lockIdleMinutes: null, quotaViewLinuxUser: '' }, blockedDesktopIds: [], quotaExemptions: { enabled: false, allowedIds: [] }, quota: [], requestDaemonWarningTest: false };
+        const empty = { label: 'Default', schedule: { enabled: false, dailyLimitEnabled: false, dailyLimitMinutes: 120, screenTimeLinuxUser: '', allowedHoursEnabled: false, allowedHoursStart: '07:00', allowedHoursEnd: '22:00', allowedDays: [1,2,3,4,5,6,7] }, webfilter: { enabled: false, feedState: {}, entries: [], listAllowlist: [] }, appControl: { enabled: false }, preferences: { lockIdleMinutes: null, quotaViewLinuxUser: '' }, blockedDesktopIds: [], quotaExemptions: { enabled: false, allowedIds: [] }, quota: [], requestDaemonWarningTest: false, schoolTimes: defaultSchoolTimes() };
         fs.writeFileSync(defaultJsonPath, JSON.stringify(empty, null, 2), { encoding: 'utf8', mode: 0o644 });
     } else {
-        // Migrate: if default.json has a security section, move it to auth.json then strip it
+        // Migrate: security → auth.json; ensure schoolTimes object exists on disk
         try {
             const existing = JSON.parse(fs.readFileSync(defaultJsonPath, 'utf8'));
-            if (existing && existing.security && existing.security.passwordHash && !fs.existsSync(authJsonPath)) {
+            if (!existing || typeof existing !== 'object') throw new Error('invalid default.json');
+            let needsWrite = false;
+            if (existing.security && existing.security.passwordHash && !fs.existsSync(authJsonPath)) {
                 writeAuthFile(existing.security.passwordHash, existing.security.salt || '');
                 log.info('migrated password hash from default.json to auth.json');
             }
-            if (existing && existing.security) {
+            if (existing.security) {
                 delete existing.security;
+                needsWrite = true;
+            }
+            const st = existing.schoolTimes;
+            if (!st || typeof st !== 'object' || Array.isArray(st) || Object.keys(st).length === 0) {
+                existing.schoolTimes = defaultSchoolTimes();
+                needsWrite = true;
+            }
+            if (needsWrite) {
                 fs.writeFileSync(defaultJsonPath, JSON.stringify(existing, null, 2), { encoding: 'utf8', mode: 0o644 });
             } else {
                 fs.chmodSync(defaultJsonPath, 0o644);
