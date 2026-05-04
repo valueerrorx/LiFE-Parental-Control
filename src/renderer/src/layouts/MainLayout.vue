@@ -29,7 +29,10 @@ onMounted(() => {
     void window.api.app.deferredHeavyWork().then(() => {
         void store.refreshProtectionsState()
     })
-    quotaPollTimer = setInterval(() => void store.loadAppQuotas(), QUOTA_USAGE_POLL_MS)
+    quotaPollTimer = setInterval(() => {
+        void store.loadAppQuotas()
+        void store.loadSchedule() // Keep dashboard donut center (screen time) in sync with app monitor ticks.
+    }, QUOTA_USAGE_POLL_MS)
     document.addEventListener('visibilitychange', onVisibilityChange)
 })
 
