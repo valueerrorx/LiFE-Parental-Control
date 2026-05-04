@@ -68,67 +68,10 @@ export function registerHeavyIpc(ipcMain, { appConfigDir, getMainWindow }) {
             const m = /^v?(\d+)\.(\d+)\.(\d+)/.exec(version)
             if (!m) return { ok: false, version, reason: 'unparseable' }
             const major = Number(m[1])
-            const minor = Number(m[2])
-            const patch = Number(m[3])
             const ok = major >= 22
             return { ok, version, reason: ok ? 'ok' : 'too_old', required: '>=22.0.0' }
         } catch {
             return { ok: false, version: null, reason: 'missing', error: '/usr/bin/node nicht gefunden — nodejs-Paket installieren.' }
-        }
-    })
-
-    ipcMain.handle('daemon:apparmorCheck', async () => {
-        const profilePath = '/etc/apparmor.d/life-parental-blocked'
-        const enabledPath = '/sys/module/apparmor/parameters/enabled'
-        try {
-            let enabled = false
-            try {
-                const raw = fs.readFileSync(enabledPath, 'utf8')
-                enabled = String(raw).trim().toLowerCase().startsWith('y')
-            } catch {
-                enabled = fs.existsSync('/sys/kernel/security/apparmor')
-            }
-
-            let parser = false
-            try {
-                const apparmorParserBin = ['/usr/sbin/apparmor_parser', '/usr/bin/apparmor_parser', '/sbin/apparmor_parser']
-                    .find(p => fs.existsSync(p))
-                if (!apparmorParserBin) throw new Error('apparmor_parser binary not found')
-                await execFileAsync(apparmorParserBin, ['--version'], { timeout: 5000 })
-                parser = true
-            } catch { parser = false }
-
-            const profileExists = fs.existsSync(profilePath)
-
-            // Check if apparmor.service ran successfully.
-            // Type=oneshot without RemainAfterExit exits with code 3 ("inactive") even when
-            // AppArmor IS loaded — so fall back to checking Result=success in that case.
-            let serviceActive = false
-            try {
-                const { stdout: svcOut } = await execFileAsync('systemctl', ['is-active', 'apparmor.service'], { timeout: 3000 })
-                serviceActive = String(svcOut).trim() === 'active'
-            } catch {
-                try {
-                    const { stdout: showOut } = await execFileAsync(
-                        'systemctl', ['show', 'apparmor.service', '--property=Result'], { timeout: 3000 }
-                    )
-                    serviceActive = String(showOut).trim() === 'Result=success'
-                } catch { serviceActive = false }
-            }
-
-            const ok = Boolean(enabled && parser && profileExists && serviceActive)
-            const reason = ok
-                ? 'ok'
-                : !enabled
-                    ? 'disabled'
-                    : !parser
-                        ? 'parser_missing'
-                        : !profileExists
-                            ? 'profile_missing'
-                            : 'profile_not_loaded'
-            return { ok, enabled, parser, profileExists, serviceActive, reason }
-        } catch {
-            return { ok: false, enabled: false, parser: false, profileExists: false, serviceActive: false, reason: 'error' }
         }
     })
 

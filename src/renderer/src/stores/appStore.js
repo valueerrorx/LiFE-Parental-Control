@@ -108,6 +108,20 @@ export const useAppStore = defineStore('app', () => {
         return installedAppsPromise
     }
 
+    // Invalidate one-shot cache so apps:list is re-fetched (blocked flags and catalog stay in sync with disk).
+    async function reloadInstalledApps() {
+        const prev = installedAppsPromise
+        installedAppsPromise = null
+        if (prev) {
+            try {
+                await prev
+            } catch {
+                /* ignore */
+            }
+        }
+        return loadInstalledApps()
+    }
+
     async function loadBlockedApps() {
         const raw = await window.api.apps.getBlocked()
         blockedApps.value = Array.isArray(raw)
@@ -170,7 +184,8 @@ export const useAppStore = defineStore('app', () => {
             window.api.settings.getConfig()
         ])
         await Promise.all([
-            loadWebFilter(), loadAppControlConfig(), loadBlockedApps(), loadSchedule(), loadKioskStatus(), loadAppQuotas(), loadProcessWhitelist()
+            loadWebFilter(), loadAppControlConfig(), loadBlockedApps(), loadSchedule(), loadKioskStatus(), loadAppQuotas(), loadProcessWhitelist(),
+            reloadInstalledApps()
         ])
         runningAsRoot.value = info?.runningAsRoot ?? null
         xdgCurrentDesktop.value = info?.xdgCurrentDesktop ?? ''
@@ -189,7 +204,7 @@ export const useAppStore = defineStore('app', () => {
         appQuotas, appQuotaUsage, appQuotaExtra, appMonitorUsage, appMonitorLabels, statusMessage, whitelistEnabled, runningAsRoot, xdgCurrentDesktop,
         invokingLinuxUser, quotaViewLinuxUser,
         webFilterEnabled, webFilterDnsMode, webFilterDohIptablesEnabled, webFilterDohIptablesStatus, installedApps,
-        loadWebFilter, saveWebFilter, saveWebFilterAll, persistWebFilterAllowlist, loadAppControlConfig, loadBlockedApps, loadInstalledApps, loadSchedule, loadKioskStatus, loadAppQuotas,
+        loadWebFilter, saveWebFilter, saveWebFilterAll, persistWebFilterAllowlist, loadAppControlConfig, loadBlockedApps, loadInstalledApps, reloadInstalledApps, loadSchedule, loadKioskStatus, loadAppQuotas,
         loadProcessWhitelist, refreshProtectionsState, setQuotaViewLinuxUser, refreshDohIptablesStatus,
         showLockdownWizard
     }

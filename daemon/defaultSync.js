@@ -4,7 +4,7 @@
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
-const { execFile, execFileSync, spawnSync } = require('child_process');
+const { execFile, execFileSync } = require('child_process');
 const { defaultSchoolTimes } = require('./schoolTimesDefaults.js');
 
 const DEFAULT_JSON_FILE = 'default.json';
@@ -59,15 +59,6 @@ const DESKTOP_DIRS = [
 ];
 
 const OVERRIDE_DIR = '/usr/local/share/applications';
-const APPARMOR_PROFILE = '/etc/apparmor.d/life-parental-blocked';
-
-// Resolve apparmor_parser by fixed paths because PATH often omits /usr/sbin.
-function resolveApparmorParserBin() {
-    for (const p of ['/usr/sbin/apparmor_parser', '/usr/bin/apparmor_parser', '/sbin/apparmor_parser']) {
-        try { if (fs.existsSync(p)) return p; } catch { /* ignore */ }
-    }
-    return null;
-}
 
 const DOH_IPS_FILE = 'blocklists/ips/doh.txt';
 const DOH_IPS_URL = 'https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@latest/ips/doh.txt';
@@ -686,62 +677,6 @@ function writeJsonFile(filePath, data) {
     fs.writeFileSync(filePath, JSON.stringify(data, null, 2), { encoding: 'utf8' });
 }
 
-function parseDesktopFile(filePath) {
-    let content = '';
-    try { content = fs.readFileSync(filePath, 'utf8'); } catch { return null; }
-    const get = (key) => {
-        const re = new RegExp(`^${key}=(.*)$`, 'm');
-        const m = content.match(re);
-        return m ? String(m[1]).trim() : '';
-    };
-    const name = get('Name');
-    const exec = get('Exec');
-    const noDisplay = String(get('NoDisplay')).toLowerCase() === 'true';
-    const hidden = String(get('Hidden')).toLowerCase() === 'true';
-    if (!name || !exec || noDisplay || hidden) return null;
-    return { name, exec };
-}
-
-function execLineToFullPath(execLine) {
-    if (!execLine) return null;
-    const clean = String(execLine).trim().replace(/%[a-zA-Z]/g, '').trim();
-    const tokens = clean.split(/\s+/).filter(Boolean);
-    if (!tokens.length) return null;
-
-    let i = 0;
-    while (i < tokens.length) {
-        const t = tokens[i];
-        if (['env', 'dbus-run-session', 'gdbus'].includes(t.toLowerCase())) { i++; continue; }
-        if (/^[A-Za-z_][A-Za-z0-9_]*=/.test(t)) { i++; continue; }
-        break;
-    }
-    if (i >= tokens.length) return null;
-    const cmd = tokens[i];
-
-    const base = cmd.includes('/') ? path.basename(cmd) : cmd;
-    if (base === 'flatpak' || base === 'snap') return null;
-    if (cmd.startsWith('/')) return cmd;
-
-    try {
-        const r = spawnSync('which', [cmd], { encoding: 'utf8', timeout: 2000 });
-        const found = (r.stdout || '').trim();
-        if (found && found.startsWith('/')) return found;
-    } catch {
-        /* ignore */
-    }
-    return null;
-}
-
-function buildApparmorProfile(entries) {
-    const header = '# Managed by LiFE Parental Control — do not edit manually\n' +
-        '# Rewritten automatically on block/unblock. Do not edit by hand.\n\n';
-    const list = Array.isArray(entries) ? entries : [];
-    if (!list.length) return header;
-    return header + list.map(({ execPath, appId }) =>
-        `${execPath} {\n  # ${appId} — blocked by parental controls\n  deny /** rwxl,\n}\n`
-    ).join('\n');
-}
-
 function applyDesktopOverride(blockedIds) {
     const blocked = new Set(blockedIds);
     if (!fs.existsSync(OVERRIDE_DIR)) return;
@@ -790,53 +725,6 @@ function applyDesktopOverride(blockedIds) {
     } catch { /* ignore */ }
 }
 
-function syncAppArmor(blockedIds, log) {
-    const apparmorParser = resolveApparmorParserBin();
-    if (!apparmorParser) {
-        log && log.warn && log.warn('defaultSync: apparmor_parser not found, skipping AppArmor sync');
-        return;
-    }
-    const blocked = new Set(blockedIds);
-    const entries = [];
-    const seenExec = new Set();
-
-    for (const id of blocked) {
-        let originalPath = null;
-        for (const dir of DESKTOP_DIRS) {
-            const p = path.join(dir, id);
-            if (fs.existsSync(p)) { originalPath = p; break; }
-        }
-        if (!originalPath) continue;
-        const d = parseDesktopFile(originalPath);
-        if (!d) continue;
-        const full = execLineToFullPath(d.exec);
-        if (!full || seenExec.has(full)) continue;
-        seenExec.add(full);
-        entries.push({ execPath: full, appId: id });
-    }
-
-    // Remove previously loaded profiles from this file before rewriting.
-    if (fs.existsSync(APPARMOR_PROFILE)) {
-        try {
-            spawnSync(apparmorParser, ['-R', APPARMOR_PROFILE], { timeout: 5000, stdio: 'ignore' });
-        } catch { /* ignore */ }
-    }
-
-    try { fs.mkdirSync(path.dirname(APPARMOR_PROFILE), { recursive: true }) } catch { /* ignore */ }
-    try {
-        fs.writeFileSync(APPARMOR_PROFILE, buildApparmorProfile(entries), 'utf8');
-    } catch {
-        log && log.warn && log.warn('defaultSync: failed to write AppArmor profile');
-        return;
-    }
-
-    if (entries.length > 0) {
-        try {
-            spawnSync(apparmorParser, ['-a', APPARMOR_PROFILE], { timeout: 5000, stdio: 'ignore' });
-        } catch { /* ignore */ }
-    }
-}
-
 async function applyFromDefault({ configDir, log }) {
     const defaultPath = path.join(configDir, DEFAULT_JSON_FILE);
     const raw = fs.readFileSync(defaultPath, 'utf8');
@@ -855,12 +743,9 @@ async function applyFromDefault({ configDir, log }) {
     const blockedSet = new Set(blockedResolved);
     const quotaAllowed = quotaAllowedResolved.filter(id => !blockedSet.has(id));
 
-    // Enforce app blocking runtime (desktop overrides + AppArmor).
+    // Enforce app blocking runtime (desktop overrides in /usr/local/share/applications).
     try {
         applyDesktopOverride(appControl.enabled ? blockedResolved : []);
-    } catch { /* ignore */ }
-    try {
-        syncAppArmor(appControl.enabled ? blockedResolved : [], log);
     } catch { /* ignore */ }
 
     // Enforce webfilter runtime (respects enabled flag; reads entries/feedState/allowlist from default.json).

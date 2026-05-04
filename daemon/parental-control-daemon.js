@@ -67,7 +67,6 @@ const NOTIFY_SEND_BIN = (() => {
     return 'notify-send';
 })();
 
-// Resolve apparmor_parser without relying on PATH (Electron/daemon environments often omit /usr/sbin).
 const NOTIFY_APP_NAME = 'LiFE Parental Control';
 
 // --- File logger ---

@@ -336,7 +336,7 @@ const canAddQuota = computed(() => {
 onMounted(async () => {
     const [ctl, appsResult] = await Promise.all([
         window.api.apps.getControlConfig(),
-        store.loadInstalledApps(),
+        store.reloadInstalledApps(),
         store.loadBlockedApps(),
         loadDesktopLoginUsers(),
         loadQuotas()

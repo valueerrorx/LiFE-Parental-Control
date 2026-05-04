@@ -116,7 +116,7 @@ export async function daemonResetTodayQuotaUsage() {
 export async function daemonGetAppCatalog() {
     if (!isDaemonConnected()) return { ok: false, apps: [] }
     try { return await daemonRequest({ type: 'get-app-catalog' }, 'get-app-catalog-result', 30_000) }
-    catch (e) { return { ok: false, apps: [] } }
+    catch { return { ok: false, apps: [] } }
 }
 
 /** Delete old usage/quota/app-usage archive files. Awaitable. */
