@@ -651,7 +651,7 @@ function execLineToProcessName(execLine) {
         const base = tokens[j].includes('/') ? path.basename(tokens[j]) : tokens[j];
         const sh = base.toLowerCase();
         if ((sh === 'sh' || sh === 'bash' || sh === 'dash' || sh === 'zsh') && tokens[j + 1] === '-c') {
-            const inner = tokens.slice(j + 2).join(' ').replace(/^['"]|['"]$/g, '');
+            const inner = tokens.slice(j + 2).join(' ').replace(/^['"]|['"]$/g, '').split(';')[0].trim();
             return inner ? (execLineToProcessName(inner) || '') : '';
         }
     }
@@ -684,33 +684,6 @@ function execLineToProcessName(execLine) {
     return '';
 }
 
-// LibreOffice component flags in Exec= — same soffice.bin comm, disambiguate via /proc/<pid>/cmdline.
-const LO_DESKTOP_ARG_MARKERS = new Set(['--writer', '--calc', '--draw', '--impress', '--math', '--base']);
-
-function desktopExecArgvMarkers(execLine) {
-    if (!execLine || typeof execLine !== 'string') return [];
-    const clean = execLine.trim().replace(/%[a-zA-Z]/g, '').trim();
-    const tokens = clean.split(/\s+/).filter(Boolean);
-    let i = 0;
-    while (i < tokens.length) {
-        const t = tokens[i];
-        if (['env', 'dbus-run-session', 'gdbus'].includes(t.toLowerCase())) { i++; continue; }
-        if (/^[A-Za-z_][A-Za-z0-9_]*=/.test(t)) { i++; continue; }
-        break;
-    }
-    if (i >= tokens.length) return [];
-    i++;
-    const out = [];
-    const seen = new Set();
-    for (; i < tokens.length; i++) {
-        const t = tokens[i];
-        if (t.startsWith('%')) break;
-        if (LO_DESKTOP_ARG_MARKERS.has(t)) {
-            if (!seen.has(t)) { seen.add(t); out.push(t); }
-        }
-    }
-    return out;
-}
 
 function isBareInterpreterCommName(commLower) {
     const s = String(commLower || '').trim().toLowerCase();
@@ -722,7 +695,8 @@ function isBareInterpreterCommName(commLower) {
         'php', 'bundle',
         'mono', 'java', 'wine', 'wine64', 'wine-preloader',
         'tclsh', 'wish', 'lua', 'luajit',
-        'electron'
+        'electron',
+        'xdg-open', 'dbus-launch', 'dbus-run-session', 'gtk-launch', 'gio',
     ]);
     if (exact.has(s)) return true;
     if (s.startsWith('python3.') || s.startsWith('python2.')) return true;
@@ -730,124 +704,6 @@ function isBareInterpreterCommName(commLower) {
     return false;
 }
 
-// Script / module / jar / asar tokens after the interpreter so pgrep does not match every python3/electron on the system.
-function desktopExecArgvMarkersForInterpreter(execLine, processName) {
-    const procLow = String(processName || '').trim().toLowerCase();
-    if (!procLow || !isBareInterpreterCommName(procLow)) return [];
-    const clean = execLine.trim().replace(/%[a-zA-Z]/g, '').trim();
-    const tokens = clean.split(/\s+/).filter(Boolean);
-    let i = 0;
-    while (i < tokens.length) {
-        const t = tokens[i];
-        if (['env', 'dbus-run-session', 'gdbus'].includes(t.toLowerCase())) { i++; continue; }
-        if (/^[A-Za-z_][A-Za-z0-9_]*=/.test(t)) { i++; continue; }
-        break;
-    }
-    if (i >= tokens.length) return [];
-    const interpTok = tokens[i];
-    const interpBase = (interpTok.includes('/') ? path.basename(interpTok) : interpTok).toLowerCase();
-    if (interpBase !== procLow && !isBareInterpreterCommName(interpBase)) return [];
-    i++;
-    const out = [];
-    const seen = new Set();
-    const push = (raw) => {
-        const m = String(raw || '').trim().toLowerCase();
-        if (m.length < 2 || seen.has(m)) return;
-        seen.add(m);
-        out.push(m);
-    };
-    for (; i < tokens.length; i++) {
-        const t = tokens[i];
-        if (t.startsWith('%')) break;
-        if (t.toLowerCase() === '-c') break;
-        if (t === '-m' && i + 1 < tokens.length) {
-            push(tokens[i + 1]);
-            i++;
-            continue;
-        }
-        if (t === '-jar' && i + 1 < tokens.length) {
-            push(tokens[i + 1]);
-            i++;
-            continue;
-        }
-        if (t.startsWith('-')) continue;
-        if (/\.asar$/i.test(t)) {
-            push(path.basename(t));
-            break;
-        }
-        if (t.includes('/')) push(path.basename(t));
-        else push(t);
-        if (out.length >= 2) break;
-    }
-    return out;
-}
-
-const BROWSER_DESKTOP_COMM_NAMES = new Set([
-    'brave', 'brave-browser', 'brave_browser',
-    'chromium', 'chromium-browser', 'chrome', 'chrome-browser',
-    'google-chrome', 'google-chrome-stable', 'google-chrome-beta', 'google-chrome-unstable',
-    'vivaldi', 'vivaldi-stable', 'vivaldi-beta',
-    'microsoft-edge', 'microsoft-edge-stable', 'microsoft-edge-beta', 'msedge',
-    'opera', 'firefox', 'librewolf', 'floorp', 'zen'
-]);
-
-function isBrowserDesktopProcessName(processNameLower) {
-    const s = String(processNameLower || '').trim().toLowerCase();
-    if (!s) return false;
-    if (BROWSER_DESKTOP_COMM_NAMES.has(s)) return true;
-    if (s.startsWith('google-chrome') || s.startsWith('chromium') || s.startsWith('microsoft-edge') || s.startsWith('vivaldi')) return true;
-    return false;
-}
-
-// One distinctive token so multiple .desktop sharing the same browser binary do not all match one pgrep (PWA --app-id, launch URL host, --app=).
-function desktopExecBrowserDistinctArgvMarkers(execLine, processName) {
-    if (!isBrowserDesktopProcessName(processName)) return [];
-    const clean = execLine.trim().replace(/%[a-zA-Z]/g, '').trim();
-    const tokens = clean.split(/\s+/).filter(Boolean);
-    let i = 0;
-    while (i < tokens.length) {
-        const t = tokens[i];
-        if (['env', 'dbus-run-session', 'gdbus'].includes(t.toLowerCase())) { i++; continue; }
-        if (/^[A-Za-z_][A-Za-z0-9_]*=/.test(t)) { i++; continue; }
-        break;
-    }
-    if (i >= tokens.length) return [];
-    i++;
-    let appId = '';
-    let urlHost = '';
-    let appFlag = '';
-    for (; i < tokens.length; i++) {
-        const t = tokens[i];
-        if (t.startsWith('%')) break;
-        const tl = t.toLowerCase();
-        if (tl.startsWith('--app-id=')) {
-            appId = t.slice('--app-id='.length).trim();
-            continue;
-        }
-        if (tl === '--app-id' && i + 1 < tokens.length) {
-            appId = tokens[i + 1].trim();
-            i++;
-            continue;
-        }
-        if (tl.startsWith('--app=')) {
-            appFlag = t.slice('--app='.length).trim();
-            continue;
-        }
-        if (tl === '--app' && i + 1 < tokens.length) {
-            appFlag = tokens[i + 1].trim();
-            i++;
-            continue;
-        }
-        const um = t.match(/^https?:\/\/([^/?#]+)/i);
-        if (um && !urlHost) {
-            const h = um[1].toLowerCase();
-            if (h && h !== 'localhost' && !h.startsWith('127.') && h !== 'newtab') urlHost = h;
-        }
-    }
-    const pick = String(appId || appFlag || urlHost || '').trim().toLowerCase();
-    if (pick.length < 3 || pick === 'default') return [];
-    return [pick];
-}
 
 // Basenames of the real binary for pgrep/comm (e.g. soffice, soffice.bin) while processName stays the launcher (libreoffice).
 function desktopExecCommAliases(execLine) {
@@ -916,12 +772,9 @@ function parseDesktopFile(filePath) {
         if (!name || !exec || noDisplay || hidden) return null;
         // execLineToProcessName first (unwraps sh -c/flatpak/electron); symlink-only basename would stay "sh" and false-match pgrep every minute.
         const processName = execLineToProcessName(exec) || desktopExecResolvedProcessName(exec);
+        // Skip entries where the resolved processName is a bare dispatcher — pgrep would match every instance on the system.
+        if (isBareInterpreterCommName(processName)) return null;
         const commAliases = desktopExecCommAliases(exec);
-        const argvMarkers = [...new Set([
-            ...desktopExecArgvMarkers(exec),
-            ...desktopExecArgvMarkersForInterpreter(exec, processName),
-            ...desktopExecBrowserDistinctArgvMarkers(exec, processName)
-        ].map((x) => String(x).trim().toLowerCase()).filter(Boolean))];
         return {
             appId: path.basename(filePath),
             appName: name,
@@ -930,7 +783,6 @@ function parseDesktopFile(filePath) {
             filePath,
             processName,
             ...(commAliases.length ? { commAliases } : {}),
-            ...(argvMarkers.length ? { argvMarkers } : {})
         };
     } catch { return null; }
 }
@@ -1740,28 +1592,40 @@ function processNameCandidatesForAppEntry(processName, appId, commAliases) {
     return Array.from(out).filter(Boolean);
 }
 
-// Stable key: same pgrep candidate set => same monitored/killable identity (first entry wins).
+// Stable key: same pgrep candidate set => same monitored/killable identity (shortest name wins).
+// Uses only processName + commAliases — not the appId stem — so variants sharing the same binary
+// (e.g. all libreoffice-*.desktop, all brave PWAs) collapse to one entry.
 function appMonitoringIdentityKey(app) {
-    const c = processNameCandidatesForAppEntry(app.processName, app.appId, app.commAliases);
-    const parts = [...new Set(c.map(x => String(x).trim().toLowerCase()).filter(Boolean))].sort();
-    const mk = Array.isArray(app.argvMarkers)
-        ? [...new Set(app.argvMarkers.map((x) => String(x).trim().toLowerCase()).filter(Boolean))].sort()
-        : [];
-    return parts.join('\0') + '\0argv:' + mk.join('\0');
+    const raw = new Set();
+    const p = String(app.processName || '').trim().toLowerCase();
+    if (p) raw.add(p);
+    if (Array.isArray(app.commAliases)) {
+        for (const a of app.commAliases) {
+            const x = String(a || '').trim().toLowerCase();
+            if (x) raw.add(x);
+        }
+    }
+    if (!raw.size) return '';
+    return [...raw].sort().join('\0');
 }
 
 function dedupeAppsByMonitoringIdentity(apps) {
+    const best = new Map();
+    for (const a of apps) {
+        const k = appMonitoringIdentityKey(a);
+        if (!k) continue;
+        const prev = best.get(k);
+        if (!prev || (a.appName || '').length < (prev.appName || '').length) best.set(k, a);
+    }
+    // preserve insertion order of first-seen keys
     const seen = new Set();
     const out = [];
     for (const a of apps) {
         const k = appMonitoringIdentityKey(a);
-        if (!k) {
-            out.push(a);
-            continue;
-        }
+        if (!k) { out.push(a); continue; }
         if (seen.has(k)) continue;
         seen.add(k);
-        out.push(a);
+        out.push(best.get(k));
     }
     return out;
 }
@@ -3006,7 +2870,6 @@ function tickAppBlockPoller() {
     for (const pid of newPids) {
         let comm;
         try { comm = fs.readFileSync(`/proc/${pid}/comm`, 'utf8').trim().toLowerCase(); } catch { continue; }
-        const cmdLower = readProcCmdlineLower(pid);
 
         let uid;
         try {
@@ -3026,8 +2889,6 @@ function tickAppBlockPoller() {
         for (const entry of cfg.blockedEntries) {
             const candidates = processNameCandidatesForAppEntry(entry.processName, entry.appId, entry.commAliases);
             if (!procCommMatchesCandidates(comm, candidates)) continue;
-            const markers = Array.isArray(entry.argvMarkers) ? entry.argvMarkers.map((m) => String(m).trim().toLowerCase()).filter(Boolean) : [];
-            if (markers.length && !markers.every((m) => cmdLower.includes(m))) continue;
 
             const lu = normalizeLinuxUser(entry.linuxUser);
             if (lu && normalizeLinuxUser(procUser) !== lu) continue;
