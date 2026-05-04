@@ -9,7 +9,7 @@ const path = require('path');
 const { execFile, execFileSync, spawn, spawnSync } = require('child_process');
 const { promisify } = require('util');
 const crypto = require('crypto');
-const { createDefaultSync, dohIptablesStatus } = require('./defaultSync.js');
+const { createDefaultSync, dohIptablesStatus, ensureDohIptablesEnabled, ensureDohIptablesDisabled } = require('./defaultSync.js');
 const { defaultSchoolTimes } = require('./schoolTimesDefaults.js');
 
 const DAY_KEYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
@@ -3643,6 +3643,20 @@ function handleClientCommand(client, cmd) {
             client.write(JSON.stringify({ type: 'get-doh-iptables-status-result', ...st }) + '\n');
         } catch (e) {
             client.write(JSON.stringify({ type: 'get-doh-iptables-status-result', ok: false, error: e.message }) + '\n');
+        }
+        return;
+    }
+
+    if (cmd.type === 'apply-doh-iptables') {
+        try {
+            if (cmd.enabled) {
+                ensureDohIptablesEnabled({ configDir: CONFIG_DIR, log });
+            } else {
+                ensureDohIptablesDisabled({ log });
+            }
+            client.write(JSON.stringify({ type: 'apply-doh-iptables-result', ok: true }) + '\n');
+        } catch (e) {
+            client.write(JSON.stringify({ type: 'apply-doh-iptables-result', ok: false, error: e.message }) + '\n');
         }
         return;
     }

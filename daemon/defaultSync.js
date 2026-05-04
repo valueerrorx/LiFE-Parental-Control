@@ -905,5 +905,5 @@ function createDefaultSync({ configDir, log }) {
     };
 }
 
-module.exports = { createDefaultSync, dohIptablesStatus };
+module.exports = { createDefaultSync, dohIptablesStatus, ensureDohIptablesEnabled, ensureDohIptablesDisabled };
 

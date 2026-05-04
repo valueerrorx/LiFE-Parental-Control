@@ -1,5 +1,5 @@
 import fs from 'fs'
-import { daemonWriteHosts, daemonWriteDnsmasq, daemonRemoveDnsmasq, daemonGetDhcpDns, daemonGetDohIptablesStatus } from '../daemonPrivilegedOps.js'
+import { daemonWriteHosts, daemonWriteDnsmasq, daemonRemoveDnsmasq, daemonGetDhcpDns, daemonGetDohIptablesStatus, daemonApplyDohIptables } from '../daemonPrivilegedOps.js'
 import {
     WEB_FILTER_STATIC_CATEGORIES,
     CATEGORY_TO_HAGEZI_FEED,
@@ -128,11 +128,11 @@ async function persistWebfilterAndHosts(configDir, wf, { background = false } = 
         } else {
             daemonRemoveDnsmasq().catch(e => console.warn('[LiFE webfilter] remove-dnsmasq (bg):', e.message))
         }
+        daemonApplyDohIptables(full.dohIptablesEnabled).catch(e => console.warn('[LiFE webfilter] apply-doh-iptables (bg):', e.message))
         return
     }
 
     await writeHostsSectionAsync(combined)
-    // Also write dnsmasq config for subdomain filtering
     if (full.enabled && combined.length > 0) {
         const dnsResult = await daemonWriteDnsmasq(combined, full.dnsMode, full.dhcpFallbackDns)
         if (!dnsResult.ok) console.warn('[LiFE webfilter] write-dnsmasq failed:', dnsResult.error)
@@ -140,6 +140,8 @@ async function persistWebfilterAndHosts(configDir, wf, { background = false } = 
         const dnsResult = await daemonRemoveDnsmasq()
         if (!dnsResult.ok) console.warn('[LiFE webfilter] remove-dnsmasq failed:', dnsResult.error)
     }
+    const dohResult = await daemonApplyDohIptables(full.dohIptablesEnabled)
+    if (!dohResult.ok) console.warn('[LiFE webfilter] apply-doh-iptables failed:', dohResult.error)
 }
 
 export function registerWebFilterIpc(ipcMain, configDir, bundledDir = null) {
