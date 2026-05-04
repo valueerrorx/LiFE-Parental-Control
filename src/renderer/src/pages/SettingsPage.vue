@@ -59,13 +59,6 @@
                                 </span>
                             </div>
                             <div>
-                                <div class="small text-muted mb-1">{{ $t('settings.appArmor') }}</div>
-                                <span class="status-badge" :class="appArmorOk ? 'active' : 'warning'">
-                                    <i class="bi bi-circle-fill" style="font-size:7px;" />
-                                    {{ appArmorOk ? $t('common.active') : $t('common.disabled') }}
-                                </span>
-                            </div>
-                            <div>
                                 <div class="small text-muted mb-1">{{ $t('settings.dnsmasq') }}</div>
                                 <span class="status-badge" :class="dnsmasqOk ? 'active' : 'warning'">
                                     <i class="bi bi-circle-fill" style="font-size:7px;" />
@@ -80,14 +73,6 @@
                         <!-- Status warnings + fix buttons -->
                         <p v-if="nodeCheckReason === 'missing'" class="small text-danger mb-3" v-html="$t('settings.nodeNotFound')" />
                         <p v-else-if="nodeCheckReason === 'too_old'" class="small text-warning mb-3">{{ $t('settings.nodeTooOld') }}</p>
-                        <p v-if="appArmorReason !== 'ok'" class="small text-warning mb-3" v-html="$t(`settings.appArmor_${appArmorReason}`)" />
-                        <div v-if="appArmorReason === 'profile_not_loaded'" class="border-top pt-3 mt-1 mb-3">
-                            <div class="small text-muted mb-2" v-html="$t('settings.apparmorSetupHint')" />
-                            <button type="button" class="btn-pc-primary" :disabled="apparmorSetupBusy" @click="onSetupApparmor">
-                                <i class="bi bi-arrow-repeat me-1" :class="{ 'spin': apparmorSetupBusy }" />{{ $t('settings.apparmorSetupBtn') }}
-                            </button>
-                        </div>
-                        <p v-if="apparmorSetupMsg" class="small mb-0 mt-2" :class="apparmorSetupError ? 'text-danger' : 'text-success'">{{ apparmorSetupMsg }}</p>
                         <p v-if="!dnsmasqOk" class="small text-warning mb-3" v-html="$t(`settings.dnsmasq_${dnsmasqReason}`)" />
                         <div v-if="!dnsmasqOk && dnsmasqReason === 'not_running'" class="border-top pt-3 mt-1 mb-3">
                             <div class="small text-muted mb-2" v-html="$t('settings.dnsmasqSetupHint')" />
@@ -395,17 +380,12 @@ const nodeVersion = ref(null)
 const nodeVersionOk = ref(false)
 const nodeCheckReason = ref('')
 const nodeRequiredVersion = ref('>=22.22.0')
-const appArmorOk = ref(false)
-const appArmorReason = ref('ok')
 const dnsmasqOk = ref(false)
 const dnsmasqVersion = ref(null)
 const dnsmasqReason = ref('not_installed')
 const dnsmasqSetupBusy = ref(false)
 const dnsmasqSetupMsg = ref('')
 const dnsmasqSetupError = ref(false)
-const apparmorSetupBusy = ref(false)
-const apparmorSetupMsg = ref('')
-const apparmorSetupError = ref(false)
 const daemonRefreshing = ref(false)
 const daemonCtrlBusy = ref(false)
 const daemonCtrlMsg = ref('')
@@ -421,21 +401,18 @@ async function loadDaemonInfo() {
             window.api.daemon.serviceControl({ action: 'status' }),
             window.api.daemon.isConnected(),
             window.api.daemon.nodeCheck(),
-            window.api.daemon.apparmorCheck(),
             window.api.daemon.dnsmasqCheck()
         ]),
         new Promise(r => setTimeout(r, 600))
     ])
     if (result.status === 'fulfilled') {
-        const [svc, connected, nodeCheck, apparmorCheck, dnsmasqCheck] = result.value
+        const [svc, connected, nodeCheck, dnsmasqCheck] = result.value
         daemonServiceStatus.value = svc?.status ?? null
         daemonSocketConnected.value = Boolean(connected)
         nodeVersion.value = nodeCheck?.version ?? null
         nodeVersionOk.value = nodeCheck?.ok === true
         nodeCheckReason.value = nodeCheck?.reason ?? ''
         nodeRequiredVersion.value = nodeCheck?.required ?? '>=22.22.0'
-        appArmorOk.value = apparmorCheck?.ok === true
-        appArmorReason.value = apparmorCheck?.reason ?? 'error'
         dnsmasqOk.value = dnsmasqCheck?.ok === true
         dnsmasqVersion.value = dnsmasqCheck?.version ?? null
         dnsmasqReason.value = dnsmasqCheck?.reason ?? (dnsmasqOk.value ? 'ok' : 'not_installed')
@@ -444,30 +421,11 @@ async function loadDaemonInfo() {
         nodeVersion.value = null
         nodeVersionOk.value = false
         nodeCheckReason.value = 'missing'
-        appArmorOk.value = false
-        appArmorReason.value = 'error'
         dnsmasqOk.value = false
         dnsmasqVersion.value = null
         dnsmasqReason.value = 'not_installed'
     }
     daemonRefreshing.value = false
-}
-
-async function onSetupApparmor() {
-    apparmorSetupMsg.value = ''
-    apparmorSetupError.value = false
-    apparmorSetupBusy.value = true
-    const r = await window.api.daemon.setupApparmor()
-    apparmorSetupBusy.value = false
-    if (r?.ok) {
-        apparmorSetupMsg.value = t('settings.apparmorSetupOk')
-        apparmorSetupError.value = false
-        await loadDaemonInfo()
-    } else {
-        apparmorSetupMsg.value = r?.error || t('settings.apparmorSetupFailed')
-        apparmorSetupError.value = true
-    }
-    setTimeout(() => { apparmorSetupMsg.value = '' }, 8000)
 }
 
 async function onSetupDnsmasq() {

@@ -2,7 +2,7 @@ import fs from 'fs'
 import path from 'path'
 import { spawnSync } from 'child_process'
 import { desktopIconToDataUrl } from './desktopIconResolve.js'
-import { daemonSyncAppArmorAsync, daemonDesktopOverride, daemonGetAppCatalog } from '../daemonPrivilegedOps.js'
+import { daemonGetAppCatalog } from '../daemonPrivilegedOps.js'
 import { redeployQuotaFromDisk } from './quotaIpc.js'
 import { appendActivity } from './activityLog.js'
 import { patchDefaultJson, readDefaultJson } from '../defaultProfileStore.js'
@@ -13,8 +13,6 @@ const DESKTOP_DIRS = [
     '/var/lib/flatpak/exports/share/applications',
     '/var/lib/snapd/desktop/applications'
 ]
-// Desktop file overrides placed here (per-system, root-writable)
-const OVERRIDE_DIR = '/usr/local/share/applications'
 const APP_MONITOR_BG_EXCLUDES_BASENAME = 'app-monitor-background-excludes.json'
 const APP_MONITOR_CATALOG_FILE = 'app-monitor-catalog.json'
 
@@ -198,7 +196,25 @@ async function getAppCatalog(configDir) {
 
 function normalizeBlockedIds(raw) {
     if (!Array.isArray(raw)) return []
-    return raw.map(item => (typeof item === 'string' ? item : item?.id)).filter(Boolean)
+    const out = []
+    const seen = new Set()
+    for (const item of raw) {
+        const appId = typeof item === 'string' ? item : (item && typeof item === 'object' ? String(item.appId || item.id || '') : '')
+        if (!appId || seen.has(appId)) continue
+        seen.add(appId)
+        if (typeof item === 'string') {
+            out.push({ appId, appName: '', processName: '', linuxUser: '', allowAtSchoolTime: false })
+        } else {
+            out.push({
+                appId,
+                appName: String(item.appName || '').trim(),
+                processName: String(item.processName || '').trim(),
+                linuxUser: String(item.linuxUser || '').trim(),
+                allowAtSchoolTime: item.allowAtSchoolTime === true
+            })
+        }
+    }
+    return out
 }
 
 function desktopIdStem(id) {
@@ -326,6 +342,10 @@ function readBlocked(configDir) {
     return normalizeBlockedIds(Array.isArray(def?.blockedDesktopIds) ? def.blockedDesktopIds : [])
 }
 
+function blockedAppId(entry) {
+    return typeof entry === 'string' ? entry : (entry?.appId || '')
+}
+
 function readAppControlConfig(configDir) {
     const def = readDefaultJson(configDir)
     return { enabled: def?.appControl?.enabled !== false }
@@ -334,7 +354,13 @@ function readAppControlConfig(configDir) {
 function saveBlocked(configDir, list) {
     const normalized = normalizeBlockedIds(Array.isArray(list) ? list : [])
     patchDefaultJson(configDir, (d) => {
-        d.blockedDesktopIds = normalized
+        d.blockedDesktopIds = normalized.map(e => ({
+            appId: e.appId,
+            appName: e.appName,
+            processName: e.processName,
+            linuxUser: e.linuxUser,
+            allowAtSchoolTime: e.allowAtSchoolTime === true
+        }))
         return d
     })
 }
@@ -406,95 +432,25 @@ export function readAllDesktopApps(configDir = '/etc/life-parental') {
     return apps.sort((a, b) => a.name.localeCompare(b.name))
 }
 
-// --- AppArmor blocking ---
-
-function apparmorEscapePath(p) {
-    return String(p || '')
-        .replace(/\\/g, '\\\\')
-        .replace(/ /g, '\\040')
-        .replace(/\t/g, '\\011')
-        .replace(/\n/g, '\\012')
-        .replace(/\r/g, '\\015')
-}
-
-function buildApparmorProfile(entries) {
-    // entries: Array of { execPath, appId }
-    const header = '# Managed by LiFE Parental Control — do not edit manually\n' +
-                   '# Rewritten automatically on block/unblock. Do not edit by hand.\n\n'
-    if (entries.length === 0) return header
-    return header + entries.map(({ execPath, appId }) =>
-        `${apparmorEscapePath(execPath)} {\n  # ${appId} — blocked by parental controls\n  deny /** rwxl,\n}\n`
-    ).join('\n')
-}
-
-// Sync the AppArmor profile file with the current blocked list and reload.
-// Delegates write + reload to daemon (root); frontend sends profile content.
-export async function syncAppArmor(configDir) {
-    const control = readAppControlConfig(configDir)
-    const blocked = control.enabled ? readBlocked(configDir) : []
-    const apps = await getAppCatalog(configDir)
-    const appMap = new Map(apps.map(a => [a.appId || a.id, a]))
-
-    const entries = []
-    const seen = new Set()
-    for (const id of blocked) {
-        const app = appMap.get(id)
-        if (!app) continue
-        const execPath = typeof app.execPath === 'string' && app.execPath.trim()
-            ? app.execPath.trim()
-            : execLineToFullPath(app.exec).fullPath
-        if (!execPath || seen.has(execPath)) continue
-        seen.add(execPath)
-        entries.push({ execPath, appId: id })
-    }
-
-    daemonSyncAppArmorAsync(buildApparmorProfile(entries))
-}
-
-async function applyDesktopOverride(configDir, appId, block) {
-    void configDir
-    if (typeof appId !== 'string' || !appId.endsWith('.desktop')) return
-    if (block) {
-        // Build modified .desktop content locally (reading original is unprivileged — files are 0644)
-        let content = null
-        for (const dir of DESKTOP_DIRS) {
-            const p = path.join(dir, appId)
-            if (fs.existsSync(p) && p !== path.join(OVERRIDE_DIR, appId)) {
-                try {
-                    const original = fs.readFileSync(p, 'utf8')
-                    let modified = original.replace(/^(NoDisplay=.*)$/m, 'NoDisplay=true')
-                    if (!modified.includes('NoDisplay=true')) {
-                        modified = modified.replace(/(\[Desktop Entry\])/, '$1\nNoDisplay=true')
-                    }
-                    modified = modified.replace(/^Exec=.*$/m,
-                        'Exec=notify-send -u critical "LiFE Parental Control" "This application is blocked by parental controls."')
-                    content = modified
-                } catch { /* skip unreadable */ }
-                break
-            }
-        }
-        if (content) {
-            await daemonDesktopOverride([{ appId, content }], [])
-        }
-    } else {
-        await daemonDesktopOverride([], [appId])
-    }
-}
 
 export async function replaceBlockedDesktopIds(configDir, nextIds) {
     const catalog = await getAppCatalog(configDir)
     const knownApps = catalog.map(a => ({ id: a.appId || a.id }))
     const nextResolved = resolveBlockedIdsAgainstApps(Array.isArray(nextIds) ? nextIds : [], knownApps)
-    const prevResolved = resolveBlockedIdsAgainstApps(readBlocked(configDir), knownApps)
-    const next = new Set(nextResolved)
-    const prev = prevResolved
-    saveBlocked(configDir, [...next])
-    for (const id of prev) {
-        if (!next.has(id)) await applyDesktopOverride(configDir, id, false)
-    }
-    for (const id of next) {
-        if (!prev.includes(id)) await applyDesktopOverride(configDir, id, true)
-    }
+    const prevEntries = readBlocked(configDir)
+    const prevMap = new Map(prevEntries.map(e => [blockedAppId(e), e]))
+    const nextEntries = nextResolved.map(id => {
+        if (prevMap.has(id)) return prevMap.get(id)
+        const catalogEntry = catalog.find(a => (a.appId || a.id) === id)
+        return {
+            appId: id,
+            appName: String(catalogEntry?.appName || catalogEntry?.name || '').trim(),
+            processName: String(catalogEntry?.processName || '').trim(),
+            linuxUser: '',
+            allowAtSchoolTime: false
+        }
+    })
+    saveBlocked(configDir, nextEntries)
 }
 
 export function registerAppBlockerIpc(ipcMain, configDir) {
@@ -508,20 +464,9 @@ export function registerAppBlockerIpc(ipcMain, configDir) {
             const cfg = { enabled }
             patchDefaultJson(configDir, (d) => {
                 d.appControl = { enabled: cfg.enabled }
+                if (!cfg.enabled) { d.blockedDesktopIds = []; d.quota = [] }
                 return d
             })
-            if (cfg.enabled) {
-                await syncAppArmor(configDir)
-            } else {
-                const blocked = readBlocked(configDir)
-                for (const appId of blocked) await applyDesktopOverride(configDir, appId, false)
-                patchDefaultJson(configDir, (d) => {
-                    d.blockedDesktopIds = []
-                    d.quota = []
-                    return d
-                })
-                await syncAppArmor(configDir)
-            }
             appendActivity(configDir, { action: 'app_control_toggle', enabled: cfg.enabled })
             return { ok: true, ...cfg }
         } catch (e) {
@@ -540,11 +485,14 @@ export function registerAppBlockerIpc(ipcMain, configDir) {
             filePath: a.filePath || '',
             processName: a.processName || ''
         })).filter(a => a.id)
-        const resolvedBlocked = resolveBlockedIdsAgainstApps(readBlocked(configDir), base)
+        const blockedEntries = readBlocked(configDir)
+        const blockedMap = new Map(blockedEntries.map(e => [blockedAppId(e), e]))
+        const resolvedBlocked = resolveBlockedIdsAgainstApps(blockedEntries.map(e => blockedAppId(e)), base)
         const control = readAppControlConfig(configDir)
         const blocked = new Set(resolvedBlocked)
         const apps = base.map((app) => {
             const file = app.id
+            const blockedEntry = blockedMap.get(file)
             const row = {
                 id: file,
                 name: app.name,
@@ -552,7 +500,9 @@ export function registerAppBlockerIpc(ipcMain, configDir) {
                 icon: app.icon,
                 filePath: app.filePath,
                 processName: app.processName,
-                blocked: control.enabled ? blocked.has(file) : false
+                blocked: control.enabled ? blocked.has(file) : false,
+                linuxUser: blockedEntry ? String(blockedEntry.linuxUser || '') : '',
+                allowAtSchoolTime: blockedEntry ? blockedEntry.allowAtSchoolTime === true : false
             }
             if (app.execPath) row.execPath = app.execPath
             if (file.endsWith('.desktop') && app.filePath) {
@@ -569,20 +519,26 @@ export function registerAppBlockerIpc(ipcMain, configDir) {
         return apps
     })
 
-    ipcMain.handle('apps:setBlocked', async (_, appId, block) => {
+    ipcMain.handle('apps:setBlocked', async (_, appId, block, linuxUser = '', allowAtSchoolTime = false) => {
         try {
             const list = readBlocked(configDir)
-            const control = readAppControlConfig(configDir)
-            if (block && !list.includes(appId)) list.push(appId)
-            else if (!block) {
-                const i = list.indexOf(appId)
-                if (i !== -1) list.splice(i, 1)
+            const existingIdx = list.findIndex(e => blockedAppId(e) === appId)
+            if (block && existingIdx === -1) {
+                const catalog = await getAppCatalog(configDir)
+                const catalogEntry = catalog.find(a => (a.appId || a.id) === appId)
+                list.push({
+                    appId,
+                    appName: String(catalogEntry?.appName || catalogEntry?.name || '').trim(),
+                    processName: String(catalogEntry?.processName || '').trim(),
+                    linuxUser: String(linuxUser || '').trim(),
+                    allowAtSchoolTime: allowAtSchoolTime === true
+                })
+            } else if (block && existingIdx !== -1) {
+                list[existingIdx] = { ...list[existingIdx], linuxUser: String(linuxUser || '').trim(), allowAtSchoolTime: allowAtSchoolTime === true }
+            } else if (!block && existingIdx !== -1) {
+                list.splice(existingIdx, 1)
             }
             saveBlocked(configDir, list)
-            if (control.enabled) {
-                await applyDesktopOverride(configDir, appId, block)
-                await syncAppArmor(configDir)
-            }
             appendActivity(configDir, { action: block ? 'app_blocked' : 'app_unblocked', appId })
             return { ok: true }
         } catch (e) {
@@ -593,6 +549,11 @@ export function registerAppBlockerIpc(ipcMain, configDir) {
 
     ipcMain.handle('apps:getBlocked', async () => {
         const base = await getAppCatalog(configDir)
-        return resolveBlockedIdsAgainstApps(readBlocked(configDir), base.map(a => ({ id: a.appId || a.id })))
+        const entries = readBlocked(configDir)
+        const resolvedIds = resolveBlockedIdsAgainstApps(entries.map(e => blockedAppId(e)), base.map(a => ({ id: a.appId || a.id })))
+        return resolvedIds.map(id => {
+            const entry = entries.find(e => blockedAppId(e) === id)
+            return { appId: id, appName: entry?.appName || '', processName: entry?.processName || '', linuxUser: entry?.linuxUser || '', allowAtSchoolTime: entry?.allowAtSchoolTime === true }
+        })
     })
 }

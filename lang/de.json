@@ -58,9 +58,15 @@
   },
   "unsavedGuard": {
     "title": "Ungespeicherte Änderungen",
-    "message": "Sie haben ungespeicherte Änderungen. Möchten Sie diese vor dem Wechsel speichern?",
-    "save": "Speichern & Wechseln",
-    "discard": "Änderungen verwerfen"
+    "discard": "Änderungen verwerfen",
+    "navigate": {
+      "message": "Sie haben ungespeicherte Änderungen. Möchten Sie diese vor dem Wechsel speichern?",
+      "save": "Speichern & Wechseln"
+    },
+    "quit": {
+      "message": "Sie haben ungespeicherte Änderungen. Möchten Sie diese vor dem Beenden speichern?",
+      "save": "Speichern und beenden"
+    }
   },
   "app": {
     "createPassword": "Erstelle ein Passwort, um die Elternkontrolle zu sch\u00fctzen.",
@@ -236,7 +242,9 @@
     "resetTodayTitle": "Heutiges Kontingent zur\u00fccksetzen",
     "resetTodayMsg": "Heutige Kontingent-Nutzungsdatei l\u00f6schen? Alle \u201eheute genutzt\u201c-Minuten werden auf 0 zur\u00fcckgesetzt; die Z\u00e4hlung wird beim n\u00e4chsten Durchsetzungs-Tick fortgesetzt.",
     "reset": "Zur\u00fccksetzen",
-    "usedMin": "{min} Min"
+    "usedMin": "{min} Min",
+    "allowAtSchoolTime": "Nicht zur Schulzeit blockieren",
+    "allowAtSchoolTimeTitle": "App wird während der konfigurierten Schulzeiten nicht blockiert"
   },
   "schedules": {
     "title": "Bildschirmzeit",

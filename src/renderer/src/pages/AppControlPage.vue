@@ -55,6 +55,28 @@
                             <div class="item-name">{{ app.name }}</div>
                             <div class="item-sub text-truncate" style="max-width:360px;">{{ app.exec }}</div>
                         </div>
+                        <template v-if="app.blocked">
+                            <label
+                                class="d-flex align-items-center gap-1 me-3 text-muted"
+                                style="font-size:12px;white-space:nowrap;cursor:pointer;flex-shrink:0;"
+                                :title="$t('appControl.allowAtSchoolTimeTitle')"
+                            >
+                                <input
+                                    type="checkbox"
+                                    :checked="app.allowAtSchoolTime"
+                                    @change="onAllowAtSchoolTimeChange(app, $event.target.checked)"
+                                />
+                                {{ $t('appControl.allowAtSchoolTime') }}
+                            </label>
+                            <select
+                                class="pc-input pc-input-sm me-2"
+                                style="width:140px;flex-shrink:0;"
+                                :value="app.linuxUser || ''"
+                                @change="onBlockedUserChange(app, $event.target.value)"
+                            >
+                                <option v-for="u in blockUserOptions" :key="u" :value="u">{{ u || $t('common.allAccounts') }}</option>
+                            </select>
+                        </template>
                         <span v-if="pendingBlocked.has(app.id)" class="text-muted me-2" style="font-size:11px;">{{ $t('common.unsaved') }}</span>
                         <label class="pc-toggle">
                             <input type="checkbox" :checked="app.blocked" @change="onToggle(app)" />
@@ -273,6 +295,14 @@ const addQuotaLinuxUserOptions = computed(() => {
     return [...set].sort((a, b) => a.localeCompare(b))
 })
 
+const blockUserOptions = computed(() => {
+    const set = new Set(['', ...desktopLoginUsers.value])
+    for (const app of apps.value) {
+        if (app.blocked && app.linuxUser) set.add(app.linuxUser)
+    }
+    return [...set].sort((a, b) => a.localeCompare(b))
+})
+
 function quotaUsedForRow(q) {
     return quotaUsedMinutes(store.appQuotaUsage || {}, q.appId, q.linuxUser)
 }
@@ -391,7 +421,7 @@ async function onApplyAllQuotas() {
         for (const appId of pendingBlocked.value) {
             const app = apps.value.find(a => a.id === appId)
             if (!app) continue
-            const r = await window.api.apps.setBlocked(appId, app.blocked)
+            const r = await window.api.apps.setBlocked(appId, app.blocked, app.linuxUser || '', app.allowAtSchoolTime === true)
             if (r?.error) {
                 quotaBusy.value = false
                 applyMsg.value = r.error
@@ -479,10 +509,22 @@ function onRemoveQuota(q) {
 
 function onToggle(app) {
     app.blocked = !app.blocked
-    // Track as pending: if toggled back to original state, remove from pending
+    if (!app.blocked) { app.linuxUser = ''; app.allowAtSchoolTime = false }
     const orig = store.blockedApps.includes(app.id)
     if (app.blocked !== orig) pendingBlocked.value.add(app.id)
     else pendingBlocked.value.delete(app.id)
+    pendingBlocked.value = new Set(pendingBlocked.value)
+}
+
+function onBlockedUserChange(app, value) {
+    app.linuxUser = value
+    pendingBlocked.value.add(app.id)
+    pendingBlocked.value = new Set(pendingBlocked.value)
+}
+
+function onAllowAtSchoolTimeChange(app, value) {
+    app.allowAtSchoolTime = value === true
+    pendingBlocked.value.add(app.id)
     pendingBlocked.value = new Set(pendingBlocked.value)
 }
 </script>

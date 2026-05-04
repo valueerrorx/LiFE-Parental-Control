@@ -64,20 +64,6 @@ export async function daemonGetDohIptablesStatus() {
     catch (e) { return { ok: false, error: e.message } }
 }
 
-/** Write + reload AppArmor profile. Fire-and-forget. */
-export function daemonSyncAppArmorAsync(profileContent) {
-    if (!isDaemonConnected()) { logErr('sync-apparmor', 'daemon not connected'); return }
-    daemonRequest({ type: 'sync-apparmor', profileContent }, 'sync-apparmor-result', 15_000)
-        .then(r => { if (!r.ok) logErr('sync-apparmor', r.error) })
-        .catch(e => logErr('sync-apparmor', e.message))
-}
-
-/** Write/delete .desktop override files + update-desktop-database. Awaitable. */
-export async function daemonDesktopOverride(toWrite, toDelete) {
-    if (!isDaemonConnected()) { logErr('desktop-override', 'daemon not connected'); return { ok: false, error: 'daemon not connected' } }
-    try { return await daemonRequest({ type: 'desktop-override', write: toWrite, delete: toDelete }, 'desktop-override-result', 15_000) }
-    catch (e) { logErr('desktop-override', e.message); return { ok: false, error: e.message } }
-}
 
 /** Write /etc/xdg/kdeglobals and optionally /etc/xdg/plasma-appletsrc. Awaitable. */
 export async function daemonWriteKiosk(kdeglobalsContent, plasmaAppletsrcContent) {

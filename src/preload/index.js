@@ -49,7 +49,7 @@ contextBridge.exposeInMainWorld('api', {
     },
     apps: {
         list: () => ipcRenderer.invoke('apps:list'),
-        setBlocked: (appId, blocked) => ipcRenderer.invoke('apps:setBlocked', appId, blocked),
+        setBlocked: (appId, blocked, linuxUser = '', allowAtSchoolTime = false) => ipcRenderer.invoke('apps:setBlocked', appId, blocked, linuxUser, allowAtSchoolTime),
         getBlocked: () => ipcRenderer.invoke('apps:getBlocked'),
         getControlConfig: () => ipcRenderer.invoke('apps:getControlConfig'),
         setControlConfig: (cfg) => ipcRenderer.invoke('apps:setControlConfig', cfg)

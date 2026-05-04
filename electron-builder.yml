@@ -82,7 +82,5 @@ deb:
   depends:
     - nodejs
     - dnsmasq
-    - apparmor
-    - apparmor-utils
   afterInstall: packaging/debian/postinst.sh
   afterRemove: packaging/debian/postrm.sh

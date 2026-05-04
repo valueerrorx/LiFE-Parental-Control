@@ -58,9 +58,15 @@
   },
   "unsavedGuard": {
     "title": "Unsaved Changes",
-    "message": "You have unsaved changes. Do you want to save them before leaving?",
-    "save": "Save & Continue",
-    "discard": "Discard Changes"
+    "discard": "Discard Changes",
+    "navigate": {
+      "message": "You have unsaved changes. Do you want to save them before switching views?",
+      "save": "Save & Continue"
+    },
+    "quit": {
+      "message": "You have unsaved changes. Do you want to save them before quitting?",
+      "save": "Save & Quit"
+    }
   },
   "app": {
     "createPassword": "Create a password to protect parental control settings.",
@@ -236,7 +242,9 @@
     "resetTodayTitle": "Reset today's quota",
     "resetTodayMsg": "Delete today's quota-usage file? All \"used today\" minutes reset to 0; counting resumes on the next enforcement tick.",
     "reset": "Reset",
-    "usedMin": "{min} min"
+    "usedMin": "{min} min",
+    "allowAtSchoolTime": "Not blocked during school hours",
+    "allowAtSchoolTimeTitle": "App is not blocked during the configured school hours"
   },
   "schedules": {
     "title": "Screen Time",

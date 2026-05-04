@@ -12,6 +12,25 @@ const crypto = require('crypto');
 const { createDefaultSync, dohIptablesStatus } = require('./defaultSync.js');
 const { defaultSchoolTimes } = require('./schoolTimesDefaults.js');
 
+const DAY_KEYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
+
+/**
+ * Returns true if the current local time falls within any configured school-time slot.
+ * @param {object} schoolTimes  e.g. { mon: { from: '07:50', to: '13:10' }, ... }
+ */
+function isSchoolTimeNow(schoolTimes) {
+    if (!schoolTimes || typeof schoolTimes !== 'object') return false;
+    const now = new Date();
+    const dayKey = DAY_KEYS[now.getDay()];
+    const slot = schoolTimes[dayKey];
+    if (!slot || typeof slot.from !== 'string' || typeof slot.to !== 'string') return false;
+    const cur = now.getHours() * 60 + now.getMinutes();
+    const [fh, fm] = slot.from.split(':').map(Number);
+    const [th, tm] = slot.to.split(':').map(Number);
+    if (isNaN(fh) || isNaN(fm) || isNaN(th) || isNaN(tm)) return false;
+    return cur >= fh * 60 + fm && cur < th * 60 + tm;
+}
+
 const execFileAsync = promisify(execFile);
 
 const SOCKET_PATH = '/run/parental-control.sock';
@@ -22,6 +41,7 @@ const ACTIVITY_LOG_MAX = 400;
 const LOG_MAX_BYTES = 2 * 1024 * 1024; // rotate at 2 MB
 const TICK_MS = 10_000;
 const TICKS_PER_LOGGED_MINUTE = 60_000 / TICK_MS; // 6 ticks = 1 minute
+const APP_BLOCK_POLL_MS = 400;
 const ALLOWED_HOURS_GRACE_MS = 60_000;
 const EXHAUSTED_LOGOUT_GRACE_MS = 60_000; // Same wall-clock UX as allowed-hours; parent may grant bonus via lockscreen before terminate.
 const RELOGIN_BUFFER_MINUTES = 2; // Same slack as post-exhausted minute rollback; allowed-hours uses override end (wall clock).
@@ -48,13 +68,6 @@ const NOTIFY_SEND_BIN = (() => {
 })();
 
 // Resolve apparmor_parser without relying on PATH (Electron/daemon environments often omit /usr/sbin).
-const APPARMOR_PARSER_BIN = (() => {
-    for (const p of ['/usr/sbin/apparmor_parser', '/usr/bin/apparmor_parser', '/sbin/apparmor_parser']) {
-        try { if (fs.existsSync(p)) return p; } catch { /* ignore */ }
-    }
-    return null;
-})();
-
 const NOTIFY_APP_NAME = 'LiFE Parental Control';
 
 // --- File logger ---
@@ -94,6 +107,7 @@ function appendActivityDaemon(entry) {
 // Mutable tick state: minute counter every TICK_MS on wall clock; tickWorkChain runs tick body strictly serialized (no overlap during long awaits).
 let tickInMinute = 0;
 let tickWorkChain = Promise.resolve();
+let appBlockKnownPids = new Set();
 let quotaWarnDate = '';
 const appQuotaWarnOnce = new Set();
 const quotaLinuxUserNoSessionWarnOnce = new Set(); // one warn per appId+linuxUser until next calendar day
@@ -394,6 +408,27 @@ function getDefaultConfig() {
 
         const quotas = normalizeQuotaEntriesFromDefault(data?.quota, installedIds)
 
+        // Build blockedEntries for the /proc poller: objects with processName + linuxUser.
+        // Supports both legacy string entries and new object entries { appId, processName, linuxUser, appName }.
+        const blockedEntries = []
+        for (const raw of Array.isArray(data?.blockedDesktopIds) ? data.blockedDesktopIds : []) {
+            if (typeof raw === 'string') continue // legacy strings have no processName — poller skips them
+            if (!raw || typeof raw !== 'object') continue
+            const proc = String(raw.processName || '').trim()
+            if (!proc) continue
+            blockedEntries.push({
+                appId: String(raw.appId || '').trim(),
+                appName: String(raw.appName || raw.appId || proc).trim(),
+                processName: proc,
+                linuxUser: normalizeLinuxUser(raw.linuxUser),
+                allowAtSchoolTime: raw.allowAtSchoolTime === true
+            })
+        }
+
+        const schoolTimes = (data?.schoolTimes && typeof data.schoolTimes === 'object' && !Array.isArray(data.schoolTimes))
+            ? data.schoolTimes
+            : defaultSchoolTimes();
+
         cachedDefaultConfig = {
             schedule,
             appControlEnabled,
@@ -402,6 +437,8 @@ function getDefaultConfig() {
             quotaExemptionsEnabled,
             quotaAllowedIds,
             quotaEntries: quotas,
+            blockedEntries,
+            schoolTimes,
             requestDaemonWarningTest: data?.requestDaemonWarningTest === true
         }
         return cachedDefaultConfig
@@ -415,6 +452,7 @@ function getDefaultConfig() {
             quotaExemptionsEnabled: false,
             quotaAllowedIds: new Set(),
             quotaEntries: [],
+            blockedEntries: [],
             requestDaemonWarningTest: false
         }
         return cachedDefaultConfig
@@ -2594,6 +2632,86 @@ async function tickAppMonitor(logMinute) {
     writeAppMonitorUsage(track);
 }
 
+// --- App block poller (/proc scan) ---
+
+function tickAppBlockPoller() {
+    const cfg = getDefaultConfig();
+    if (!cfg.appControlEnabled || !cfg.blockedEntries || cfg.blockedEntries.length === 0) {
+        appBlockKnownPids = new Set();
+        return;
+    }
+
+    let files;
+    try { files = fs.readdirSync('/proc'); } catch { return; }
+
+    const currentPids = new Set();
+    const newPids = [];
+    for (const f of files) {
+        if (f[0] >= '0' && f[0] <= '9') {
+            currentPids.add(f);
+            if (!appBlockKnownPids.has(f)) newPids.push(f);
+        }
+    }
+    appBlockKnownPids = currentPids;
+
+    if (newPids.length === 0) return;
+
+    // Build lookup map: processName (lower) → blocked entry
+    const byProc = new Map();
+    for (const entry of cfg.blockedEntries) {
+        const p = String(entry.processName || '').trim().toLowerCase();
+        if (p) byProc.set(p, entry);
+    }
+    if (byProc.size === 0) return;
+
+    for (const pid of newPids) {
+        let comm;
+        try { comm = fs.readFileSync(`/proc/${pid}/comm`, 'utf8').trim().toLowerCase(); } catch { continue; }
+
+        const entry = byProc.get(comm);
+        if (!entry) continue;
+
+        // Read UID from /proc/<pid>/status to identify the user
+        let uid;
+        try {
+            const status = fs.readFileSync(`/proc/${pid}/status`, 'utf8');
+            const m = status.match(/^Uid:\s+(\d+)/m);
+            if (m) uid = Number(m[1]);
+        } catch { continue; }
+        if (uid == null) continue;
+
+        // Resolve UID → username
+        let procUser;
+        try {
+            const { stdout } = spawnSync('id', ['-nu', String(uid)], { encoding: 'utf8', timeout: 1000 });
+            procUser = String(stdout || '').trim();
+        } catch { continue; }
+        if (!procUser) continue;
+
+        // Check linuxUser match
+        const lu = normalizeLinuxUser(entry.linuxUser);
+        if (lu && normalizeLinuxUser(procUser) !== lu) continue;
+
+        // School-time exemption: skip kill if allowAtSchoolTime is set and school is in session
+        if (entry.allowAtSchoolTime && isSchoolTimeNow(cfg.schoolTimes)) continue;
+
+        // Kill the process
+        try { process.kill(Number(pid), 'SIGKILL'); } catch { /* already gone */ }
+        log.info(`app-block: killed pid=${pid} proc=${comm} user=${procUser} appId=${entry.appId}`);
+        appendActivityDaemon({ action: 'app_blocked_killed', appId: entry.appId, appName: entry.appName, processName: comm, pid: Number(pid), linuxUser: procUser });
+
+        const notifyUser = lu || procUser;
+        notifyOrSpawn(
+            { type: 'app-blocked', appId: entry.appId, appName: entry.appName, processName: comm },
+            'App blockiert',
+            `Der Start von "${entry.appName || comm}" ist durch die Kindersicherung blockiert.`,
+            'critical',
+            true,
+            notifyUser
+        );
+    }
+}
+
 // --- Main tick function ---
 
 function clearRequestDaemonWarningTestFlag() {
@@ -3335,69 +3453,6 @@ function handleClientCommand(client, cmd) {
         return;
     }
 
-    if (cmd.type === 'setup-apparmor') {
-        // Enable and start the apparmor systemd service.
-        try {
-            try { execFileSync('systemctl', ['reset-failed', 'apparmor.service'], { timeout: 5000 }); } catch { /* ignore */ }
-            execFileSync('systemctl', ['enable', 'apparmor.service'], { timeout: 10000 });
-            execFileSync('systemctl', ['start', 'apparmor.service'], { timeout: 10000 });
-            log.info('setup-apparmor: apparmor enabled and started');
-            client.write(JSON.stringify({ type: 'setup-apparmor-result', ok: true }) + '\n');
-        } catch (e) {
-            log.error('setup-apparmor: ' + e.message);
-            client.write(JSON.stringify({ type: 'setup-apparmor-result', ok: false, error: e.message }) + '\n');
-        }
-        return;
-    }
-
-    if (cmd.type === 'sync-apparmor') {
-        // Write /etc/apparmor.d/life-parental-blocked and reload it
-        const APPARMOR_PROFILE = '/etc/apparmor.d/life-parental-blocked';
-        try {
-            if (!APPARMOR_PARSER_BIN) throw new Error('apparmor_parser not found');
-            const content = typeof cmd.profileContent === 'string' ? cmd.profileContent : '';
-            if (fs.existsSync(APPARMOR_PROFILE)) {
-                spawnSync(APPARMOR_PARSER_BIN, ['-R', APPARMOR_PROFILE], { timeout: 5000, stdio: 'ignore' });
-            }
-            try { fs.mkdirSync(path.dirname(APPARMOR_PROFILE), { recursive: true }); } catch { /* exists */ }
-            fs.writeFileSync(APPARMOR_PROFILE, content, 'utf8');
-            if (content.includes('deny')) {
-                spawnSync(APPARMOR_PARSER_BIN, ['-a', APPARMOR_PROFILE], { timeout: 5000, stdio: 'ignore' });
-            }
-            log.info('sync-apparmor: ok');
-            client.write(JSON.stringify({ type: 'sync-apparmor-result', ok: true }) + '\n');
-        } catch (e) {
-            log.error('sync-apparmor: ' + e.message);
-            client.write(JSON.stringify({ type: 'sync-apparmor-result', ok: false, error: e.message }) + '\n');
-        }
-        return;
-    }
-
-    if (cmd.type === 'desktop-override') {
-        // Write/delete .desktop override files in /usr/local/share/applications + refresh DB
-        const OVERRIDE_DIR = '/usr/local/share/applications';
-        try {
-            fs.mkdirSync(OVERRIDE_DIR, { recursive: true });
-            const toWrite = Array.isArray(cmd.write) ? cmd.write : [];
-            const toDelete = Array.isArray(cmd.delete) ? cmd.delete : [];
-            for (const { appId, content } of toWrite) {
-                if (typeof appId !== 'string' || !appId.endsWith('.desktop') || typeof content !== 'string') continue;
-                fs.writeFileSync(path.join(OVERRIDE_DIR, appId), content, 'utf8');
-            }
-            for (const appId of toDelete) {
-                if (typeof appId !== 'string' || !appId.endsWith('.desktop')) continue;
-                try { fs.unlinkSync(path.join(OVERRIDE_DIR, appId)); } catch { /* already gone */ }
-            }
-            execFile('update-desktop-database', [OVERRIDE_DIR], { timeout: 5000 }, () => {});
-            log.info(`desktop-override: wrote ${toWrite.length} deleted ${toDelete.length}`);
-            client.write(JSON.stringify({ type: 'desktop-override-result', ok: true }) + '\n');
-        } catch (e) {
-            log.error('desktop-override: ' + e.message);
-            client.write(JSON.stringify({ type: 'desktop-override-result', ok: false, error: e.message }) + '\n');
-        }
-        return;
-    }
-
     if (cmd.type === 'write-kiosk') {
         // Write /etc/xdg/kdeglobals and optionally /etc/xdg/plasma-appletsrc
         try {
@@ -3703,6 +3758,7 @@ defaultSync.maybeSync().catch(e => log.warn(`defaultSync initial: ${e && e.messa
 
 startSocketServer();
 buildAndWriteAppCatalog();
+setInterval(() => { try { tickAppBlockPoller(); } catch (e) { log.warn(`app-block poller: ${e.message}`); } }, APP_BLOCK_POLL_MS);
 
 // Wall clock: advance minute counter every TICK_MS; run heavy tick work strictly one at a time (no overlap during exhausted wait).
 tickWorkChain = tickWorkChain.then(() => tickWork(atLoggedMinuteBoundary())).catch((e) => log.error(`initial tick: ${e && e.message ? e.message : String(e)}`));

@@ -109,7 +109,10 @@ export const useAppStore = defineStore('app', () => {
     }
 
     async function loadBlockedApps() {
-        blockedApps.value = await window.api.apps.getBlocked()
+        const raw = await window.api.apps.getBlocked()
+        blockedApps.value = Array.isArray(raw)
+            ? raw.map(e => (typeof e === 'string' ? e : String(e?.appId || '')))
+            : []
     }
 
     async function loadAppControlConfig() {
