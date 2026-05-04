@@ -57,11 +57,10 @@ export async function daemonGetDhcpDns() {
     catch { return { ok: false, ip: null } }
 }
 
-/** Apply or remove DoH iptables rules immediately. Awaitable. */
-export async function daemonApplyDohIptables(enabled) {
-    if (!isDaemonConnected()) return { ok: false, error: 'daemon not connected' }
-    try { return await daemonRequest({ type: 'apply-doh-iptables', enabled: enabled === true }, 'apply-doh-iptables-result', 30_000) }
-    catch (e) { return { ok: false, error: e.message } }
+/** Trigger DoH iptables apply/remove in daemon. Fire-and-forget — no response expected. */
+export function daemonApplyDohIptables(enabled) {
+    if (!isDaemonConnected()) return
+    daemonSend({ type: 'apply-doh-iptables', enabled: enabled === true })
 }
 
 /** Query DoH iptables/ip6tables status from daemon. Awaitable. */

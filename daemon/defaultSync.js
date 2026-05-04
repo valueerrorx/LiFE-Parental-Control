@@ -104,9 +104,13 @@ function resolveCmdPathSync(cmd) {
         ? ['/usr/sbin/iptables', '/usr/bin/iptables', '/sbin/iptables', '/bin/iptables']
         : cmd === 'ip6tables'
             ? ['/usr/sbin/ip6tables', '/usr/bin/ip6tables', '/sbin/ip6tables', '/bin/ip6tables']
-            : cmd === 'curl'
-                ? ['/usr/bin/curl', '/bin/curl']
-                : [];
+            : cmd === 'iptables-restore'
+                ? ['/usr/sbin/iptables-restore', '/usr/bin/iptables-restore', '/sbin/iptables-restore']
+                : cmd === 'ip6tables-restore'
+                    ? ['/usr/sbin/ip6tables-restore', '/usr/bin/ip6tables-restore', '/sbin/ip6tables-restore']
+                    : cmd === 'curl'
+                        ? ['/usr/bin/curl', '/bin/curl']
+                        : [];
     for (const p of candidates) {
         try { if (fs.existsSync(p)) return p; } catch { /* ignore */ }
     }
@@ -176,6 +180,38 @@ function deleteChain(bin, chain) {
     iptSync(bin, ['-X', chain], { ignoreError: true });
 }
 
+const DOH_RESTORE_MAX_BUFFER = 64 * 1024 * 1024;
+const DOH_RESTORE_TIMEOUT_MS = 120_000;
+
+// Apply DoH REJECT rules in one *tables-restore -n commit instead of per-IP execFileSync.
+function applyDohChainBulk({ bin, chain, ips, restoreCmd, log }) {
+    if (!ips.length) return;
+    const restoreBin = resolveCmdPathSync(restoreCmd);
+    if (!restoreBin) {
+        log && log.info && log.info(`defaultSync: ${restoreCmd} not found; falling back to per-rule iptables (slow)`);
+        ensureChain(bin, chain);
+        for (const ip of ips) {
+            iptSync(bin, ['-A', chain, '-d', ip, '-p', 'tcp', '--dport', '443', '-j', 'REJECT'], { ignoreError: false });
+        }
+        return;
+    }
+    if (!chainExists(bin, chain)) {
+        iptSync(bin, ['-N', chain], { ignoreError: false });
+    }
+    const lines = ['*filter', `-F ${chain}`];
+    for (const ip of ips) {
+        lines.push(`-A ${chain} -d ${ip} -p tcp --dport 443 -j REJECT`);
+    }
+    lines.push('COMMIT');
+    const script = `${lines.join('\n')}\n`;
+    const opts = { input: script, maxBuffer: DOH_RESTORE_MAX_BUFFER, timeout: DOH_RESTORE_TIMEOUT_MS, encoding: 'utf8' };
+    try {
+        execFileSync(restoreBin, ['-w', '10', '-n'], opts);
+    } catch (e) {
+        execFileSync(restoreBin, ['-n'], opts);
+    }
+}
+
 function ensureDohIptablesEnabled({ configDir, log }) {
     const filePath = path.join(configDir, DOH_IPS_FILE);
     let text = '';
@@ -209,9 +245,10 @@ function ensureDohIptablesEnabled({ configDir, log }) {
     }
 
     try {
-        ensureChain('iptables', IPT_CHAIN_V4);
-        for (const ip of v4) {
-            iptSync('iptables', ['-A', IPT_CHAIN_V4, '-d', ip, '-p', 'tcp', '--dport', '443', '-j', 'REJECT'], { ignoreError: false });
+        if (v4.length) {
+            applyDohChainBulk({ bin: 'iptables', chain: IPT_CHAIN_V4, ips: v4, restoreCmd: 'iptables-restore', log });
+        } else {
+            ensureChain('iptables', IPT_CHAIN_V4);
         }
         ensureOutputHook('iptables', IPT_CHAIN_V4);
     } catch (e) {
@@ -225,10 +262,7 @@ function ensureDohIptablesEnabled({ configDir, log }) {
     }
     if (!v6.length) return;
     try {
-        ensureChain('ip6tables', IPT_CHAIN_V6);
-        for (const ip of v6) {
-            iptSync('ip6tables', ['-A', IPT_CHAIN_V6, '-d', ip, '-p', 'tcp', '--dport', '443', '-j', 'REJECT'], { ignoreError: false });
-        }
+        applyDohChainBulk({ bin: 'ip6tables', chain: IPT_CHAIN_V6, ips: v6, restoreCmd: 'ip6tables-restore', log });
         ensureOutputHook('ip6tables', IPT_CHAIN_V6);
     } catch (e) {
         log && log.warn && log.warn('defaultSync: ip6tables DoH apply failed: ' + (e?.message || String(e)));

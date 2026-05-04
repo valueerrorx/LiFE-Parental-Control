@@ -140,8 +140,7 @@ async function persistWebfilterAndHosts(configDir, wf, { background = false } = 
         const dnsResult = await daemonRemoveDnsmasq()
         if (!dnsResult.ok) console.warn('[LiFE webfilter] remove-dnsmasq failed:', dnsResult.error)
     }
-    const dohResult = await daemonApplyDohIptables(full.dohIptablesEnabled)
-    if (!dohResult.ok) console.warn('[LiFE webfilter] apply-doh-iptables failed:', dohResult.error)
+    daemonApplyDohIptables(full.dohIptablesEnabled)
 }
 
 export function registerWebFilterIpc(ipcMain, configDir, bundledDir = null) {

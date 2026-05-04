@@ -453,12 +453,14 @@ async function onSave() {
     saving.value = false
     if (result?.error) { saveMsg.value = `Error: ${result.error}`; saveError.value = true }
     else {
-        saveMsg.value = t('webFilter.rulesApplied')
+        saveMsg.value = t('webFilter.rulesApplied', {
+            dohNote: store.webFilterDohIptablesEnabled ? t('webFilter.rulesAppliedDohIptablesNote') : ''
+        })
         saveError.value = false
         hostsBackupWarning.value = ''
         takeSnapshot()
     }
-    setTimeout(() => { saveMsg.value = '' }, 4000)
+    setTimeout(() => { saveMsg.value = '' }, result?.error ? 4000 : 12000)
 }
 
 async function onClearAll() {

@@ -3648,16 +3648,14 @@ function handleClientCommand(client, cmd) {
     }
 
     if (cmd.type === 'apply-doh-iptables') {
-        try {
-            if (cmd.enabled) {
-                ensureDohIptablesEnabled({ configDir: CONFIG_DIR, log });
-            } else {
-                ensureDohIptablesDisabled({ log });
+        setImmediate(() => {
+            try {
+                if (cmd.enabled) ensureDohIptablesEnabled({ configDir: CONFIG_DIR, log });
+                else ensureDohIptablesDisabled({ log });
+            } catch (e) {
+                log.warn('apply-doh-iptables: ' + e.message);
             }
-            client.write(JSON.stringify({ type: 'apply-doh-iptables-result', ok: true }) + '\n');
-        } catch (e) {
-            client.write(JSON.stringify({ type: 'apply-doh-iptables-result', ok: false, error: e.message }) + '\n');
-        }
+        });
         return;
     }
 
