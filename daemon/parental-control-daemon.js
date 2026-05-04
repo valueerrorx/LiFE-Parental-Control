@@ -242,6 +242,29 @@ function readInstalledDesktopIds() {
     return installed
 }
 
+// Sync display processName + commAliases from app-monitor catalog so blocked rows match /proc/comm (e.g. soffice.bin).
+function mergeBlockedEntriesFromCatalog(entries) {
+    if (!entries.length) return;
+    try {
+        const catPath = path.join(CONFIG_DIR, 'app-monitor-catalog.json');
+        if (!fs.existsSync(catPath)) return;
+        const cat = JSON.parse(fs.readFileSync(catPath, 'utf8'));
+        const byId = new Map();
+        for (const a of Array.isArray(cat.apps) ? cat.apps : []) {
+            const id = String(a.appId || '').trim();
+            if (id) byId.set(id, a);
+        }
+        for (const e of entries) {
+            const a = byId.get(e.appId);
+            if (!a || typeof a !== 'object') continue;
+            const pn = String(a.processName || '').trim();
+            if (pn) e.processName = pn;
+            if (Array.isArray(a.commAliases) && a.commAliases.length) e.commAliases = a.commAliases;
+            if (Array.isArray(a.argvMarkers) && a.argvMarkers.length) e.argvMarkers = a.argvMarkers;
+        }
+    } catch { /* ignore */ }
+}
+
 function resolveBlockedIdsAgainstInstalled(rawIds, installedIds) {
     const ids = Array.isArray(rawIds) ? rawIds : []
     const installed = new Set(Array.from(installedIds || []))
@@ -415,14 +438,19 @@ function getDefaultConfig() {
             if (!raw || typeof raw !== 'object') continue
             const proc = String(raw.processName || '').trim()
             if (!proc) continue
-            blockedEntries.push({
+            const row = {
                 appId: String(raw.appId || '').trim(),
                 appName: String(raw.appName || raw.appId || proc).trim(),
                 processName: proc,
                 linuxUser: normalizeLinuxUser(raw.linuxUser),
                 allowAtSchoolTime: raw.allowAtSchoolTime === true
-            })
+            };
+            if (Array.isArray(raw.argvMarkers) && raw.argvMarkers.length) {
+                row.argvMarkers = raw.argvMarkers.filter((x) => typeof x === 'string' && x.trim()).map((x) => x.trim());
+            }
+            blockedEntries.push(row);
         }
+        mergeBlockedEntriesFromCatalog(blockedEntries);
 
         const schoolTimes = (data?.schoolTimes && typeof data.schoolTimes === 'object' && !Array.isArray(data.schoolTimes))
             ? data.schoolTimes
@@ -656,6 +684,221 @@ function execLineToProcessName(execLine) {
     return '';
 }
 
+// LibreOffice component flags in Exec= — same soffice.bin comm, disambiguate via /proc/<pid>/cmdline.
+const LO_DESKTOP_ARG_MARKERS = new Set(['--writer', '--calc', '--draw', '--impress', '--math', '--base']);
+
+function desktopExecArgvMarkers(execLine) {
+    if (!execLine || typeof execLine !== 'string') return [];
+    const clean = execLine.trim().replace(/%[a-zA-Z]/g, '').trim();
+    const tokens = clean.split(/\s+/).filter(Boolean);
+    let i = 0;
+    while (i < tokens.length) {
+        const t = tokens[i];
+        if (['env', 'dbus-run-session', 'gdbus'].includes(t.toLowerCase())) { i++; continue; }
+        if (/^[A-Za-z_][A-Za-z0-9_]*=/.test(t)) { i++; continue; }
+        break;
+    }
+    if (i >= tokens.length) return [];
+    i++;
+    const out = [];
+    const seen = new Set();
+    for (; i < tokens.length; i++) {
+        const t = tokens[i];
+        if (t.startsWith('%')) break;
+        if (LO_DESKTOP_ARG_MARKERS.has(t)) {
+            if (!seen.has(t)) { seen.add(t); out.push(t); }
+        }
+    }
+    return out;
+}
+
+function isBareInterpreterCommName(commLower) {
+    const s = String(commLower || '').trim().toLowerCase();
+    if (!s) return false;
+    const exact = new Set([
+        'sh', 'bash', 'dash', 'zsh', 'fish',
+        'python', 'python2', 'python3',
+        'perl', 'ruby', 'node', 'nodejs',
+        'php', 'bundle',
+        'mono', 'java', 'wine', 'wine64', 'wine-preloader',
+        'tclsh', 'wish', 'lua', 'luajit',
+        'electron'
+    ]);
+    if (exact.has(s)) return true;
+    if (s.startsWith('python3.') || s.startsWith('python2.')) return true;
+    if (s.startsWith('php') && /^php\d/.test(s)) return true;
+    return false;
+}
+
+// Script / module / jar / asar tokens after the interpreter so pgrep does not match every python3/electron on the system.
+function desktopExecArgvMarkersForInterpreter(execLine, processName) {
+    const procLow = String(processName || '').trim().toLowerCase();
+    if (!procLow || !isBareInterpreterCommName(procLow)) return [];
+    const clean = execLine.trim().replace(/%[a-zA-Z]/g, '').trim();
+    const tokens = clean.split(/\s+/).filter(Boolean);
+    let i = 0;
+    while (i < tokens.length) {
+        const t = tokens[i];
+        if (['env', 'dbus-run-session', 'gdbus'].includes(t.toLowerCase())) { i++; continue; }
+        if (/^[A-Za-z_][A-Za-z0-9_]*=/.test(t)) { i++; continue; }
+        break;
+    }
+    if (i >= tokens.length) return [];
+    const interpTok = tokens[i];
+    const interpBase = (interpTok.includes('/') ? path.basename(interpTok) : interpTok).toLowerCase();
+    if (interpBase !== procLow && !isBareInterpreterCommName(interpBase)) return [];
+    i++;
+    const out = [];
+    const seen = new Set();
+    const push = (raw) => {
+        const m = String(raw || '').trim().toLowerCase();
+        if (m.length < 2 || seen.has(m)) return;
+        seen.add(m);
+        out.push(m);
+    };
+    for (; i < tokens.length; i++) {
+        const t = tokens[i];
+        if (t.startsWith('%')) break;
+        if (t.toLowerCase() === '-c') break;
+        if (t === '-m' && i + 1 < tokens.length) {
+            push(tokens[i + 1]);
+            i++;
+            continue;
+        }
+        if (t === '-jar' && i + 1 < tokens.length) {
+            push(tokens[i + 1]);
+            i++;
+            continue;
+        }
+        if (t.startsWith('-')) continue;
+        if (/\.asar$/i.test(t)) {
+            push(path.basename(t));
+            break;
+        }
+        if (t.includes('/')) push(path.basename(t));
+        else push(t);
+        if (out.length >= 2) break;
+    }
+    return out;
+}
+
+const BROWSER_DESKTOP_COMM_NAMES = new Set([
+    'brave', 'brave-browser', 'brave_browser',
+    'chromium', 'chromium-browser', 'chrome', 'chrome-browser',
+    'google-chrome', 'google-chrome-stable', 'google-chrome-beta', 'google-chrome-unstable',
+    'vivaldi', 'vivaldi-stable', 'vivaldi-beta',
+    'microsoft-edge', 'microsoft-edge-stable', 'microsoft-edge-beta', 'msedge',
+    'opera', 'firefox', 'librewolf', 'floorp', 'zen'
+]);
+
+function isBrowserDesktopProcessName(processNameLower) {
+    const s = String(processNameLower || '').trim().toLowerCase();
+    if (!s) return false;
+    if (BROWSER_DESKTOP_COMM_NAMES.has(s)) return true;
+    if (s.startsWith('google-chrome') || s.startsWith('chromium') || s.startsWith('microsoft-edge') || s.startsWith('vivaldi')) return true;
+    return false;
+}
+
+// One distinctive token so multiple .desktop sharing the same browser binary do not all match one pgrep (PWA --app-id, launch URL host, --app=).
+function desktopExecBrowserDistinctArgvMarkers(execLine, processName) {
+    if (!isBrowserDesktopProcessName(processName)) return [];
+    const clean = execLine.trim().replace(/%[a-zA-Z]/g, '').trim();
+    const tokens = clean.split(/\s+/).filter(Boolean);
+    let i = 0;
+    while (i < tokens.length) {
+        const t = tokens[i];
+        if (['env', 'dbus-run-session', 'gdbus'].includes(t.toLowerCase())) { i++; continue; }
+        if (/^[A-Za-z_][A-Za-z0-9_]*=/.test(t)) { i++; continue; }
+        break;
+    }
+    if (i >= tokens.length) return [];
+    i++;
+    let appId = '';
+    let urlHost = '';
+    let appFlag = '';
+    for (; i < tokens.length; i++) {
+        const t = tokens[i];
+        if (t.startsWith('%')) break;
+        const tl = t.toLowerCase();
+        if (tl.startsWith('--app-id=')) {
+            appId = t.slice('--app-id='.length).trim();
+            continue;
+        }
+        if (tl === '--app-id' && i + 1 < tokens.length) {
+            appId = tokens[i + 1].trim();
+            i++;
+            continue;
+        }
+        if (tl.startsWith('--app=')) {
+            appFlag = t.slice('--app='.length).trim();
+            continue;
+        }
+        if (tl === '--app' && i + 1 < tokens.length) {
+            appFlag = tokens[i + 1].trim();
+            i++;
+            continue;
+        }
+        const um = t.match(/^https?:\/\/([^/?#]+)/i);
+        if (um && !urlHost) {
+            const h = um[1].toLowerCase();
+            if (h && h !== 'localhost' && !h.startsWith('127.') && h !== 'newtab') urlHost = h;
+        }
+    }
+    const pick = String(appId || appFlag || urlHost || '').trim().toLowerCase();
+    if (pick.length < 3 || pick === 'default') return [];
+    return [pick];
+}
+
+// Basenames of the real binary for pgrep/comm (e.g. soffice, soffice.bin) while processName stays the launcher (libreoffice).
+function desktopExecCommAliases(execLine) {
+    const fp = execLineToFullPath(execLine);
+    if (!fp || !fs.existsSync(fp)) return [];
+    const out = [];
+    const seen = new Set();
+    const push = (s) => {
+        const t = String(s || '').trim();
+        if (!t || seen.has(t)) return;
+        seen.add(t);
+        out.push(t);
+    };
+    let real;
+    try { real = fs.realpathSync(fp); } catch { real = fp; }
+    push(path.basename(real));
+    const dir = path.dirname(real);
+    const rb = path.basename(real).toLowerCase();
+    if (rb === 'soffice') {
+        const bin = path.join(dir, 'soffice.bin');
+        try {
+            if (fs.existsSync(bin)) push('soffice.bin');
+        } catch { /* ignore */ }
+    }
+    return out;
+}
+
+// Process name from Exec=: if the resolved path is a symlink, use the launcher basename (e.g. libreoffice); else basename(realpath).
+function desktopExecResolvedProcessName(execLine) {
+    const fp = execLineToFullPath(execLine);
+    if (!fp || !fs.existsSync(fp)) return '';
+    const launcherBase = path.basename(fp);
+    try {
+        const st = fs.lstatSync(fp);
+        if (st.isSymbolicLink()) {
+            try {
+                const real = fs.realpathSync(fp);
+                if (!real || !fs.existsSync(real)) return '';
+            } catch {
+                return '';
+            }
+            return launcherBase || '';
+        }
+    } catch { /* fall through */ }
+    try {
+        return path.basename(fs.realpathSync(fp)) || launcherBase || '';
+    } catch {
+        return launcherBase || '';
+    }
+}
+
 function parseDesktopFile(filePath) {
     try {
         const content = fs.readFileSync(filePath, 'utf8');
@@ -671,13 +914,23 @@ function parseDesktopFile(filePath) {
         const noDisplay = get('NoDisplay').toLowerCase() === 'true';
         const hidden = get('Hidden').toLowerCase() === 'true';
         if (!name || !exec || noDisplay || hidden) return null;
+        // execLineToProcessName first (unwraps sh -c/flatpak/electron); symlink-only basename would stay "sh" and false-match pgrep every minute.
+        const processName = execLineToProcessName(exec) || desktopExecResolvedProcessName(exec);
+        const commAliases = desktopExecCommAliases(exec);
+        const argvMarkers = [...new Set([
+            ...desktopExecArgvMarkers(exec),
+            ...desktopExecArgvMarkersForInterpreter(exec, processName),
+            ...desktopExecBrowserDistinctArgvMarkers(exec, processName)
+        ].map((x) => String(x).trim().toLowerCase()).filter(Boolean))];
         return {
             appId: path.basename(filePath),
             appName: name,
             exec,
             icon,
             filePath,
-            processName: execLineToProcessName(exec)
+            processName,
+            ...(commAliases.length ? { commAliases } : {}),
+            ...(argvMarkers.length ? { argvMarkers } : {})
         };
     } catch { return null; }
 }
@@ -1102,11 +1355,11 @@ async function catalogHasNonQuotaExemptAppRunning(limitLu, activeUsers, exemptId
         for (const e of entries) {
             const id = String(e.appId || '').trim();
             if (id && exemptLower.has(id.toLowerCase())) continue;
-            const candidates = processNameCandidatesForAppEntry(e.processName, e.appId);
+            const candidates = processNameCandidatesForAppEntry(e.processName, e.appId, e.commAliases);
             if (!candidates.length) continue;
             const isExemptProc = candidates.some(c => exemptProcLower.has(String(c).toLowerCase()));
             if (isExemptProc) continue;
-            const matched = await pgrepUserAnyCandidate(u, candidates);
+            const matched = await pgrepUserAnyCandidate(u, candidates, e.argvMarkers);
             if (matched) return true;
         }
     }
@@ -1128,11 +1381,11 @@ async function listNonQuotaExemptRunningCatalogApps(limitLu, activeUsers, exempt
         for (const e of entries) {
             const id = String(e.appId || '').trim();
             if (id && exemptLower.has(id.toLowerCase())) continue;
-            const candidates = processNameCandidatesForAppEntry(e.processName, e.appId);
+            const candidates = processNameCandidatesForAppEntry(e.processName, e.appId, e.commAliases);
             if (!candidates.length) continue;
             const isExemptProc = candidates.some(c => exemptProcLower.has(String(c).toLowerCase()));
             if (isExemptProc) continue;
-            const matchedProc = await pgrepUserAnyCandidate(u, candidates);
+            const matchedProc = await pgrepUserAnyCandidate(u, candidates, e.argvMarkers);
             if (!matchedProc) continue;
             const key = `${id}\0${matchedProc}`;
             if (seen.has(key)) continue;
@@ -1159,10 +1412,10 @@ async function anyWhitelistedMonitorCatalogAppRunning(limitLu, activeUsers) {
         for (const e of entries) {
             const id = String(e.appId || '').trim();
             const isExemptId = id && exemptIds.has(id);
-            const candidates = processNameCandidatesForAppEntry(e.processName, e.appId);
+            const candidates = processNameCandidatesForAppEntry(e.processName, e.appId, e.commAliases);
             const isExemptProc = candidates.some(c => exemptProcLower.has(String(c).toLowerCase()));
             if (!isExemptId && !isExemptProc) continue;
-            const matched = await pgrepUserAnyCandidate(u, candidates);
+            const matched = await pgrepUserAnyCandidate(u, candidates, e.argvMarkers);
             if (matched) return true;
         }
     }
@@ -1377,21 +1630,124 @@ async function pgrepUserProcess(user, processName) {
     } catch { return false; }
 }
 
-function processNameCandidatesForAppEntry(processName, appId) {
-    const out = new Set();
+const TASK_COMM_MAX = 15; // Linux /proc/<pid>/comm is at most TASK_COMM_LEN - 1 characters.
+
+function readProcCmdlineLower(pid) {
+    try {
+        const buf = fs.readFileSync(path.join('/proc', String(pid), 'cmdline'));
+        return buf.toString('utf8').replace(/\0/g, ' ').trim().toLowerCase();
+    } catch {
+        return '';
+    }
+}
+
+function procCommMatchesCandidates(comm, candidatesLower) {
+    const c = String(comm || '').trim().toLowerCase();
+    if (!c) return false;
+    for (const cand of candidatesLower) {
+        const s = String(cand || '').trim().toLowerCase();
+        if (!s) continue;
+        if (c === s) return true;
+        if (s.length > TASK_COMM_MAX && c === s.slice(0, TASK_COMM_MAX)) return true;
+    }
+    return false;
+}
+
+async function userHasProcessMatchingEntry(user, candidatesLower, argvMarkersLower) {
+    let stdout;
+    try {
+        ({ stdout } = await execFileAsync('pgrep', ['-u', user], { timeout: 5000 }));
+    } catch { return false; }
+    const pids = String(stdout || '').trim().split(/\s+/).filter(Boolean);
+    for (const pid of pids) {
+        let comm;
+        try { comm = fs.readFileSync(path.join('/proc', pid, 'comm'), 'utf8').trim().toLowerCase(); } catch { continue; }
+        if (!procCommMatchesCandidates(comm, candidatesLower)) continue;
+        const cmd = readProcCmdlineLower(pid);
+        if (!argvMarkersLower.every((m) => cmd.includes(m))) continue;
+        return true;
+    }
+    return false;
+}
+
+async function anyUserMatchingEntry(users, candidatesLower, argvMarkers) {
+    const markers = Array.isArray(argvMarkers) ? argvMarkers.map((m) => String(m).trim().toLowerCase()).filter(Boolean) : [];
+    const cands = Array.isArray(candidatesLower) ? candidatesLower.filter(Boolean) : [];
+    for (const u of users) {
+        if (!markers.length) {
+            for (const c of cands) {
+                if (await pgrepUserProcess(u, c)) return true;
+            }
+        } else if (await userHasProcessMatchingEntry(u, cands, markers)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+async function pkillUsersMatchingEntry(users, candidatesLower, argvMarkers) {
+    const markers = Array.isArray(argvMarkers) ? argvMarkers.map((m) => String(m).trim().toLowerCase()).filter(Boolean) : [];
+    const cands = Array.isArray(candidatesLower) ? candidatesLower.filter(Boolean) : [];
+    for (const u of users) {
+        if (!markers.length) {
+            for (const c of cands) {
+                try {
+                    await execFileAsync('pkill', ['-u', u, '-x', '-i', c], { timeout: 3000 });
+                    log.info(`pkill OK proc=${c} user=${u}`);
+                } catch { log.info(`pkill noop proc=${c} user=${u} (already gone)`); }
+            }
+            continue;
+        }
+        let stdout;
+        try {
+            ({ stdout } = await execFileAsync('pgrep', ['-u', u], { timeout: 5000 }));
+        } catch { continue; }
+        const pids = String(stdout || '').trim().split(/\s+/).filter(Boolean);
+        for (const pid of pids) {
+            let comm;
+            try { comm = fs.readFileSync(path.join('/proc', pid, 'comm'), 'utf8').trim().toLowerCase(); } catch { continue; }
+            if (!procCommMatchesCandidates(comm, cands)) continue;
+            const cmd = readProcCmdlineLower(pid);
+            if (!markers.every((m) => cmd.includes(m))) continue;
+            try {
+                process.kill(Number(pid), 'SIGTERM');
+                log.info(`pkill argv-filter pid=${pid} user=${u}`);
+            } catch { /* gone */ }
+        }
+    }
+}
+
+function processNameCandidatesForAppEntry(processName, appId, commAliases) {
+    const raw = new Set();
     const p = String(processName || '').trim();
-    if (p) out.add(p);
-    if (p && p.includes('.')) out.add(p.slice(p.lastIndexOf('.') + 1));
+    if (p) raw.add(p);
+    if (Array.isArray(commAliases)) {
+        for (const a of commAliases) {
+            const x = String(a || '').trim();
+            if (x) raw.add(x);
+        }
+    }
+    if (p && p.includes('.')) raw.add(p.slice(p.lastIndexOf('.') + 1));
     const tail = desktopIdTailStem(appId);
-    if (tail) out.add(tail);
+    if (tail) raw.add(tail);
+    const out = new Set();
+    for (const x of raw) {
+        const s = String(x || '').trim().toLowerCase();
+        if (!s) continue;
+        out.add(s);
+        if (s.length > TASK_COMM_MAX) out.add(s.slice(0, TASK_COMM_MAX));
+    }
     return Array.from(out).filter(Boolean);
 }
 
 // Stable key: same pgrep candidate set => same monitored/killable identity (first entry wins).
 function appMonitoringIdentityKey(app) {
-    const c = processNameCandidatesForAppEntry(app.processName, app.appId);
+    const c = processNameCandidatesForAppEntry(app.processName, app.appId, app.commAliases);
     const parts = [...new Set(c.map(x => String(x).trim().toLowerCase()).filter(Boolean))].sort();
-    return parts.join('\0');
+    const mk = Array.isArray(app.argvMarkers)
+        ? [...new Set(app.argvMarkers.map((x) => String(x).trim().toLowerCase()).filter(Boolean))].sort()
+        : [];
+    return parts.join('\0') + '\0argv:' + mk.join('\0');
 }
 
 function dedupeAppsByMonitoringIdentity(apps) {
@@ -1410,28 +1766,19 @@ function dedupeAppsByMonitoringIdentity(apps) {
     return out;
 }
 
-async function pgrepUserAnyCandidate(user, candidates) {
+async function pgrepUserAnyCandidate(user, candidates, argvMarkers) {
     const list = Array.isArray(candidates) ? candidates.filter(Boolean) : [];
-    for (const c of list) {
-        if (await pgrepUserProcess(user, c)) return c;
+    const markers = Array.isArray(argvMarkers) ? argvMarkers.map((m) => String(m).trim().toLowerCase()).filter(Boolean) : [];
+    if (!markers.length) {
+        for (const x of list) {
+            const xl = String(x || '').trim().toLowerCase();
+            if (isBareInterpreterCommName(xl)) continue;
+            if (await pgrepUserProcess(user, x)) return x;
+        }
+        return '';
     }
+    if (await userHasProcessMatchingEntry(user, list, markers)) return list[0] || markers.join(',');
     return '';
-}
-
-async function anyUserRunningProcess(users, processName) {
-    for (const u of users) {
-        if (await pgrepUserProcess(u, processName)) return true;
-    }
-    return false;
-}
-
-async function pkillAllUsers(users, processName) {
-    for (const u of users) {
-        try {
-            await execFileAsync('pkill', ['-u', u, '-x', '-i', processName], { timeout: 3000 });
-            log.info(`pkill OK proc=${processName} user=${u}`);
-        } catch { log.info(`pkill noop proc=${processName} user=${u} (already gone)`); }
-    }
 }
 
 // Terminate (log out) graphical sessions when screen time is exhausted
@@ -2516,17 +2863,18 @@ async function tickAppQuotas(logMinute) {
             continue;
         }
         const catProc = procByAppIdLower.get(String(appId).trim().toLowerCase()) || '';
+        const catRow = monitorEntries.find((e) => String(e?.appId || '').trim().toLowerCase() === String(appId).trim().toLowerCase());
+        const catAli = Array.isArray(catRow?.commAliases) ? catRow.commAliases : undefined;
+        const argvM = (Array.isArray(catRow?.argvMarkers) && catRow.argvMarkers.length)
+            ? catRow.argvMarkers
+            : (Array.isArray(q.argvMarkers) && q.argvMarkers.length ? q.argvMarkers : undefined);
         const candidatesSet = new Set([
-            ...processNameCandidatesForAppEntry(procFromQuota, appId),
-            ...processNameCandidatesForAppEntry(catProc, appId)
+            ...processNameCandidatesForAppEntry(procFromQuota, appId, catAli),
+            ...processNameCandidatesForAppEntry(catProc, appId, catAli)
         ].filter(Boolean));
         const procCandidates = Array.from(candidatesSet);
-        const runningCandidates = [];
-        for (const cand of procCandidates) {
-            if (await anyUserRunningProcess(usersForQuota, cand)) runningCandidates.push(cand);
-        }
-        const isRunning = runningCandidates.length > 0;
-        const procForMsg = runningCandidates[0] || procFromQuota;
+        const isRunning = await anyUserMatchingEntry(usersForQuota, procCandidates, argvM);
+        const procForMsg = procFromQuota || catProc;
         const uk = quotaUsageKey(appId, lu);
         const bonus = quotaBonusMinutes(appExtra, appId, lu);
         const limit = baseLimit + bonus;
@@ -2547,7 +2895,7 @@ async function tickAppQuotas(logMinute) {
                     const warnPayload = { type: 'app-exhausted', appId, appName: name, processName: procForMsg, effectiveLimit: limit, usedMinutes: usedBefore, linuxUser: lu || undefined };
                     notifyOrSpawn(warnPayload, `${name}: Zeit aufgebraucht`, `Tageslimit von ${limit} Min. erreicht.`, 'critical');
                 }
-                for (const cand of runningCandidates) await pkillAllUsers(usersForQuota, cand);
+                await pkillUsersMatchingEntry(usersForQuota, procCandidates, argvM);
                 appendActivityDaemon({ action: 'app_killed_quota_exhausted', appId, appName: name, processName: procForMsg, usedMinutes: usedBefore, limit, linuxUser: lu || undefined });
             } else if (logMinute) {
                 if (!exempt.has(appId) && usedBefore === limit - 1) {
@@ -2615,10 +2963,10 @@ async function tickAppMonitor(logMinute) {
     for (const entry of entries) {
         if (!entry || typeof entry !== 'object') continue;
         const appId = entry.appId || entry.id || '';
-        const candidates = processNameCandidatesForAppEntry(entry.processName, appId);
+        const candidates = processNameCandidatesForAppEntry(entry.processName, appId, entry.commAliases);
         if (!appId || !candidates.length) continue;
         for (const user of activeUsers) {
-            const matched = await pgrepUserAnyCandidate(user, candidates);
+            const matched = await pgrepUserAnyCandidate(user, candidates, entry.argvMarkers);
             if (matched && logMinute) {
                 const key = `${user}:${appId}`;
                 track[key] = (track[key] || 0) + 1;
@@ -2655,22 +3003,11 @@ function tickAppBlockPoller() {
 
     if (newPids.length === 0) return;
 
-    // Build lookup map: processName (lower) → blocked entry
-    const byProc = new Map();
-    for (const entry of cfg.blockedEntries) {
-        const p = String(entry.processName || '').trim().toLowerCase();
-        if (p) byProc.set(p, entry);
-    }
-    if (byProc.size === 0) return;
-
     for (const pid of newPids) {
         let comm;
         try { comm = fs.readFileSync(`/proc/${pid}/comm`, 'utf8').trim().toLowerCase(); } catch { continue; }
+        const cmdLower = readProcCmdlineLower(pid);
 
-        const entry = byProc.get(comm);
-        if (!entry) continue;
-
-        // Read UID from /proc/<pid>/status to identify the user
         let uid;
         try {
             const status = fs.readFileSync(`/proc/${pid}/status`, 'utf8');
@@ -2679,7 +3016,6 @@ function tickAppBlockPoller() {
         } catch { continue; }
         if (uid == null) continue;
 
-        // Resolve UID → username
         let procUser;
         try {
             const { stdout } = spawnSync('id', ['-nu', String(uid)], { encoding: 'utf8', timeout: 1000 });
@@ -2687,27 +3023,31 @@ function tickAppBlockPoller() {
         } catch { continue; }
         if (!procUser) continue;
 
-        // Check linuxUser match
-        const lu = normalizeLinuxUser(entry.linuxUser);
-        if (lu && normalizeLinuxUser(procUser) !== lu) continue;
+        for (const entry of cfg.blockedEntries) {
+            const candidates = processNameCandidatesForAppEntry(entry.processName, entry.appId, entry.commAliases);
+            if (!procCommMatchesCandidates(comm, candidates)) continue;
+            const markers = Array.isArray(entry.argvMarkers) ? entry.argvMarkers.map((m) => String(m).trim().toLowerCase()).filter(Boolean) : [];
+            if (markers.length && !markers.every((m) => cmdLower.includes(m))) continue;
 
-        // School-time exemption: skip kill if allowAtSchoolTime is set and school is in session
-        if (entry.allowAtSchoolTime && isSchoolTimeNow(cfg.schoolTimes)) continue;
+            const lu = normalizeLinuxUser(entry.linuxUser);
+            if (lu && normalizeLinuxUser(procUser) !== lu) continue;
+            if (entry.allowAtSchoolTime && isSchoolTimeNow(cfg.schoolTimes)) continue;
 
-        // Kill the process
-        try { process.kill(Number(pid), 'SIGKILL'); } catch { /* already gone */ }
-        log.info(`app-block: killed pid=${pid} proc=${comm} user=${procUser} appId=${entry.appId}`);
-        appendActivityDaemon({ action: 'app_blocked_killed', appId: entry.appId, appName: entry.appName, processName: comm, pid: Number(pid), linuxUser: procUser });
+            try { process.kill(Number(pid), 'SIGTERM'); } catch { /* already gone */ }
+            log.info(`app-block: SIGTERM pid=${pid} comm=${comm} user=${procUser} appId=${entry.appId}`);
+            appendActivityDaemon({ action: 'app_blocked_killed', appId: entry.appId, appName: entry.appName, processName: comm, pid: Number(pid), linuxUser: procUser });
 
-        const notifyUser = lu || procUser;
-        notifyOrSpawn(
-            { type: 'app-blocked', appId: entry.appId, appName: entry.appName, processName: comm },
-            'App blockiert',
-            `Der Start von "${entry.appName || comm}" ist durch die Kindersicherung blockiert.`,
-            'critical',
-            true,
-            notifyUser
-        );
+            const notifyUser = lu || procUser;
+            notifyOrSpawn(
+                { type: 'app-blocked', appId: entry.appId, appName: entry.appName, processName: comm },
+                'App blockiert',
+                `Der Start von "${entry.appName || comm}" ist durch die Kindersicherung blockiert.`,
+                'critical',
+                true,
+                notifyUser
+            );
+            break;
+        }
     }
 }
 

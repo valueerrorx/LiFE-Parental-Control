@@ -1,19 +1,11 @@
 import fs from 'fs'
 import path from 'path'
-import { spawnSync } from 'child_process'
 import { desktopIconToDataUrl } from './desktopIconResolve.js'
 import { daemonGetAppCatalog } from '../daemonPrivilegedOps.js'
 import { redeployQuotaFromDisk } from './quotaIpc.js'
 import { appendActivity } from './activityLog.js'
 import { patchDefaultJson, readDefaultJson } from '../defaultProfileStore.js'
 
-const DESKTOP_DIRS = [
-    '/usr/share/applications',
-    '/usr/local/share/applications',
-    '/var/lib/flatpak/exports/share/applications',
-    '/var/lib/snapd/desktop/applications'
-]
-const APP_MONITOR_BG_EXCLUDES_BASENAME = 'app-monitor-background-excludes.json'
 const APP_MONITOR_CATALOG_FILE = 'app-monitor-catalog.json'
 
 // Best-effort name for pgrep -x: flatpak/snap, shell -c, electron, *.AppImage stem, first real executable.
@@ -127,58 +119,6 @@ function execLineToProcessName(execLine) {
     return ''
 }
 
-function loadAppMonitorBackgroundExcludeSets(configDir) {
-    const empty = () => ({ appIds: new Set(), processNames: new Set() })
-    try {
-        const p = path.join(configDir, APP_MONITOR_BG_EXCLUDES_BASENAME)
-        if (!fs.existsSync(p)) return empty()
-        const data = JSON.parse(fs.readFileSync(p, 'utf8'))
-        const rows = Array.isArray(data?.excludes) ? data.excludes : (Array.isArray(data) ? data : [])
-        const appIds = new Set()
-        const processNames = new Set()
-        for (const row of rows) {
-            if (typeof row === 'string') {
-                const s = row.trim()
-                if (s) processNames.add(s.toLowerCase())
-                continue
-            }
-            if (row && typeof row === 'object') {
-                if (typeof row.appId === 'string' && row.appId.trim()) appIds.add(row.appId.trim().toLowerCase())
-                if (typeof row.processName === 'string' && row.processName.trim()) processNames.add(row.processName.trim().toLowerCase())
-            }
-        }
-        return { appIds, processNames }
-    } catch {
-        return empty()
-    }
-}
-
-function isAppMonitorCatalogEntryExcluded(app, sets) {
-    if (!app || !sets) return false
-    const aid = String(app.id || '').trim().toLowerCase()
-    const proc = String(app.processName || '').trim().toLowerCase()
-    if (aid && sets.appIds.has(aid)) return true
-    if (proc && sets.processNames.has(proc)) return true
-    return false
-}
-
-function parseDesktopFile(filePath) {
-    try {
-        const content = fs.readFileSync(filePath, 'utf8')
-        const get = (key) => {
-            const m = content.match(new RegExp(`^${key}=(.*)$`, 'm'))
-            return m ? m[1].trim() : ''
-        }
-        const name = get('Name')
-        const exec = get('Exec')
-        const icon = get('Icon')
-        const noDisplay = get('NoDisplay').toLowerCase() === 'true'
-        const hidden = get('Hidden').toLowerCase() === 'true'
-        if (!name || !exec || noDisplay || hidden) return null
-        return { id: path.basename(filePath), name, exec, icon, filePath, processName: execLineToProcessName(exec) }
-    } catch { return null }
-}
-
 function readDaemonAppCatalog(configDir) {
     try {
         const c = JSON.parse(fs.readFileSync(path.join(configDir, APP_MONITOR_CATALOG_FILE), 'utf8'))
@@ -205,13 +145,17 @@ function normalizeBlockedIds(raw) {
         if (typeof item === 'string') {
             out.push({ appId, appName: '', processName: '', linuxUser: '', allowAtSchoolTime: false })
         } else {
-            out.push({
+            const row = {
                 appId,
                 appName: String(item.appName || '').trim(),
                 processName: String(item.processName || '').trim(),
                 linuxUser: String(item.linuxUser || '').trim(),
                 allowAtSchoolTime: item.allowAtSchoolTime === true
-            })
+            }
+            if (Array.isArray(item.argvMarkers) && item.argvMarkers.length) {
+                row.argvMarkers = item.argvMarkers.filter((x) => typeof x === 'string' && x.trim()).map((x) => x.trim())
+            }
+            out.push(row)
         }
     }
     return out
@@ -354,84 +298,20 @@ function readAppControlConfig(configDir) {
 function saveBlocked(configDir, list) {
     const normalized = normalizeBlockedIds(Array.isArray(list) ? list : [])
     patchDefaultJson(configDir, (d) => {
-        d.blockedDesktopIds = normalized.map(e => ({
-            appId: e.appId,
-            appName: e.appName,
-            processName: e.processName,
-            linuxUser: e.linuxUser,
-            allowAtSchoolTime: e.allowAtSchoolTime === true
-        }))
+        d.blockedDesktopIds = normalized.map((e) => {
+            const row = {
+                appId: e.appId,
+                appName: e.appName,
+                processName: e.processName,
+                linuxUser: e.linuxUser,
+                allowAtSchoolTime: e.allowAtSchoolTime === true
+            }
+            if (Array.isArray(e.argvMarkers) && e.argvMarkers.length) row.argvMarkers = e.argvMarkers
+            return row
+        })
         return d
     })
 }
-
-// Extract the real executable absolute path from a .desktop Exec= line; also returns resolution status.
-function execLineToFullPath(execLine) {
-    if (!execLine) return { fullPath: null, mode: 'empty' }
-    const clean = execLine.trim().replace(/%[a-zA-Z]/g, '').trim()
-    const tokens = clean.split(/\s+/).filter(Boolean)
-    if (!tokens.length) return { fullPath: null, mode: 'empty' }
-    let i = 0
-    while (i < tokens.length) {
-        const t = tokens[i]
-        if (['env', 'dbus-run-session', 'gdbus'].includes(t.toLowerCase())) { i++; continue }
-        if (/^[A-Za-z_][A-Za-z0-9_]*=/.test(t)) { i++; continue }
-        break
-    }
-    if (i >= tokens.length) return { fullPath: null, mode: 'empty' }
-    const cmd = tokens[i]
-    const base = cmd.includes('/') ? path.basename(cmd) : cmd
-    if (base === 'flatpak' || base === 'snap') return { fullPath: null, mode: 'container' }
-    if (cmd.startsWith('/')) return { fullPath: cmd, mode: 'absolute' }
-    try {
-        const r = spawnSync('which', [cmd], { encoding: 'utf8', timeout: 2000 })
-        const found = (r.stdout || '').trim()
-        if (found && found.startsWith('/')) return { fullPath: found, mode: 'which' }
-    } catch { /* which not available */ }
-    return { fullPath: null, mode: 'which_failed' }
-}
-
-// Omit list entries only when we are sure the target binary doesn't exist in PATH or on disk.
-function desktopExecResolvedPathMissing(execLine) {
-    const r = execLineToFullPath(execLine)
-    if (r.mode === 'container' || r.mode === 'empty') return false
-    if (r.mode === 'which_failed') return true
-    if (!r.fullPath) return false
-    try {
-        return !fs.existsSync(r.fullPath)
-    } catch {
-        return false
-    }
-}
-
-/** Desktop entries only (no icons); same discovery order as App Control. */
-export function readAllDesktopApps(configDir = '/etc/life-parental') {
-    const apps = []
-    const seen = new Set()
-    const excl = loadAppMonitorBackgroundExcludeSets(configDir)
-    for (const dir of DESKTOP_DIRS) {
-        if (!fs.existsSync(dir)) continue
-        for (const file of fs.readdirSync(dir).filter(f => f.endsWith('.desktop'))) {
-            if (seen.has(file)) continue
-            seen.add(file)
-            const app = parseDesktopFile(path.join(dir, file))
-            if (!app) continue
-            if (desktopExecResolvedPathMissing(app.exec)) continue
-            const row = {
-                id: file,
-                name: app.name,
-                exec: app.exec,
-                icon: app.icon,
-                filePath: app.filePath,
-                processName: app.processName
-            }
-            if (isAppMonitorCatalogEntryExcluded(row, excl)) continue
-            apps.push(row)
-        }
-    }
-    return apps.sort((a, b) => a.name.localeCompare(b.name))
-}
-
 
 export async function replaceBlockedDesktopIds(configDir, nextIds) {
     const catalog = await getAppCatalog(configDir)
@@ -442,13 +322,15 @@ export async function replaceBlockedDesktopIds(configDir, nextIds) {
     const nextEntries = nextResolved.map(id => {
         if (prevMap.has(id)) return prevMap.get(id)
         const catalogEntry = catalog.find(a => (a.appId || a.id) === id)
-        return {
+        const row = {
             appId: id,
             appName: String(catalogEntry?.appName || catalogEntry?.name || '').trim(),
             processName: String(catalogEntry?.processName || '').trim(),
             linuxUser: '',
             allowAtSchoolTime: false
         }
+        if (Array.isArray(catalogEntry?.argvMarkers) && catalogEntry.argvMarkers.length) row.argvMarkers = catalogEntry.argvMarkers
+        return row
     })
     saveBlocked(configDir, nextEntries)
 }
@@ -480,10 +362,11 @@ export function registerAppBlockerIpc(ipcMain, configDir) {
             id: a.appId || a.id || '',
             name: a.appName || a.name || '',
             exec: a.exec || '',
-            execPath: a.execPath || null,
             icon: a.icon || '',
             filePath: a.filePath || '',
-            processName: a.processName || ''
+            processName: a.processName || '',
+            ...(Array.isArray(a.commAliases) && a.commAliases.length ? { commAliases: a.commAliases } : {}),
+            ...(Array.isArray(a.argvMarkers) && a.argvMarkers.length ? { argvMarkers: a.argvMarkers } : {})
         })).filter(a => a.id)
         const blockedEntries = readBlocked(configDir)
         const blockedMap = new Map(blockedEntries.map(e => [blockedAppId(e), e]))
@@ -504,7 +387,6 @@ export function registerAppBlockerIpc(ipcMain, configDir) {
                 linuxUser: blockedEntry ? String(blockedEntry.linuxUser || '') : '',
                 allowAtSchoolTime: blockedEntry ? blockedEntry.allowAtSchoolTime === true : false
             }
-            if (app.execPath) row.execPath = app.execPath
             if (file.endsWith('.desktop') && app.filePath) {
                 const stem = path.basename(file, '.desktop')
                 const iconDataUrl = desktopIconToDataUrl(app.icon, app.filePath, [
@@ -526,13 +408,15 @@ export function registerAppBlockerIpc(ipcMain, configDir) {
             if (block && existingIdx === -1) {
                 const catalog = await getAppCatalog(configDir)
                 const catalogEntry = catalog.find(a => (a.appId || a.id) === appId)
-                list.push({
+                const row = {
                     appId,
                     appName: String(catalogEntry?.appName || catalogEntry?.name || '').trim(),
                     processName: String(catalogEntry?.processName || '').trim(),
                     linuxUser: String(linuxUser || '').trim(),
                     allowAtSchoolTime: allowAtSchoolTime === true
-                })
+                }
+                if (Array.isArray(catalogEntry?.argvMarkers) && catalogEntry.argvMarkers.length) row.argvMarkers = catalogEntry.argvMarkers
+                list.push(row)
             } else if (block && existingIdx !== -1) {
                 list[existingIdx] = { ...list[existingIdx], linuxUser: String(linuxUser || '').trim(), allowAtSchoolTime: allowAtSchoolTime === true }
             } else if (!block && existingIdx !== -1) {
@@ -553,7 +437,9 @@ export function registerAppBlockerIpc(ipcMain, configDir) {
         const resolvedIds = resolveBlockedIdsAgainstApps(entries.map(e => blockedAppId(e)), base.map(a => ({ id: a.appId || a.id })))
         return resolvedIds.map(id => {
             const entry = entries.find(e => blockedAppId(e) === id)
-            return { appId: id, appName: entry?.appName || '', processName: entry?.processName || '', linuxUser: entry?.linuxUser || '', allowAtSchoolTime: entry?.allowAtSchoolTime === true }
+            const o = { appId: id, appName: entry?.appName || '', processName: entry?.processName || '', linuxUser: entry?.linuxUser || '', allowAtSchoolTime: entry?.allowAtSchoolTime === true }
+            if (Array.isArray(entry?.argvMarkers) && entry.argvMarkers.length) o.argvMarkers = entry.argvMarkers
+            return o
         })
     })
 }

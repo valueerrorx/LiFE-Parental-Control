@@ -1,6 +1,7 @@
 # LiFE Parental Control — persistent context (compressed)
 
 ## Recent (2026-05-04)
+- **App block / monitor / quota matching**: **`processNameCandidatesForAppEntry`** + optional **`commAliases`** (real binary basenames) + optional **`argvMarkers`** from **`.desktop` `Exec=`** (LibreOffice **`--writer` / `--calc` / …). If **`argvMarkers`** set: match/kill only when **`/proc/<pid>/cmdline`** contains every marker (Writer vs Calc under same **`soffice.bin`** **`comm`**). Dedupe identity: **`processName` + `commAliases` + `argvMarkers`**. **`mergeBlockedEntriesFromCatalog`** syncs **`processName`**, **`commAliases`**, **`argvMarkers`** for blocked rows; **`default.json`** may persist **`argvMarkers`** on block entries.
 - **App list cache**: `appStore.loadInstalledApps()` used a permanent `installedAppsPromise`; after **Alle Schutzmaßnahmen stoppen** (or any disk change) the UI could show stale `blocked` flags. **`reloadInstalledApps()`** clears the promise (awaits prior fetch), runs in **`refreshProtectionsState`**, and **App Control `onMounted`** uses **`reloadInstalledApps()`** so the page always matches disk.
 - **AppArmor for app block removed**: `daemon/defaultSync.js` does not maintain an AppArmor profile for app blocking. **Desktop overrides** in `/usr/local/share/applications` unchanged. **Enforcement**: systemd daemon `tickAppBlockPoller` (~400ms) + quotas unchanged. **UI**: removed `daemon:apparmorCheck`, preload `apparmorCheck` / `setupApparmor`, Dashboard AppArmor banner; stripped related `lang/*.json` keys. **Note**: `graphify-out/` stale until Graphify rebuild where installed.
 
@@ -114,6 +115,10 @@ Kiosk: merges into `/etc/xdg/kdeglobals` — strips prior LiFE sections (`[KDE A
 - **`quota:redeploy`** + **`schedules:redeploy`** IPC: redeploy cron scripts from JSON on disk; buttons in App Control, Schedules, Settings.
 - **`pgrep`/`pkill` `-x -i`**: case-insensitive exact comm matching in quota enforcement script.
 - **Dashboard "App time limits"** card: per-app usage bars sorted by ratio; `quotaSummaryRows` computed from `appStore.appQuotas`+`appQuotaUsage`.
+
+## 2026-05-04
+- **App monitor `processName` order bug**: `parseDesktopFile` used `desktopExecResolvedProcessName || execLineToProcessName`, so symlink starters (`sh`) won over `sh -c`/flatpak/electron unwrap → universal `pgrep -x sh` false positives and per-app minutes ≈ session time. **Fix**: `execLineToProcessName` first, symlink basename fallback. **Ops**: restart daemon to rebuild `app-monitor-catalog.json`; same-day `app-usage-*.json` may still carry bogus totals until rollover or manual delete.
+- **App monitor interpreter storm**: Many `.desktop` use `python3`/`bash`/`electron` as comm; candidate list tried that before app-specific stems → any running interpreter matched hundreds of catalog ids. **Fix**: skip bare-interpreter `pgrep -x` when there are no `argvMarkers`; derive markers from `Exec` (script/jar/`-m`/`.asar`) and merge with LibreOffice flags; `appBlockerIpc` parse order aligned with daemon.
 
 ## Open / TODO
 - Session logout + quota **`comm`** edge cases: documented in **README § Troubleshooting** (no code change until reproducible).

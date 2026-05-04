@@ -53,6 +53,7 @@
     { "processName": "power-profiles-daemon" },
     { "appId": "reboot-to-uefi.desktop", "processName": "systemctl" },
     { "appId": "suspend-then-hibernate.desktop", "processName": "systemctl" },
+    { "appId": "garuda-system-maintenance-settings.desktop" },
     { "processName": "udisksd" }
   ]
 }
