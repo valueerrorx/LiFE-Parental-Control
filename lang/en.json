@@ -382,7 +382,7 @@
     "importCompleted": "Import completed. Protection state refreshed.",
     "savedPath": "Saved: {path}",
     "maintenance": "Maintenance",
-    "maintenanceDesc": "Screen time and app quotas are enforced by the systemd daemon (no cron). The buttons below only prune old usage JSON or refresh related state. <strong>Web filter restore</strong> rebuilds the <code>/etc/hosts</code> block from the current settings in <code>default.json</code>. <strong>Usage logs</strong> removes <code>usage-*</code>, <code>quota-usage-*</code>, and <code>app-usage-*</code> JSON older than 120 days.",
+    "maintenanceDesc": "Log cleanup removes usage-*, quota-usage-*, and app-usage-* JSON older than 120 days.",
     "screenTime": "Screen time",
     "appQuotas": "App quotas",
     "webFilterRestore": "Web filter restore",

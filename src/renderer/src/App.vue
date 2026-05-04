@@ -128,7 +128,7 @@
 <script setup>
 import { ref, onMounted, onUnmounted, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { normalizedLockIdleMinutesOrUndefined } from '@shared/lockIdleMinutes.js'
+import { normalizedLockIdleMinutesOrUndefined, DEFAULT_LOCK_IDLE_MINUTES } from '@shared/lockIdleMinutes.js'
 import AppModal from './components/AppModal.vue'
 import LockdownWizard from './components/LockdownWizard.vue'
 import { quitWithParentConfirm } from './parentQuit.js'
@@ -175,7 +175,7 @@ function sessionLockListener() {
 
 function idleMsFromConfig(cfg) {
     const m = normalizedLockIdleMinutesOrUndefined(cfg?.lockIdleMinutes)
-    if (m === undefined) return 15 * 60 * 1000
+    if (m === undefined) return DEFAULT_LOCK_IDLE_MINUTES * 60 * 1000
     if (m === 0) return 0
     return m * 60 * 1000
 }

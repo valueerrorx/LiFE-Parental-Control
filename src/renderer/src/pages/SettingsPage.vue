@@ -6,153 +6,9 @@
 
     <div class="pc-content">
         <div class="row g-3">
-            <!-- Daemon + Password + Session + Backup + Maintenance -->
+            <!-- School times + parent password + lockdown + session + maintenance/backup -->
             <div class="col-6">
                 <div class="pc-card">
-                    <div class="pc-card-header"><h6><i class="bi bi-cpu me-2" />{{ $t('settings.systemdDaemon') }}</h6></div>
-                    <div class="pc-card-body">
-                        <!-- Daemon control buttons -->
-                        <div class="d-flex flex-wrap gap-2 mb-3">
-                            <button type="button" class="btn-pc-primary" :disabled="daemonCtrlBusy" @click="onDaemonControl('install')" :title="$t('settings.installAndStart')">
-                                <i class="bi bi-download me-1" />{{ $t('settings.installAndStart') }}
-                            </button>
-                            <button type="button" class="btn-pc-outline" :disabled="daemonCtrlBusy" @click="onDaemonControl('start')">
-                                <i class="bi bi-play me-1" />{{ $t('settings.start') }}
-                            </button>
-                            <button type="button" class="btn-pc-outline" :disabled="daemonCtrlBusy" @click="onDaemonControl('stop')">
-                                <i class="bi bi-stop me-1" />{{ $t('settings.stop') }}
-                            </button>
-                            <button type="button" class="btn-pc-outline" :disabled="daemonCtrlBusy" @click="onDaemonControl('restart')">
-                                <i class="bi bi-arrow-repeat me-1" />{{ $t('settings.restart') }}
-                            </button>
-                            <button type="button" class="btn-pc-outline" :disabled="warningTestBusy" @click="onQueueDaemonWarningTest">
-                                <i class="bi bi-window-stack me-1" />{{ $t('settings.warningTestBtn') }}
-                            </button>
-                        </div>
-                        <p v-if="warningTestMsg" class="small mb-2" :class="warningTestError ? 'text-danger' : 'text-muted'">{{ warningTestMsg }}</p>
-                        <p v-if="daemonCtrlMsg" class="small mb-2" :class="daemonCtrlError ? 'text-danger' : 'text-success'">{{ daemonCtrlMsg }}</p>
-                        <p class="text-muted small mb-0" v-html="$t('settings.installDesc')" />
-
-                        <hr class="my-3" />
-
-                        <!-- Status badges -->
-                        <div class="d-flex flex-wrap align-items-center gap-3 mb-3">
-                            <div>
-                                <div class="small text-muted mb-1">{{ $t('settings.service') }}</div>
-                                <span class="status-badge" :class="daemonServiceStatus === 'active' ? 'active' : 'inactive'">
-                                    <i class="bi bi-circle-fill" style="font-size:7px;" />
-                                    {{ daemonServiceStatus ?? $t('common.unknown') }}
-                                </span>
-                            </div>
-                            <div>
-                                <div class="small text-muted mb-1">{{ $t('settings.socket') }}</div>
-                                <span class="status-badge" :class="daemonSocketConnected ? 'active' : 'inactive'">
-                                    <i class="bi bi-circle-fill" style="font-size:7px;" />
-                                    {{ daemonSocketConnected ? $t('settings.connected') : $t('settings.disconnected') }}
-                                </span>
-                            </div>
-                            <div>
-                                <div class="small text-muted mb-1">{{ $t('settings.nodeJs') }}</div>
-                                <span class="status-badge" :class="nodeVersionOk ? 'active' : 'warning'">
-                                    <i class="bi bi-circle-fill" style="font-size:7px;" />
-                                    {{ nodeVersion ?? $t('settings.notFound') }}
-                                </span>
-                            </div>
-                            <div>
-                                <div class="small text-muted mb-1">{{ $t('settings.dnsmasq') }}</div>
-                                <span class="status-badge" :class="dnsmasqOk ? 'active' : 'warning'">
-                                    <i class="bi bi-circle-fill" style="font-size:7px;" />
-                                    {{ dnsmasqVersion ?? $t('settings.notFound') }}
-                                </span>
-                            </div>
-                            <button type="button" class="btn-pc-outline ms-auto" style="font-size:12px;" :disabled="daemonRefreshing" @click="loadDaemonInfo">
-                                <i class="bi bi-arrow-repeat me-1" :class="{ 'spin': daemonRefreshing }" />{{ $t('settings.refresh') }}
-                            </button>
-                        </div>
-
-                        <!-- Status warnings + fix buttons -->
-                        <p v-if="nodeCheckReason === 'missing'" class="small text-danger mb-3" v-html="$t('settings.nodeNotFound')" />
-                        <p v-else-if="nodeCheckReason === 'too_old'" class="small text-warning mb-3">{{ $t('settings.nodeTooOld') }}</p>
-                        <p v-if="!dnsmasqOk" class="small text-warning mb-3" v-html="$t(`settings.dnsmasq_${dnsmasqReason}`)" />
-                        <div v-if="!dnsmasqOk && dnsmasqReason === 'not_running'" class="border-top pt-3 mt-1 mb-3">
-                            <div class="small text-muted mb-2" v-html="$t('settings.dnsmasqSetupHint')" />
-                            <button type="button" class="btn-pc-primary" :disabled="dnsmasqSetupBusy" @click="onSetupDnsmasq">
-                                <i class="bi bi-arrow-repeat me-1" :class="{ 'spin': dnsmasqSetupBusy }" />{{ $t('settings.dnsmasqSetupBtn') }}
-                            </button>
-                        </div>
-                        <p v-if="dnsmasqSetupMsg" class="small mb-0 mt-2" :class="dnsmasqSetupError ? 'text-danger' : 'text-success'">{{ dnsmasqSetupMsg }}</p>
-
-
-                    </div>
-                </div>
-
-                <div class="pc-card mt-3">
-                    <div class="pc-card-header"><h6><i class="bi bi-hdd-rack me-2" />{{ $t('settings.grub') }}</h6></div>
-                    <div class="pc-card-body">
-                        <div class="d-flex flex-wrap align-items-center gap-3 mb-3">
-                            <div>
-                                <div class="small text-muted mb-1">{{ $t('settings.grubPassword') }}</div>
-                                <span class="status-badge" :class="grubPasswordActive ? 'active' : 'inactive'">
-                                    <i class="bi bi-circle-fill" style="font-size:7px;" />
-                                    {{ grubPasswordActive ? $t('common.active') : $t('common.inactive') }}
-                                </span>
-                            </div>
-                            <div>
-                                <div class="small text-muted mb-1">{{ $t('settings.grubUnrestricted') }}</div>
-                                <span class="status-badge" :class="grubUnrestricted ? 'active' : 'warning'">
-                                    <i class="bi bi-circle-fill" style="font-size:7px;" />
-                                    {{ grubUnrestricted ? $t('common.active') : $t('settings.notFound') }}
-                                </span>
-                            </div>
-                            <button type="button" class="btn-pc-outline ms-auto" style="font-size:12px;" :disabled="grubRefreshing" @click="loadGrubInfo">
-                                <i class="bi bi-arrow-repeat me-1" :class="{ 'spin': grubRefreshing }" />{{ $t('settings.refresh') }}
-                            </button>
-                        </div>
-                        <p v-if="grubPasswordActive && !grubUnrestricted" class="small text-warning mb-3" v-html="$t('settings.grubUnrestrictedHint')" />
-                        <p class="text-muted small mb-3" v-html="$t('settings.grubDesc')" />
-                        <div class="mb-3">
-                            <label class="form-label small text-muted" for="settings-grub-pw">{{ $t('settings.grubPasswordLabel') }}</label>
-                            <div class="pc-pw-wrap">
-                                <input id="settings-grub-pw" v-model="grubPassword"
-                                       :type="showGrubPw ? 'text' : 'password'" class="pc-input"
-                                       :placeholder="$t('settings.grubPasswordPlaceholder')" autocomplete="new-password" />
-                                <button type="button" class="pc-pw-toggle"
-                                        :aria-label="showGrubPw ? $t('common.hidePassword') : $t('common.showPassword')"
-                                        :aria-pressed="showGrubPw" @click="showGrubPw = !showGrubPw">
-                                    <i :class="showGrubPw ? 'bi bi-eye-slash' : 'bi bi-eye'" aria-hidden="true" />
-                                </button>
-                            </div>
-                        </div>
-                        <div class="d-flex flex-wrap gap-2">
-                            <button type="button" class="btn-pc-primary" :disabled="grubBusy || !grubPassword" @click="onGrubEnable">
-                                <i class="bi bi-lock me-1" />{{ $t('settings.grubEnable') }}
-                            </button>
-                            <button type="button" class="btn-pc-outline" :disabled="grubBusy || !grubPasswordActive" @click="onGrubDisable">
-                                <i class="bi bi-lock-open me-1" />{{ $t('settings.grubDisable') }}
-                            </button>
-                        </div>
-                        <p v-if="grubMsg" class="small mt-2 mb-0" :class="grubError ? 'text-danger' : 'text-success'">{{ grubMsg }}</p>
-                    </div>
-                </div>
-
-                <div class="pc-card mt-3">
-                    <div class="pc-card-header"><h6><i class="bi bi-shield-lock me-2" />{{ $t('settings.sessionLock') }}</h6></div>
-                    <div class="pc-card-body">
-                        <p class="text-muted small mb-3">
-                            {{ $t('settings.sessionLockHint') }}
-                        </p>
-                        <label class="form-label small text-muted session-lock-field-label">{{ $t('settings.autoLockAfterIdle') }}</label>
-                        <select v-model.number="sessionPrefs.lockIdleMinutes" class="pc-input mb-3 session-lock-field-input" style="max-width:220px;">
-                            <option v-for="opt in LOCK_IDLE_OPTIONS" :key="opt.value" :value="opt.value">
-                                {{ opt.label }}
-                            </option>
-                        </select>
-                        <p v-if="sessionPrefsMsg" class="small mb-2" :class="sessionPrefsError ? 'text-danger' : 'text-success'">{{ sessionPrefsMsg }}</p>
-                        <button type="button" class="btn-pc-outline" @click="onSaveSessionPrefs">{{ $t('common.save') }}</button>
-                    </div>
-                </div>
-
-                <div class="pc-card mt-3">
                     <div class="pc-card-header"><h6><i class="bi bi-mortarboard me-2" />{{ $t('settings.schoolTimesTitle') }}</h6></div>
                     <div class="pc-card-body">
                         <p class="text-muted small mb-3">{{ $t('settings.schoolTimesHint') }}</p>
@@ -172,75 +28,6 @@
                 </div>
 
                 <div class="pc-card mt-3">
-                    <div class="pc-card-header"><h6><i class="bi bi-archive me-2" />{{ $t('settings.backupRestore') }}</h6></div>
-                    <div class="pc-card-body">
-                        <p class="text-muted small mb-3" v-html="$t('settings.backupDesc')" />
-                        <div class="d-flex flex-wrap gap-2">
-                            <button type="button" class="btn-pc-outline" :disabled="backupBusy" @click="onBackupExport">
-                                <i class="bi bi-download me-1" />{{ $t('settings.exportBtn') }}
-                            </button>
-                            <button type="button" class="btn-pc-outline" :disabled="backupBusy" @click="onBackupImport">
-                                <i class="bi bi-upload me-1" />{{ $t('settings.importBtn') }}
-                            </button>
-                        </div>
-                        <p v-if="backupMsg" class="small mt-2 mb-0" :class="backupError ? 'text-danger' : 'text-success'">{{ backupMsg }}</p>
-                    </div>
-                </div>
-
-                <div class="pc-card mt-3">
-                    <div class="pc-card-header"><h6><i class="bi bi-wrench-adjustable me-2" />{{ $t('settings.maintenance') }}</h6></div>
-                    <div class="pc-card-body">
-                        <p class="text-muted small mb-3" v-html="$t('settings.maintenanceDesc')" />
-                        <div class="d-flex flex-wrap gap-2">
-                            <button type="button" class="btn-pc-outline" :disabled="maintBusy" @click="onRedeployScheduleCron">
-                                <i class="bi bi-arrow-repeat me-1" />{{ $t('settings.screenTime') }}
-                            </button>
-                            <button type="button" class="btn-pc-outline" :disabled="maintBusy" @click="onRedeployQuotaCron">
-                                <i class="bi bi-arrow-repeat me-1" />{{ $t('settings.appQuotas') }}
-                            </button>
-                            <button type="button" class="btn-pc-outline" :disabled="maintBusy" @click="onReapplyWebHosts">
-                                <i class="bi bi-arrow-repeat me-1" />{{ $t('settings.webFilterRestore') }}
-                            </button>
-                            <button type="button" class="btn-pc-outline" :disabled="maintBusy" @click="onRedeployKillCron">
-                                <i class="bi bi-arrow-repeat me-1" />{{ $t('settings.quotaExemptions') }}
-                            </button>
-                            <button type="button" class="btn-pc-outline" :disabled="maintBusy" @click="onPruneUsageArchives">
-                                <i class="bi bi-trash me-1" />{{ $t('settings.usageLogsOld') }}
-                            </button>
-                        </div>
-                        <p v-if="maintMsg" class="small mt-2 mb-0" :class="maintError ? 'text-danger' : 'text-success'">{{ maintMsg }}</p>
-                    </div>
-                </div>
-
-            </div>
-
-            <!-- About + danger zone -->
-            <div class="col-6">
-                <div class="pc-card mb-3">
-                    <div class="pc-card-header"><h6><i class="bi bi-info-circle me-2" />{{ $t('settings.about') }}</h6></div>
-                    <div class="pc-card-body">
-                        <div class="d-flex flex-column gap-1" style="font-size:13px;">
-                            <div>
-                                <span class="text-muted" style="min-width:120px;display:inline-block;">{{ $t('settings.application') }}</span>
-                                {{ appInfo?.name || 'LiFE Parental Control' }}
-                            </div>
-                            <div>
-                                <span class="text-muted" style="min-width:120px;display:inline-block;">{{ $t('settings.version') }}</span>
-                                {{ appInfo?.version ?? '—' }}
-                                <span v-if="appInfo && !appInfo.packaged" class="text-muted small ms-1">{{ $t('settings.devLabel') }}</span>
-                            </div>
-                            <div><span class="text-muted" style="min-width:120px;display:inline-block;">{{ $t('settings.runtime') }}</span> Electron {{ appInfo?.electron ?? '—' }}, Node {{ appInfo?.node ?? '—' }}</div>
-                            <div><span class="text-muted" style="min-width:120px;display:inline-block;">{{ $t('settings.platform') }}</span> {{ $t('settings.platformLabel') }}</div>
-                            <div><span class="text-muted" style="min-width:120px;display:inline-block;">{{ $t('settings.configDirectory') }}</span> <code>/etc/life-parental/</code></div>
-                            <div>
-                                <span class="text-muted" style="min-width:120px;display:inline-block;">{{ $t('settings.runningAs') }}</span>
-                                {{ appInfo?.invokingLinuxUser || '—' }}
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="pc-card mb-3">
                     <div class="pc-card-header">
                         <h6><i class="bi bi-key me-2" />{{ $t('settings.changePassword') }}</h6>
                     </div>
@@ -289,7 +76,7 @@
                     </div>
                 </div>
 
-                <div class="pc-card mb-3">
+                <div class="pc-card mt-3">
                     <div class="pc-card-header">
                         <h6><i class="bi bi-shield-exclamation me-2" />{{ $t('lockdown.title') }}</h6>
                     </div>
@@ -299,6 +86,205 @@
                         <button type="button" class="btn btn-success" @click="appStore.showLockdownWizard = true">
                             <i class="bi bi-shield-lock me-1" />{{ $t('settings.runLockdownWizard') }}
                         </button>
+                    </div>
+                </div>
+
+                <div class="pc-card mt-3">
+                    <div class="pc-card-header"><h6><i class="bi bi-shield-lock me-2" />{{ $t('settings.sessionLock') }}</h6></div>
+                    <div class="pc-card-body">
+                        <p class="text-muted small mb-3">
+                            {{ $t('settings.sessionLockHint') }}
+                        </p>
+                        <label class="form-label small text-muted session-lock-field-label">{{ $t('settings.autoLockAfterIdle') }}</label>
+                        <select v-model.number="sessionPrefs.lockIdleMinutes" class="pc-input mb-3 session-lock-field-input" style="max-width:220px;">
+                            <option v-for="opt in LOCK_IDLE_OPTIONS" :key="opt.value" :value="opt.value">
+                                {{ opt.label }}
+                            </option>
+                        </select>
+                        <p v-if="sessionPrefsMsg" class="small mb-2" :class="sessionPrefsError ? 'text-danger' : 'text-success'">{{ sessionPrefsMsg }}</p>
+                        <button type="button" class="btn-pc-outline" @click="onSaveSessionPrefs">{{ $t('common.save') }}</button>
+                    </div>
+                </div>
+
+                <div class="pc-card mt-3">
+                    <div class="pc-card-header"><h6><i class="bi bi-wrench-adjustable me-2" />{{ $t('settings.maintenance') }}</h6></div>
+                    <div class="pc-card-body">
+                        <p class="text-muted small mb-3" v-html="$t('settings.maintenanceDesc')" />
+                        <div class="d-flex flex-wrap gap-2">
+                            <button type="button" class="btn-pc-outline" :disabled="maintBusy" @click="onRedeployScheduleCron">
+                                <i class="bi bi-arrow-repeat me-1" />{{ $t('settings.screenTime') }}
+                            </button>
+                            <button type="button" class="btn-pc-outline" :disabled="maintBusy" @click="onRedeployQuotaCron">
+                                <i class="bi bi-arrow-repeat me-1" />{{ $t('settings.appQuotas') }}
+                            </button>
+                            <button type="button" class="btn-pc-outline" :disabled="maintBusy" @click="onPruneUsageArchives">
+                                <i class="bi bi-trash me-1" />{{ $t('settings.usageLogsOld') }}
+                            </button>
+                        </div>
+                        <p v-if="maintMsg" class="small mt-2 mb-0" :class="maintError ? 'text-danger' : 'text-success'">{{ maintMsg }}</p>
+
+                        <hr class="my-3" />
+
+                        <div class="fw-semibold mb-2" style="font-size:13px;"><i class="bi bi-archive me-1" />{{ $t('settings.backupRestore') }}</div>
+                        <div class="d-flex flex-wrap gap-2">
+                            <button type="button" class="btn-pc-outline" :disabled="backupBusy" @click="onBackupExport">
+                                <i class="bi bi-download me-1" />{{ $t('settings.exportBtn') }}
+                            </button>
+                            <button type="button" class="btn-pc-outline" :disabled="backupBusy" @click="onBackupImport">
+                                <i class="bi bi-upload me-1" />{{ $t('settings.importBtn') }}
+                            </button>
+                        </div>
+                        <p v-if="backupMsg" class="small mt-2 mb-0" :class="backupError ? 'text-danger' : 'text-success'">{{ backupMsg }}</p>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- About + systemd daemon + grub + danger zone -->
+            <div class="col-6">
+                <div class="pc-card mb-3">
+                    <div class="pc-card-header"><h6><i class="bi bi-info-circle me-2" />{{ $t('settings.about') }}</h6></div>
+                    <div class="pc-card-body">
+                        <div class="d-flex flex-column gap-1" style="font-size:13px;">
+                            <div>
+                                <span class="text-muted" style="min-width:120px;display:inline-block;">{{ $t('settings.application') }}</span>
+                                {{ appInfo?.name || 'LiFE Parental Control' }}
+                            </div>
+                            <div>
+                                <span class="text-muted" style="min-width:120px;display:inline-block;">{{ $t('settings.version') }}</span>
+                                {{ appInfo?.version ?? '—' }}
+                                <span v-if="appInfo && !appInfo.packaged" class="text-muted small ms-1">{{ $t('settings.devLabel') }}</span>
+                            </div>
+                            <div><span class="text-muted" style="min-width:120px;display:inline-block;">{{ $t('settings.runtime') }}</span> Electron {{ appInfo?.electron ?? '—' }}, Node {{ appInfo?.node ?? '—' }}</div>
+                            <div><span class="text-muted" style="min-width:120px;display:inline-block;">{{ $t('settings.platform') }}</span> {{ $t('settings.platformLabel') }}</div>
+                            <div><span class="text-muted" style="min-width:120px;display:inline-block;">{{ $t('settings.configDirectory') }}</span> <code>/etc/life-parental/</code></div>
+                            <div>
+                                <span class="text-muted" style="min-width:120px;display:inline-block;">{{ $t('settings.runningAs') }}</span>
+                                {{ appInfo?.invokingLinuxUser || '—' }}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="pc-card mb-3">
+                    <div class="pc-card-header"><h6><i class="bi bi-cpu me-2" />{{ $t('settings.systemdDaemon') }}</h6></div>
+                    <div class="pc-card-body">
+                        <div class="d-flex flex-wrap gap-2 mb-3">
+                            <button type="button" class="btn-pc-primary" :disabled="daemonCtrlBusy" @click="onDaemonControl('install')" :title="$t('settings.installAndStart')">
+                                <i class="bi bi-download me-1" />{{ $t('settings.installAndStart') }}
+                            </button>
+                            <button type="button" class="btn-pc-outline" :disabled="daemonCtrlBusy" @click="onDaemonControl('start')">
+                                <i class="bi bi-play me-1" />{{ $t('settings.start') }}
+                            </button>
+                            <button type="button" class="btn-pc-outline" :disabled="daemonCtrlBusy" @click="onDaemonControl('stop')">
+                                <i class="bi bi-stop me-1" />{{ $t('settings.stop') }}
+                            </button>
+                            <button type="button" class="btn-pc-outline" :disabled="daemonCtrlBusy" @click="onDaemonControl('restart')">
+                                <i class="bi bi-arrow-repeat me-1" />{{ $t('settings.restart') }}
+                            </button>
+                            <button type="button" class="btn-pc-outline" :disabled="warningTestBusy" @click="onQueueDaemonWarningTest">
+                                <i class="bi bi-window-stack me-1" />{{ $t('settings.warningTestBtn') }}
+                            </button>
+                        </div>
+                        <p v-if="warningTestMsg" class="small mb-2" :class="warningTestError ? 'text-danger' : 'text-muted'">{{ warningTestMsg }}</p>
+                        <p v-if="daemonCtrlMsg" class="small mb-2" :class="daemonCtrlError ? 'text-danger' : 'text-success'">{{ daemonCtrlMsg }}</p>
+                        <p class="text-muted small mb-0" v-html="$t('settings.installDesc')" />
+
+                        <hr class="my-3" />
+
+                        <div class="d-flex flex-wrap align-items-center gap-3 mb-3">
+                            <div>
+                                <div class="small text-muted mb-1">{{ $t('settings.service') }}</div>
+                                <span class="status-badge" :class="daemonServiceStatus === 'active' ? 'active' : 'inactive'">
+                                    <i class="bi bi-circle-fill" style="font-size:7px;" />
+                                    {{ daemonServiceStatus ?? $t('common.unknown') }}
+                                </span>
+                            </div>
+                            <div>
+                                <div class="small text-muted mb-1">{{ $t('settings.socket') }}</div>
+                                <span class="status-badge" :class="daemonSocketConnected ? 'active' : 'inactive'">
+                                    <i class="bi bi-circle-fill" style="font-size:7px;" />
+                                    {{ daemonSocketConnected ? $t('settings.connected') : $t('settings.disconnected') }}
+                                </span>
+                            </div>
+                            <div>
+                                <div class="small text-muted mb-1">{{ $t('settings.nodeJs') }}</div>
+                                <span class="status-badge" :class="nodeVersionOk ? 'active' : 'warning'">
+                                    <i class="bi bi-circle-fill" style="font-size:7px;" />
+                                    {{ nodeVersion ?? $t('settings.notFound') }}
+                                </span>
+                            </div>
+                            <div>
+                                <div class="small text-muted mb-1">{{ $t('settings.dnsmasq') }}</div>
+                                <span class="status-badge" :class="dnsmasqOk ? 'active' : 'warning'">
+                                    <i class="bi bi-circle-fill" style="font-size:7px;" />
+                                    {{ dnsmasqVersion ?? $t('settings.notFound') }}
+                                </span>
+                            </div>
+                            <button type="button" class="btn-pc-outline ms-auto" style="font-size:12px;" :disabled="daemonRefreshing" @click="loadDaemonInfo">
+                                <i class="bi bi-arrow-repeat me-1" :class="{ 'spin': daemonRefreshing }" />{{ $t('settings.refresh') }}
+                            </button>
+                        </div>
+
+                        <p v-if="nodeCheckReason === 'missing'" class="small text-danger mb-3" v-html="$t('settings.nodeNotFound')" />
+                        <p v-else-if="nodeCheckReason === 'too_old'" class="small text-warning mb-3">{{ $t('settings.nodeTooOld') }}</p>
+                        <p v-if="!dnsmasqOk" class="small text-warning mb-3" v-html="$t(`settings.dnsmasq_${dnsmasqReason}`)" />
+                        <div v-if="!dnsmasqOk && dnsmasqReason === 'not_running'" class="border-top pt-3 mt-1 mb-3">
+                            <div class="small text-muted mb-2" v-html="$t('settings.dnsmasqSetupHint')" />
+                            <button type="button" class="btn-pc-primary" :disabled="dnsmasqSetupBusy" @click="onSetupDnsmasq">
+                                <i class="bi bi-arrow-repeat me-1" :class="{ 'spin': dnsmasqSetupBusy }" />{{ $t('settings.dnsmasqSetupBtn') }}
+                            </button>
+                        </div>
+                        <p v-if="dnsmasqSetupMsg" class="small mb-0 mt-2" :class="dnsmasqSetupError ? 'text-danger' : 'text-success'">{{ dnsmasqSetupMsg }}</p>
+                    </div>
+                </div>
+
+                <div class="pc-card mb-3">
+                    <div class="pc-card-header"><h6><i class="bi bi-hdd-rack me-2" />{{ $t('settings.grub') }}</h6></div>
+                    <div class="pc-card-body">
+                        <div class="d-flex flex-wrap align-items-center gap-3 mb-3">
+                            <div>
+                                <div class="small text-muted mb-1">{{ $t('settings.grubPassword') }}</div>
+                                <span class="status-badge" :class="grubPasswordActive ? 'active' : 'inactive'">
+                                    <i class="bi bi-circle-fill" style="font-size:7px;" />
+                                    {{ grubPasswordActive ? $t('common.active') : $t('common.inactive') }}
+                                </span>
+                            </div>
+                            <div>
+                                <div class="small text-muted mb-1">{{ $t('settings.grubUnrestricted') }}</div>
+                                <span class="status-badge" :class="grubUnrestricted ? 'active' : 'warning'">
+                                    <i class="bi bi-circle-fill" style="font-size:7px;" />
+                                    {{ grubUnrestricted ? $t('common.active') : $t('settings.notFound') }}
+                                </span>
+                            </div>
+                            <button type="button" class="btn-pc-outline ms-auto" style="font-size:12px;" :disabled="grubRefreshing" @click="loadGrubInfo">
+                                <i class="bi bi-arrow-repeat me-1" :class="{ 'spin': grubRefreshing }" />{{ $t('settings.refresh') }}
+                            </button>
+                        </div>
+                        <p v-if="grubPasswordActive && !grubUnrestricted" class="small text-warning mb-3" v-html="$t('settings.grubUnrestrictedHint')" />
+                        <p class="text-muted small mb-3" v-html="$t('settings.grubDesc')" />
+                        <div class="mb-3">
+                            <label class="form-label small text-muted" for="settings-grub-pw">{{ $t('settings.grubPasswordLabel') }}</label>
+                            <div class="pc-pw-wrap">
+                                <input id="settings-grub-pw" v-model="grubPassword"
+                                       :type="showGrubPw ? 'text' : 'password'" class="pc-input"
+                                       :placeholder="$t('settings.grubPasswordPlaceholder')" autocomplete="new-password" />
+                                <button type="button" class="pc-pw-toggle"
+                                        :aria-label="showGrubPw ? $t('common.hidePassword') : $t('common.showPassword')"
+                                        :aria-pressed="showGrubPw" @click="showGrubPw = !showGrubPw">
+                                    <i :class="showGrubPw ? 'bi bi-eye-slash' : 'bi bi-eye'" aria-hidden="true" />
+                                </button>
+                            </div>
+                        </div>
+                        <div class="d-flex flex-wrap gap-2">
+                            <button type="button" class="btn-pc-primary" :disabled="grubBusy || !grubPassword" @click="onGrubEnable">
+                                <i class="bi bi-lock me-1" />{{ $t('settings.grubEnable') }}
+                            </button>
+                            <button type="button" class="btn-pc-outline" :disabled="grubBusy || !grubPasswordActive" @click="onGrubDisable">
+                                <i class="bi bi-lock-open me-1" />{{ $t('settings.grubDisable') }}
+                            </button>
+                        </div>
+                        <p v-if="grubMsg" class="small mt-2 mb-0" :class="grubError ? 'text-danger' : 'text-success'">{{ grubMsg }}</p>
                     </div>
                 </div>
 
@@ -335,13 +321,13 @@ import { reactive, ref, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { confirm } from '../composables/useConfirm.js'
 import { SCHOOL_TIME_WEEKDAY_KEYS, defaultSchoolTimes, normalizeTimeHHMM, normalizeSchoolTimes } from '@shared/schoolTimes.js'
-import { normalizedLockIdleMinutesOrUndefined, LOCK_IDLE_OPTIONS } from '@shared/lockIdleMinutes.js'
+import { normalizedLockIdleMinutesOrUndefined, LOCK_IDLE_OPTIONS, DEFAULT_LOCK_IDLE_MINUTES } from '@shared/lockIdleMinutes.js'
 import { useAppStore } from '../stores/appStore.js'
 
 const { t } = useI18n()
 const appStore = useAppStore()
 const appInfo = ref(null)
-const sessionPrefs = reactive({ lockIdleMinutes: 15 })
+const sessionPrefs = reactive({ lockIdleMinutes: DEFAULT_LOCK_IDLE_MINUTES })
 const sessionPrefsMsg = ref('')
 const sessionPrefsError = ref(false)
 const schoolTimeKeys = SCHOOL_TIME_WEEKDAY_KEYS
@@ -525,7 +511,7 @@ async function onQueueDaemonWarningTest() {
 onMounted(async () => {
     appInfo.value = await window.api.system.getAppInfo()
     const cfg = await window.api.settings.getConfig()
-    sessionPrefs.lockIdleMinutes = normalizedLockIdleMinutesOrUndefined(cfg.lockIdleMinutes) ?? 15
+    sessionPrefs.lockIdleMinutes = normalizedLockIdleMinutesOrUndefined(cfg.lockIdleMinutes) ?? DEFAULT_LOCK_IDLE_MINUTES
     const st = await window.api.settings.getSchoolTimes()
     for (const k of SCHOOL_TIME_WEEKDAY_KEYS) {
         schoolTimes[k].from = st[k].from
@@ -538,7 +524,7 @@ onMounted(async () => {
 async function onSaveSessionPrefs() {
     sessionPrefsMsg.value = ''
     const minutes = Number(sessionPrefs.lockIdleMinutes)
-    sessionPrefs.lockIdleMinutes = normalizedLockIdleMinutesOrUndefined(minutes) ?? 15
+    sessionPrefs.lockIdleMinutes = normalizedLockIdleMinutesOrUndefined(minutes) ?? DEFAULT_LOCK_IDLE_MINUTES
     try {
         await window.api.settings.saveConfig({ lockIdleMinutes: sessionPrefs.lockIdleMinutes })
         sessionPrefsMsg.value = t('settings.savePrefsSaved')
@@ -652,21 +638,6 @@ async function onRedeployQuotaCron() {
     }
 }
 
-async function onRedeployKillCron() {
-    if (!await confirm({ title: t('settings.quotaExemptionsTitle'), message: t('settings.quotaExemptionsMsg') })) return
-    maintBusy.value = true
-    maintMsg.value = ''
-    const r = await window.api.processWhitelist.redeploy()
-    maintBusy.value = false
-    if (r?.error) {
-        maintMsg.value = r.error
-        maintError.value = true
-    } else {
-        maintMsg.value = t('settings.quotaScriptRedeployed')
-        maintError.value = false
-    }
-}
-
 async function onPruneUsageArchives() {
     if (!await confirm({ title: t('settings.pruneLogsTitle'), message: t('settings.pruneLogsMsg'), okLabel: t('settings.deleteLabel'), danger: true })) return
     maintBusy.value = true
@@ -678,22 +649,6 @@ async function onPruneUsageArchives() {
         maintError.value = true
     } else {
         maintMsg.value = t('settings.removedOldFiles', { count: r?.removed ?? 0 })
-        maintError.value = false
-    }
-}
-
-async function onReapplyWebHosts() {
-    if (!await confirm({ title: t('settings.webFilterRestoreTitle'), message: t('settings.webFilterRestoreMsg') })) return
-    maintBusy.value = true
-    maintMsg.value = ''
-    const r = await window.api.webFilter.reapplyMirror()
-    maintBusy.value = false
-    if (r?.error) {
-        maintMsg.value = r.error
-        maintError.value = true
-    } else {
-        await appStore.loadWebFilter()
-        maintMsg.value = t('settings.webFilterRestored')
         maintError.value = false
     }
 }
@@ -774,9 +729,9 @@ async function onBackupImport() {
 }
 .school-time-input {
     box-sizing: border-box;
-    width: 5.5ch;
-    min-width: 5.5ch;
-    max-width: 5.5ch;
+    width: 6.6ch;
+    min-width: 6.6ch;
+    max-width: 6.6ch;
     padding: 0.2rem 0.25rem;
     text-align: center;
     font-variant-numeric: tabular-nums;

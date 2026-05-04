@@ -9,10 +9,11 @@ Desktop parental control app for **Linux** (KDE Plasma, GNOME, others). Stack: *
 | Module | Description |
 |--------|-------------|
 | **Lockdown Wizard** | First-run wizard: creates parent admin, sets root password, de-privileges child account; optional GRUB password and optional AppImage/FUSE restriction |
-| **Web filter** | Custom domains + HaGeZi blocklists written to `/etc/hosts`; DNS-based filtering via **dnsmasq** (rewrites blocked domains to `0.0.0.0`); allowlist; category packs; optional **DNS4EU** family-safe upstream resolver; DHCP-discovered DNS used as fallback |
+| **Web filter** | Custom domains + HaGeZi blocklists written to `/etc/hosts`; DNS-based filtering via **dnsmasq** (rewrites blocked domains to `0.0.0.0`); allowlist; category packs; optional **DNS4EU** family-safe upstream resolver; DHCP-discovered DNS used as fallback; optional **DoH hardening**: block known public DNS-over-HTTPS resolver IPs via **iptables** / **ip6tables** (toggle in the Web Filter UI; stored as `webfilter.dohIptablesEnabled` in `default.json`) |
 | **Screen time** | Daily limit + allowed hours (overnight windows supported); quick presets (e.g. school week / holidays) on the Schedules page; bonus minutes via parent password; one-time parent bypass for allowed-hours enforcement |
-| **App blocking** | Blocks apps via **AppArmor** profiles; additionally overrides `.desktop` files under `/usr/local/share/applications/` to hide blocked apps from launchers |
-| **App quotas** | Per-app daily cap; process tracking via `pgrep`; **quota exemptions** (whitelisted apps): exempt apps keep the session alive beyond the daily screentime limit as long as they are actively used — logout is deferred until the user is inactive in the exempt app for the grace period |
+| **School times** | Per-weekday from/to times edited under **Settings**; stored in `default.json` as `schoolTimes`; used by the daemon (e.g. **App blocking** can allow specific blocked apps during school hours via `allowAtSchoolTime`) |
+| **App blocking** | The **daemon** kills processes when a blocked app runs for the configured user (process match / per-app rules). The user sees a **`notify-send`** that parental controls blocked the app |
+| **App quotas** | Per-app daily cap; process tracking via `pgrep`; **quota exemptions** (whitelist UI: e.g. “Quota exemptions” / app-specific exemptions): exempt apps keep the session alive beyond the daily screentime limit as long as they are actively used — logout is deferred until the user is inactive in the exempt app for the grace period |
 | **KDE kiosk** | Restrictions via `/etc/xdg/kdeglobals`; optional Plasma layout hard lock |
 | **Dashboard** | Live overview of today's screen time usage (daily total + per-app breakdown); activity log with historical session and enforcement events |
 | **Backup** | Export/import JSON bundle (v1); excludes password and usage history |

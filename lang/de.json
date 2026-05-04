@@ -382,7 +382,7 @@
     "importCompleted": "Import abgeschlossen. Schutzstatus aktualisiert.",
     "savedPath": "Gespeichert: {path}",
     "maintenance": "Wartung",
-    "maintenanceDesc": "Bildschirmzeit und App-Kontingente werden vom Systemd Daemon durchgesetzt (kein Cron). Die Schaltfl\u00e4chen unten bereinigen nur alte Nutzungs-JSON-Dateien oder aktualisieren den Zustand. <strong>Web-Filter-Wiederherstellung</strong> baut den <code>/etc/hosts</code>-Block aus den aktuellen Einstellungen in <code>default.json</code> neu auf. <strong>Nutzungsprotokolle</strong> entfernt <code>usage-*</code>, <code>quota-usage-*</code> und <code>app-usage-*</code> JSON \u00e4lter als 120 Tage.",
+    "maintenanceDesc": "Logs bereinigen, Nutzungsprotokolle entfernt usage-*, quota-usage-* und app-usage-* JSON \u00e4lter als 120 Tage.",
     "screenTime": "Bildschirmzeit",
     "appQuotas": "App-Kontingente",
     "webFilterRestore": "Web-Filter-Wiederherstellung",

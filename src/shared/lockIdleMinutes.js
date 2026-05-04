@@ -1,9 +1,13 @@
 // Single source for session auto-lock durations (settings IPC + renderer).
 
-export const LOCK_IDLE_MINUTES = Object.freeze([0, 5, 15, 30, 60])
+// Fallback when preferences.lockIdleMinutes is missing or not in the allowlist (see App.vue idleMsFromConfig).
+export const DEFAULT_LOCK_IDLE_MINUTES = 2
+
+export const LOCK_IDLE_MINUTES = Object.freeze([0, 2, 5, 15, 30, 60])
 
 const IDLE_LABEL = Object.freeze({
     0: 'Off',
+    2: '2 minutes',
     5: '5 minutes',
     15: '15 minutes',
     30: '30 minutes',
@@ -22,6 +26,8 @@ export function isLockIdleMinutesAllowed(m) {
 }
 
 export function normalizedLockIdleMinutesOrUndefined(raw) {
+    // Reject null/'' so Number(null) cannot map JSON null to 0 (off); unset prefs use DEFAULT_LOCK_IDLE_MINUTES.
+    if (raw == null || raw === '') return undefined
     if (!isLockIdleMinutesAllowed(raw)) return undefined
     return Number(raw)
 }

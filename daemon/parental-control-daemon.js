@@ -3735,7 +3735,7 @@ try {
     const authJsonPath = path.join(CONFIG_DIR, AUTH_JSON_FILE);
 
     if (!fs.existsSync(defaultJsonPath)) {
-        const empty = { label: 'Default', schedule: { enabled: false, dailyLimitEnabled: false, dailyLimitMinutes: 120, screenTimeLinuxUser: '', allowedHoursEnabled: false, allowedHoursStart: '07:00', allowedHoursEnd: '22:00', allowedDays: [1,2,3,4,5,6,7] }, webfilter: { enabled: false, feedState: {}, entries: [], listAllowlist: [] }, appControl: { enabled: false }, preferences: { lockIdleMinutes: null, quotaViewLinuxUser: '' }, blockedDesktopIds: [], quotaExemptions: { enabled: false, allowedIds: [] }, quota: [], requestDaemonWarningTest: false, schoolTimes: defaultSchoolTimes() };
+        const empty = { label: 'Default', schedule: { enabled: false, dailyLimitEnabled: false, dailyLimitMinutes: 120, screenTimeLinuxUser: '', allowedHoursEnabled: false, allowedHoursStart: '07:00', allowedHoursEnd: '22:00', allowedDays: [1,2,3,4,5,6,7] }, webfilter: { enabled: false, feedState: {}, entries: [], listAllowlist: [] }, appControl: { enabled: false }, preferences: { lockIdleMinutes: 2, quotaViewLinuxUser: '' }, blockedDesktopIds: [], quotaExemptions: { enabled: false, allowedIds: [] }, quota: [], requestDaemonWarningTest: false, schoolTimes: defaultSchoolTimes() };
         fs.writeFileSync(defaultJsonPath, JSON.stringify(empty, null, 2), { encoding: 'utf8', mode: 0o644 });
     } else {
         // Migrate: security → auth.json; ensure schoolTimes object exists on disk

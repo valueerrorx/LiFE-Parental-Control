@@ -1,6 +1,7 @@
 import fs from 'fs'
 import path from 'path'
 import { defaultSchoolTimes, normalizeSchoolTimes } from '@shared/schoolTimes.js'
+import { DEFAULT_LOCK_IDLE_MINUTES } from '@shared/lockIdleMinutes.js'
 import { daemonWriteConfigAsync } from './daemonPrivilegedOps.js'
 
 const DEFAULT_JSON_FILE = 'default.json'
@@ -23,7 +24,7 @@ const EMPTY_DEFAULT = {
         enabled: false
     },
     preferences: {
-        lockIdleMinutes: null,
+        lockIdleMinutes: DEFAULT_LOCK_IDLE_MINUTES,
         quotaViewLinuxUser: ''
     },
     blockedDesktopIds: [],
