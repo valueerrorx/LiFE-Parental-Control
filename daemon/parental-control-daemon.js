@@ -107,6 +107,8 @@ function appendActivityDaemon(entry) {
 let tickInMinute = 0;
 let tickWorkChain = Promise.resolve();
 let appBlockKnownPids = new Set();
+const appBlockNotifyLastMs = new Map(); // appId → last notify timestamp
+const APP_BLOCK_NOTIFY_COOLDOWN_MS = 10000;
 let quotaWarnDate = '';
 const appQuotaWarnOnce = new Set();
 const quotaLinuxUserNoSessionWarnOnce = new Set(); // one warn per appId+linuxUser until next calendar day
@@ -261,6 +263,8 @@ function mergeBlockedEntriesFromCatalog(entries) {
             if (pn) e.processName = pn;
             if (Array.isArray(a.commAliases) && a.commAliases.length) e.commAliases = a.commAliases;
             if (Array.isArray(a.argvMarkers) && a.argvMarkers.length) e.argvMarkers = a.argvMarkers;
+            const execFull = execLineToFullPath(String(a.exec || ''));
+            if (execFull) e.execPath = execFull;
         }
     } catch { /* ignore */ }
 }
@@ -1082,8 +1086,6 @@ function scanRunningAppImagesProc() {
             }
         }
 
-        const argv0Base = cmdTokens.length ? path.basename(cmdTokens[0]) : '';
-
         let appImageFromEnv = '';
         if (envBuf && envBuf.length) {
             let i = 0;
@@ -1148,7 +1150,7 @@ function scanRunningAppImagesProc() {
             } catch { /* ignore */ }
         }
     }
-    for (const [id, e] of out) {
+    for (const e of out.values()) {
         if (e && typeof e === 'object' && '_score' in e) delete e._score;
     }
     return out;
@@ -1194,29 +1196,6 @@ function loadQuotaExemptProcessNamesLower() {
     return out;
 }
 
-async function catalogHasNonQuotaExemptAppRunning(limitLu, activeUsers, exemptIdsRaw) {
-    const entries = readMonitorCatalogEntries();
-    const users = limitLu ? [limitLu] : activeUsers;
-    if (!users.length) return false;
-    const exemptLower = new Set();
-    try {
-        for (const id of exemptIdsRaw) exemptLower.add(String(id).trim().toLowerCase());
-    } catch { /* ignore */ }
-    const exemptProcLower = loadQuotaExemptProcessNamesLower();
-    for (const u of users) {
-        for (const e of entries) {
-            const id = String(e.appId || '').trim();
-            if (id && exemptLower.has(id.toLowerCase())) continue;
-            const candidates = processNameCandidatesForAppEntry(e.processName, e.appId, e.commAliases);
-            if (!candidates.length) continue;
-            const isExemptProc = candidates.some(c => exemptProcLower.has(String(c).toLowerCase()));
-            if (isExemptProc) continue;
-            const matched = await pgrepUserAnyCandidate(u, candidates, e.argvMarkers);
-            if (matched) return true;
-        }
-    }
-    return false;
-}
 
 async function listNonQuotaExemptRunningCatalogApps(limitLu, activeUsers, exemptIdsRaw) {
     const entries = readMonitorCatalogEntries();
@@ -1249,11 +1228,6 @@ async function listNonQuotaExemptRunningCatalogApps(limitLu, activeUsers, exempt
 }
 
 // True when every running app-monitor catalog process is quota-exempt (all whitelisted desktop ids and same-binary duplicates); false if any non-exempt catalog app is running.
-async function onlyWhitelistedMonitorCatalogAppsRunning(limitLu, activeUsers) {
-    const hasOther = await catalogHasNonQuotaExemptAppRunning(limitLu, activeUsers, loadQuotaExemptAppIds());
-    return !hasOther;
-}
-
 async function anyWhitelistedMonitorCatalogAppRunning(limitLu, activeUsers) {
     const entries = readMonitorCatalogEntries();
     const users = limitLu ? [limitLu] : activeUsers;
@@ -2886,9 +2860,15 @@ function tickAppBlockPoller() {
         } catch { continue; }
         if (!procUser) continue;
 
+        let exeBase = '';
+        try { exeBase = path.basename(fs.readlinkSync(`/proc/${pid}/exe`)); } catch { /* ignore */ }
+
         for (const entry of cfg.blockedEntries) {
             const candidates = processNameCandidatesForAppEntry(entry.processName, entry.appId, entry.commAliases);
             if (!procCommMatchesCandidates(comm, candidates)) continue;
+            // If the catalog provided an expected binary path, reject processes whose exe differs —
+            // catches search providers and other same-comm-name system helpers.
+            if (entry.execPath && exeBase && path.basename(entry.execPath) !== exeBase) continue;
 
             const lu = normalizeLinuxUser(entry.linuxUser);
             if (lu && normalizeLinuxUser(procUser) !== lu) continue;
@@ -2898,15 +2878,19 @@ function tickAppBlockPoller() {
             log.info(`app-block: SIGTERM pid=${pid} comm=${comm} user=${procUser} appId=${entry.appId}`);
             appendActivityDaemon({ action: 'app_blocked_killed', appId: entry.appId, appName: entry.appName, processName: comm, pid: Number(pid), linuxUser: procUser });
 
-            const notifyUser = lu || procUser;
-            notifyOrSpawn(
-                { type: 'app-blocked', appId: entry.appId, appName: entry.appName, processName: comm },
-                'App blockiert',
-                `Der Start von "${entry.appName || comm}" ist durch die Kindersicherung blockiert.`,
-                'critical',
-                true,
-                notifyUser
-            );
+            const notifyKey = `${entry.appId}\0${lu || procUser}`;
+            const lastNotify = appBlockNotifyLastMs.get(notifyKey) || 0;
+            if (Date.now() - lastNotify >= APP_BLOCK_NOTIFY_COOLDOWN_MS) {
+                appBlockNotifyLastMs.set(notifyKey, Date.now());
+                notifyOrSpawn(
+                    { type: 'app-blocked', appId: entry.appId, appName: entry.appName, processName: comm },
+                    'App blockiert',
+                    `Der Start von "${entry.appName || comm}" ist durch die Kindersicherung blockiert.`,
+                    'critical',
+                    true,
+                    lu || procUser
+                );
+            }
             break;
         }
     }
