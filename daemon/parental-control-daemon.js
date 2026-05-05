@@ -107,6 +107,7 @@ function appendActivityDaemon(entry) {
 let tickInMinute = 0;
 let tickWorkChain = Promise.resolve();
 let appBlockKnownPids = new Set();
+let appBlockLastConfigKey = '';
 const appBlockNotifyLastMs = new Map(); // appId → last notify timestamp
 const APP_BLOCK_NOTIFY_COOLDOWN_MS = 10000;
 let quotaWarnDate = '';
@@ -244,6 +245,46 @@ function readInstalledDesktopIds() {
     return installed
 }
 
+function execLineToExeBasenames(execLine) {
+    const fp = execLineToFullPath(execLine);
+    if (!fp) return [];
+    const out = [];
+    const seen = new Set();
+    const push = (s) => {
+        const t = String(s || '').trim();
+        if (!t || seen.has(t)) return;
+        seen.add(t);
+        out.push(t);
+    };
+    push(path.basename(fp));
+    let real;
+    try { real = fs.realpathSync(fp); } catch { real = fp; }
+    push(path.basename(real));
+    try {
+        const st = fs.statSync(real);
+        if (st.isFile() && st.size > 0 && st.size <= 256 * 1024) {
+            const buf = fs.readFileSync(real);
+            const head = buf.slice(0, Math.min(buf.length, 8)).toString('utf8');
+            if (head.startsWith('#!')) {
+                const text = buf.toString('utf8');
+                for (const line of text.split('\n').slice(0, 200)) {
+                    const l = line.trim();
+                    if (!l || l.startsWith('#')) continue;
+                    const hereM = l.match(/\$HERE\/([A-Za-z0-9._+-]+)/);
+                    if (hereM && hereM[1]) push(hereM[1]);
+                    if (!/\bexec\b/.test(l)) continue;
+                    const m = l.match(/\bexec\b[^#\n]*?(\/*[A-Za-z0-9._+-]+(?:\/[A-Za-z0-9._+-]+)+)/);
+                    if (!m || !m[1]) continue;
+                    const token = m[1];
+                    if (token.startsWith('/dev/') || token.startsWith('/proc/') || token.startsWith('/sys/') || token.startsWith('/run/')) continue;
+                    if (token.startsWith('/')) push(path.basename(token));
+                }
+            }
+        }
+    } catch { /* ignore */ }
+    return out;
+}
+
 // Sync display processName + commAliases from app-monitor catalog so blocked rows match /proc/comm (e.g. soffice.bin).
 function mergeBlockedEntriesFromCatalog(entries) {
     if (!entries.length) return;
@@ -265,6 +306,8 @@ function mergeBlockedEntriesFromCatalog(entries) {
             if (Array.isArray(a.argvMarkers) && a.argvMarkers.length) e.argvMarkers = a.argvMarkers;
             const execFull = execLineToFullPath(String(a.exec || ''));
             if (execFull) e.execPath = execFull;
+            const execBases = execLineToExeBasenames(String(a.exec || ''));
+            if (execBases.length) e.execExeBases = execBases;
         }
     } catch { /* ignore */ }
 }
@@ -724,6 +767,34 @@ function desktopExecCommAliases(execLine) {
     let real;
     try { real = fs.realpathSync(fp); } catch { real = fp; }
     push(path.basename(real));
+    // Some launchers are wrapper scripts that exec a real binary with a different basename
+    // (e.g. brave/chrome wrappers). Add that binary basename so /proc/<pid>/comm matching works.
+    try {
+        const st = fs.statSync(real);
+        if (st.isFile() && st.size > 0 && st.size <= 256 * 1024) {
+            const buf = fs.readFileSync(real);
+            const head = buf.slice(0, Math.min(buf.length, 8)).toString('utf8');
+            if (head.startsWith('#!')) {
+                const text = buf.toString('utf8');
+                for (const line of text.split('\n').slice(0, 200)) {
+                    const l = line.trim();
+                    if (!l || l.startsWith('#')) continue;
+                    // Common wrapper pattern: "$HERE/<bin>" "$@"  (Chromium wrappers)
+                    const hereM = l.match(/\$HERE\/([A-Za-z0-9._+-]+)/);
+                    if (hereM && hereM[1]) {
+                        push(hereM[1]);
+                    }
+                    if (!/\bexec\b/.test(l)) continue;
+                    const m = l.match(/\bexec\b[^#\n]*?(\/*[A-Za-z0-9._+-]+(?:\/[A-Za-z0-9._+-]+)+)/);
+                    if (m && m[1]) {
+                        const token = m[1];
+                        if (token.startsWith('/dev/') || token.startsWith('/proc/') || token.startsWith('/sys/') || token.startsWith('/run/')) continue;
+                        if (token.startsWith('/')) push(path.basename(token));
+                    }
+                }
+            }
+        }
+    } catch { /* ignore */ }
     const dir = path.dirname(real);
     const rb = path.basename(real).toLowerCase();
     if (rb === 'soffice') {
@@ -2823,8 +2894,27 @@ function tickAppBlockPoller() {
     const cfg = getDefaultConfig();
     if (!cfg.appControlEnabled || !cfg.blockedEntries || cfg.blockedEntries.length === 0) {
         appBlockKnownPids = new Set();
+        appBlockLastConfigKey = '';
         return;
     }
+
+    // If the blocked list changed, treat all current processes as "new" once
+    // so already-running apps are terminated immediately (e.g. single-instance browsers).
+    try {
+        const key = cfg.blockedEntries.map((e) => JSON.stringify({
+            appId: e.appId,
+            processName: e.processName,
+            linuxUser: e.linuxUser,
+            execPath: e.execPath,
+            commAliases: e.commAliases,
+            argvMarkers: e.argvMarkers,
+            allowAtSchoolTime: e.allowAtSchoolTime
+        })).join('\n');
+        if (key !== appBlockLastConfigKey) {
+            appBlockLastConfigKey = key;
+            appBlockKnownPids = new Set();
+        }
+    } catch { /* ignore */ }
 
     let files;
     try { files = fs.readdirSync('/proc'); } catch { return; }
@@ -2868,7 +2958,17 @@ function tickAppBlockPoller() {
             if (!procCommMatchesCandidates(comm, candidates)) continue;
             // If the catalog provided an expected binary path, reject processes whose exe differs —
             // catches search providers and other same-comm-name system helpers.
-            if (entry.execPath && exeBase && path.basename(entry.execPath) !== exeBase) continue;
+            if (entry.execPath && exeBase) {
+                const allowed = new Set();
+                try { allowed.add(path.basename(entry.execPath)); } catch { /* ignore */ }
+                if (Array.isArray(entry.execExeBases)) {
+                    for (const b of entry.execExeBases) {
+                        const s = String(b || '').trim();
+                        if (s) allowed.add(s);
+                    }
+                }
+                if (allowed.size && !allowed.has(exeBase)) continue;
+            }
 
             const lu = normalizeLinuxUser(entry.linuxUser);
             if (lu && normalizeLinuxUser(procUser) !== lu) continue;
