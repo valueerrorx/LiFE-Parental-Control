@@ -94,6 +94,9 @@ function buildFromRaw(raw) {
         const p = raw.preferences
         if (Object.hasOwn(p, 'lockIdleMinutes')) next.preferences.lockIdleMinutes = p.lockIdleMinutes
         next.preferences.quotaViewLinuxUser = typeof p.quotaViewLinuxUser === 'string' ? p.quotaViewLinuxUser : ''
+        if (typeof p.managementLinuxUid === 'number' && Number.isFinite(p.managementLinuxUid)) {
+            next.preferences.managementLinuxUid = Math.floor(p.managementLinuxUid)
+        }
     }
     if (Array.isArray(raw.blockedDesktopIds)) next.blockedDesktopIds = raw.blockedDesktopIds.filter(s => typeof s === 'string' || (s && typeof s === 'object'))
     if (raw.quotaExemptions && typeof raw.quotaExemptions === 'object' && !Array.isArray(raw.quotaExemptions)) {
@@ -131,6 +134,10 @@ function atomicWriteJson(configDir, obj) {
 export function patchDefaultJson(configDir, patcher) {
     const cur = readDefaultJson(configDir)
     const next = patcher(cur) || cur
+    if (process.platform === 'linux' && typeof process.getuid === 'function') {
+        if (!next.preferences || typeof next.preferences !== 'object') next.preferences = {}
+        next.preferences.managementLinuxUid = process.getuid()
+    }
     // Update cache immediately so concurrent reads see the new state before the async daemon write completes.
     _cache = JSON.parse(JSON.stringify(next))
     atomicWriteJson(configDir, next)
