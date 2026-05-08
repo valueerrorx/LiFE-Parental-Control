@@ -172,4 +172,19 @@ EOF
     fi
 fi
 
+# Seed privileged Unix socket UIDs (daemon SO_PEERCRED gate); complements preferences.managementLinuxUid from the UI.
+PRIV_UIDS=/etc/life-parental/socket-privileged-uids
+if [ ! -s "$PRIV_UIDS" ]; then
+    mkdir -p /etc/life-parental
+    u=""
+    [ -n "${SUDO_UID:-}" ] && u="$SUDO_UID"
+    if [ -z "$u" ] && [ "$(id -u)" -eq 0 ] && [ -n "${SUDO_USER:-}" ]; then
+        u=$(id -u "$SUDO_USER" 2>/dev/null) || u=""
+    fi
+    if [ -n "$u" ]; then
+        printf '%s\n' "$u" > "$PRIV_UIDS"
+        chmod 0644 "$PRIV_UIDS" 2>/dev/null || true
+    fi
+fi
+
 exit 0

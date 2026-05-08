@@ -11,6 +11,7 @@ const { promisify } = require('util');
 const crypto = require('crypto');
 const { createDefaultSync, dohIptablesStatus, ensureDohIptablesEnabled, ensureDohIptablesDisabled } = require('./defaultSync.js');
 const { defaultSchoolTimes } = require('./schoolTimesDefaults.js');
+const { getUnixPeerUid } = require('./peerCredLinux.js');
 
 const DAY_KEYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
 
@@ -3027,6 +3028,67 @@ function maybeHandleDaemonWarningTestRequest() {
     notifyOrSpawn(payload, 'LiFE Test', 'Warnfenster-Test (Systemd-Daemon).', 'normal');
 }
 
+// Daemon socket: SO_PEERCRED identifies the connecting local user; privileged ops require allowlist match.
+const PRIVILEGED_SOCKET_TYPES = new Set([
+    'register-client', 'auth:set', 'auth:change',
+    'write-hosts', 'write-dnsmasq', 'get-dhcp-dns', 'remove-dnsmasq',
+    'grub-enable', 'grub-disable', 'setup-dnsmasq', 'write-kiosk',
+    'get-app-catalog', 'service-control', 'reset-today-usage', 'clear-today-overrides',
+    'reset-today-quota-usage', 'wipe-usage-history', 'append-activity',
+    'write-hagezi-cache', 'get-doh-iptables-status', 'apply-doh-iptables', 'prune-archives'
+]);
+
+function readSocketPrivilegedUidSet() {
+    const out = new Set();
+    try {
+        const p = path.join(CONFIG_DIR, 'socket-privileged-uids');
+        const txt = fs.readFileSync(p, 'utf8');
+        for (const line of txt.split('\n')) {
+            const s = line.split('#')[0].trim();
+            if (!s) continue;
+            const n = parseInt(s, 10);
+            if (Number.isFinite(n)) out.add(n);
+        }
+    } catch { /* missing or unreadable */ }
+    return out;
+}
+
+function readPreferencesManagementLinuxUid() {
+    try {
+        const data = JSON.parse(fs.readFileSync(path.join(CONFIG_DIR, DEFAULT_JSON_FILE), 'utf8'));
+        const u = data?.preferences?.managementLinuxUid;
+        return typeof u === 'number' && Number.isFinite(u) ? Math.floor(u) : null;
+    } catch { return null; }
+}
+
+function socketPrivilegedPeer(peerUid) {
+    if (peerUid === 0) return true;
+    if (peerUid === null || peerUid === undefined) return false;
+    const fileUids = readSocketPrivilegedUidSet();
+    if (fileUids.size > 0) return fileUids.has(peerUid);
+    const m = readPreferencesManagementLinuxUid();
+    return m !== null && m === peerUid;
+}
+
+function denySocketPrivileged(client, cmdType) {
+    log.warn(`socket denied privileged cmd=${cmdType} peerUid=${client ? client.peerUid : '?'}`);
+    if (cmdType === 'apply-doh-iptables' || cmdType === 'append-activity') return;
+    try {
+        client.write(JSON.stringify({ type: `${cmdType}-result`, ok: false, error: 'Zugriff verweigert.' }) + '\n');
+    } catch { /* ignore */ }
+}
+
+function allowsPrivilegedWriteConfig(client, cmd) {
+    if (socketPrivilegedPeer(client.peerUid)) return true;
+    if (client.peerUid === null || client.peerUid === undefined) return false;
+    try {
+        const parsed = JSON.parse(typeof cmd.content === 'string' ? cmd.content : '');
+        const claimed = parsed?.preferences?.managementLinuxUid;
+        const diskMissing = readPreferencesManagementLinuxUid() === null;
+        return diskMissing && typeof claimed === 'number' && claimed === client.peerUid;
+    } catch { return false; }
+}
+
 async function tickWork(logMinute) {
     maybeHandleDaemonWarningTestRequest();
     if (logMinute) {
@@ -3049,6 +3111,11 @@ async function tickWork(logMinute) {
 
 function handleClientCommand(client, cmd) {
     if (!cmd || typeof cmd.type !== 'string') return;
+
+    if (PRIVILEGED_SOCKET_TYPES.has(cmd.type) && !socketPrivilegedPeer(client.peerUid)) {
+        denySocketPrivileged(client, cmd.type);
+        return;
+    }
 
     if (cmd.type === 'extend') {
         // Add bonus screen time; requires parent password
@@ -3208,6 +3275,10 @@ function handleClientCommand(client, cmd) {
     if (cmd.type === 'write-config') {
         // Write /etc/life-parental/default.json atomically; invalidate in-memory cache.
         // Strip security section — auth is stored in auth.json (600) not here.
+        if (!allowsPrivilegedWriteConfig(client, cmd)) {
+            denySocketPrivileged(client, 'write-config');
+            return;
+        }
         try {
             const content = typeof cmd.content === 'string' ? cmd.content : null;
             if (!content) throw new Error('no content');
@@ -3974,7 +4045,9 @@ function startSocketServer() {
 
     const server = net.createServer((client) => {
         clients.add(client);
-        log.info(`client connected clients=${clients.size}`);
+        client.peerUid = getUnixPeerUid(client);
+        if (client.peerUid === null) log.warn('client connected peerUid unknown (install python3?)');
+        log.info(`client connected clients=${clients.size} peerUid=${client.peerUid}`);
         let buf = '';
 
         client.on('data', (data) => {
@@ -3994,7 +4067,7 @@ function startSocketServer() {
     });
 
     server.listen(SOCKET_PATH, () => {
-        // 0o666 so the user-mode warning window process can also connect
+        // World-readable socket: every session user must connect (warning UI). Authorization uses SO_PEERCRED + allowlist.
         try { fs.chmodSync(SOCKET_PATH, 0o666); } catch { /* ignore */ }
         log.info(`listening on ${SOCKET_PATH}`);
     });
