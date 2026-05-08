@@ -15,7 +15,7 @@ import { registerSettingsDangerIpc } from './ipc/settingsDangerIpc.js'
 import { registerLockdownIpc } from './ipc/lockdownIpc.js'
 import { daemonConnect, daemonOn, daemonSend, daemonRequest, isDaemonConnected } from './daemonClient.js'
 import { daemonServiceControl, daemonRegisterClient } from './daemonPrivilegedOps.js'
-import { ensureSchoolTimesPersistedOnDisk } from './defaultProfileStore.js'
+import { ensureManagementLinuxUidPersistedOnDisk, ensureSchoolTimesPersistedOnDisk } from './defaultProfileStore.js'
 
 const execFileAsync = promisify(execFile)
 
@@ -341,8 +341,9 @@ export function runDeferredStartupTasks(appConfigDir) {
     // AppImage: use process.env.APPIMAGE (the actual .AppImage file) so the daemon can re-spawn
     // it correctly as the desktop user with APPIMAGE_EXTRACT_AND_RUN=1.
     daemonOn('connect', () => {
-        daemonRegisterClient(process.env.APPIMAGE || app.getPath('exe'))
+        ensureManagementLinuxUidPersistedOnDisk(appConfigDir)
         ensureSchoolTimesPersistedOnDisk(appConfigDir)
+        daemonRegisterClient(process.env.APPIMAGE || app.getPath('exe'))
     })
     daemonConnect()
 }

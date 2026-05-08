@@ -157,4 +157,13 @@ export function ensureSchoolTimesPersistedOnDisk(configDir) {
     })
 }
 
+/** Ensure preferences.managementLinuxUid exists on disk (used by daemon SO_PEERCRED allowlist bootstrap). */
+export function ensureManagementLinuxUidPersistedOnDisk(configDir) {
+    const raw = readJsonSafe(defaultJsonPath(configDir))
+    if (!raw || typeof raw !== 'object') return
+    const u = raw?.preferences?.managementLinuxUid
+    if (typeof u === 'number' && Number.isFinite(u)) return
+    patchDefaultJson(configDir, (d) => d)
+}
+
 
