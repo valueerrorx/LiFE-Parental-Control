@@ -1,6 +1,7 @@
 # LiFE Parental Control — persistent context (compressed)
 
 ## Recent (2026-05-06)
+- **Danger Zone: child lockdown undo**: new privileged script **`/usr/bin/life-parental-unlock`** (source `packaging/life-parental-unlock.sh`) restores child **`sudo`/`wheel`** (and `admin` if present), re-adds **`fuse`** for AppImages, removes LiFE per-user PolKit/sudoers lockdown files, restores backed-up user-specific PolKit rules from `/etc/polkit-1/rules.backup`, removes `/etc/udev/rules.d/99-life-parental-fuse.rules`. Wired through **`LockdownService.executeUnlock`**, IPC **`settings:undoChildLockdown`**, preload **`settings.undoChildLockdown`**, Settings **Danger Zone** red button with user picker. Packaging/install path updated: install script, deb `postinst`, packaged resources, pkexec polkit match + dedicated policy action all include **unlock** script.
 - **Daemon Unix socket**: privileged JSON commands gated by **Linux SO_PEERCRED** (`daemon/peerCredLinux.js` via `python3` + dup fd). Allow **root (uid 0)**; else **`/etc/life-parental/socket-privileged-uids`** (deb **postinst** seeds **`SUDO_UID`**); else **`preferences.managementLinuxUid`** in **`default.json`** (main **`patchDefaultJson`** stamps **`process.getuid()`** on Linux). **`write-config`** bootstrap: if disk has no **`managementLinuxUid`**, allow only when payload **`preferences.managementLinuxUid === peerUid`**. Non-privileged socket ops unchanged (**status**, **extend***, **validate-password**, **auth:is-set**, **auth:check**). Socket stays **0o666**; auth is peer-based.
 
 ## Recent (2026-05-04)

@@ -89,6 +89,7 @@ export async function analyzeLockdownState(targetUser) {
 }
 
 const LOCKDOWN_SCRIPT = '/usr/bin/life-parental-lockdown'
+const UNLOCK_SCRIPT = '/usr/bin/life-parental-unlock'
 
 /**
  * Execute the lockdown shell script via pkexec.
@@ -152,4 +153,39 @@ export async function executeLockdown(targetUser, adminUser, adminPw, options = 
     } finally {
         try { fs.unlinkSync(tmpPwFile) } catch { /* ignore */ }
     }
+}
+
+/**
+ * Undo lockdown for a child account via pkexec (restore sudo, FUSE/AppImages, polkit/sudoers).
+ * @param {string} targetUser – child account to restore
+ * @returns {{ ok: boolean, error?: string }}
+ */
+export async function executeUnlock(targetUser) {
+    if (!fs.existsSync(UNLOCK_SCRIPT)) {
+        const msg = `Unlock script not found: ${UNLOCK_SCRIPT} — run "Install daemon" first`
+        logError('[LockdownService]', msg)
+        return { ok: false, error: msg }
+    }
+
+    log(`[LockdownService] running pkexec unlock targetUser=${targetUser}`)
+    let stdout
+    let stderr
+    try {
+        const result = await execFileAsync('pkexec', [UNLOCK_SCRIPT, targetUser], { timeout: 60_000 })
+        stdout = result.stdout ?? ''
+        stderr = result.stderr ?? ''
+    } catch (e) {
+        stdout = e.stdout ?? ''
+        stderr = e.stderr ?? ''
+        logError(`[LockdownService] pkexec unlock non-zero exit: code=${e.code} stdout=${stdout.trim()} stderr=${stderr.trim()}`)
+    }
+    log(`[LockdownService] unlock stdout=${stdout.trim()} stderr=${stderr.trim()}`)
+
+    if (stdout.includes('status: success')) {
+        return { ok: true }
+    }
+    const errLine = stdout.split('\n').find(l => l.startsWith('status: error'))
+        || stderr.trim()
+        || 'Unknown error'
+    return { ok: false, error: errLine }
 }

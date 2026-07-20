@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { ref, toRaw } from 'vue'
+import { ref, toRaw, computed } from 'vue'
 
 export const useAppStore = defineStore('app', () => {
     const webFilterEntries = ref([])
@@ -28,6 +28,7 @@ export const useAppStore = defineStore('app', () => {
     const invokingLinuxUser = ref('')
     const quotaViewLinuxUser = ref('')
     const showLockdownWizard = ref(false)
+    const isKdeDesktop = computed(() => (xdgCurrentDesktop.value || '').toUpperCase().includes('KDE'))
 
     const webFilterEnabled = ref(true)
     const webFilterDnsMode = ref('dhcp')
@@ -201,7 +202,7 @@ export const useAppStore = defineStore('app', () => {
 
     return {
         webFilterEntries, webFilterFeedState, webFilterHostRuleCount, webFilterAllowlist, blockedApps, appControlEnabled, quotaExemptAllowedIds, schedule, todayUsageMinutes, todayExtraAllowanceMinutes, todayUsageUsers, kioskStatus,
-        appQuotas, appQuotaUsage, appQuotaExtra, appMonitorUsage, appMonitorLabels, statusMessage, whitelistEnabled, runningAsRoot, xdgCurrentDesktop,
+        appQuotas, appQuotaUsage, appQuotaExtra, appMonitorUsage, appMonitorLabels, statusMessage, whitelistEnabled, runningAsRoot, xdgCurrentDesktop, isKdeDesktop,
         invokingLinuxUser, quotaViewLinuxUser,
         webFilterEnabled, webFilterDnsMode, webFilterDohIptablesEnabled, webFilterDohIptablesStatus, installedApps,
         loadWebFilter, saveWebFilter, saveWebFilterAll, persistWebFilterAllowlist, loadAppControlConfig, loadBlockedApps, loadInstalledApps, reloadInstalledApps, loadSchedule, loadKioskStatus, loadAppQuotas,

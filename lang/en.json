@@ -394,6 +394,14 @@
     "stopAllConfirmMsg": "Stop and remove ALL LiFE protections? This clears schedules (screen time off), quotas, blocks, web filter hosts block, quota exemptions, and KDE kiosk (if active \u2014 session will restart).",
     "stopAllLabel": "Stop all",
     "allProtectionsRemoved": "All protections removed. Refresh sidebar state\u2026",
+    "undoChildLockdown": "Undo child account lockdown",
+    "undoChildLockdownDesc": "Restores <code>sudo</code>/<code>wheel</code>, AppImage FUSE access, and app install/remove for the selected user. Removes LiFE lockdown PolKit and sudoers rules. The child account must log in again afterwards.",
+    "undoChildLockdownSelect": "Select child account",
+    "undoChildLockdownBtn": "Undo lockdown",
+    "undoChildLockdownConfirmTitle": "Undo child account lockdown",
+    "undoChildLockdownConfirmMsg": "Fully undo lockdown for {user}? The account will regain admin rights (sudo/wheel), AppImages, and package install/remove.",
+    "undoChildLockdownDone": "Lockdown undone for {user}. Please have the child account log in again.",
+    "undoChildLockdownFailed": "Could not undo lockdown.",
     "deleteAllUsageHistory": "Delete all usage history",
     "deleteAllUsageDesc": "Deletes every <code>usage-*.json</code>, <code>quota-usage-*.json</code>, and <code>app-usage-*.json</code> file in the config directory (all days \u2014 screen time and per-app quota logs). Does not change schedules or limits.",
     "deleteAllUsageBtn": "Delete all usage history",
@@ -411,7 +419,10 @@
     "pruneLogsMsg": "Delete usage-*.json, quota-usage-*.json, and app-usage-*.json in /etc/life-parental/ older than 120 days (by date in the filename)?",
     "webFilterRestoreTitle": "Web filter restore",
     "webFilterRestoreMsg": "Restore web filter: rebuild the /etc/hosts block from the current settings in default.json?",
-    "platformLabel": "KDE Plasma (Linux)"
+    "platformKde": "KDE Plasma (Linux)",
+    "platformGnome": "GNOME (Linux)",
+    "platformNamed": "{name} (Linux)",
+    "platformUnknown": "Linux (desktop unknown)"
   },
   "kiosk": {
     "title": "KDE Kiosk Mode",

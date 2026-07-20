@@ -6,6 +6,15 @@ import { daemonWriteKiosk } from '../daemonPrivilegedOps.js'
 import { showWarningWindow } from '../warningWindow.js'
 import { getActiveGraphicalSessions } from '../graphicalSessionDetect.js'
 import { listDesktopLoginUsers } from '../linuxLoginUsers.js'
+import { readDesktopSessionEnvForUid } from '../desktopSessionEnviron.js'
+
+function resolveXdgCurrentDesktop() {
+    const fromProcess = process.env.XDG_CURRENT_DESKTOP ?? ''
+    const user = (process.env.USER || '').trim()
+    if (!user) return fromProcess
+    const session = readDesktopSessionEnvForUid(user)
+    return session.XDG_CURRENT_DESKTOP || fromProcess
+}
 
 const KDEGLOBALS_PATH = '/etc/xdg/kdeglobals'
 const PLASMA_APPLETSRC_PATH = '/etc/xdg/plasma-appletsrc'
@@ -262,7 +271,7 @@ export function registerSystemIpc(ipcMain, getWindow, configDir) {
         electron: process.versions.electron,
         node: process.versions.node,
         runningAsRoot: false,
-        xdgCurrentDesktop: process.env.XDG_CURRENT_DESKTOP ?? '',
+        xdgCurrentDesktop: resolveXdgCurrentDesktop(),
         invokingLinuxUser: (process.env.USER || '').trim()
     }))
 

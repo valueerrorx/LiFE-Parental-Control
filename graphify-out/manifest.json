@@ -1,105 +1,1167 @@
 {
-  "daemon/defaultSync.js": 1775815088.597503,
-  "daemon/parental-control-daemon.js": 1776019454.6637874,
-  "src/main/logger.js": 1774902100.6391952,
-  "src/main/warningPanelTheme.js": 1776010136.0045345,
-  "src/main/daemonPrivilegedOps.js": 1775917077.016716,
-  "src/main/warningWindow.js": 1776019497.6080997,
-  "src/main/linuxLoginUsers.js": 1774106313.476738,
-  "src/main/graphicalSessionDetect.js": 1774902100.638309,
-  "src/main/defaultProfileStore.js": 1775901272.4983487,
-  "src/main/warningModeMain.js": 1776019465.6216114,
-  "src/main/desktopSessionEnviron.js": 1774111572.2620888,
-  "src/main/registerHeavyIpc.js": 1775917114.8172212,
-  "src/main/daemonClient.js": 1774902100.638309,
-  "src/main/lockscreenWindow.js": 1776010280.2265494,
-  "src/main/windowIcon.js": 1774260500.2313302,
-  "src/main/index.js": 1775808863.866862,
-  "src/main/LockdownService.js": 1774902100.638309,
-  "src/main/appImageResolve.js": 1774107119.4315872,
-  "src/main/ipc/schedulesIpc.js": 1776012092.9358814,
-  "src/main/ipc/settingsIpc.js": 1775808791.547519,
-  "src/main/ipc/settingsDangerIpc.js": 1775898861.1250467,
-  "src/main/ipc/desktopIconResolve.js": 1774104788.9503202,
-  "src/main/ipc/quotaIpc.js": 1774902100.6391952,
-  "src/main/ipc/appBlockerIpc.js": 1775917099.8704166,
-  "src/main/ipc/activityIpc.js": 1774103092.6068246,
-  "src/main/ipc/localCalendarDay.js": 1774103092.6069167,
-  "src/main/ipc/profileIpc.js": 1774902100.6391952,
-  "src/main/ipc/systemIpc.js": 1774902100.6391952,
-  "src/main/ipc/processWhitelistIpc.js": 1774902100.6391952,
-  "src/main/ipc/activityLog.js": 1774902100.638309,
-  "src/main/ipc/webFilterHagezi.js": 1775843183.2455964,
-  "src/main/ipc/backupIpc.js": 1775503040.0810127,
-  "src/main/ipc/configIpc.js": 1774103092.6069167,
-  "src/main/ipc/usageArchivePrune.js": 1774103092.6069167,
-  "src/main/ipc/embeddedEnforcementSync.js": 1774104789.2033174,
-  "src/main/ipc/lockdownIpc.js": 1775585837.583531,
-  "src/main/ipc/webFilterIpc.js": 1775898860.7380614,
-  "src/main/ipc/cronInstallPaths.js": 1774104788.605324,
-  "src/main/ipc/webFilterCategories.js": 1774103092.6069167,
-  "src/renderer/src/App.vue": 1775489879.4314523,
-  "src/renderer/src/i18n.js": 1774902100.6401954,
-  "src/renderer/src/parentQuit.js": 1775111783.5114093,
-  "src/renderer/src/main.js": 1774903936.4651499,
-  "src/renderer/src/composables/useConfirm.js": 1774188602.7321317,
-  "src/renderer/src/composables/useModal.js": 1774103092.6079943,
-  "src/renderer/src/composables/useApplicationLogModal.js": 1775503034.0322027,
-  "src/renderer/src/composables/useUnsavedGuard.js": 1775713073.8691738,
-  "src/renderer/src/composables/useDesktopLoginUsers.js": 1774106317.721685,
-  "src/renderer/src/layouts/MainLayout.vue": 1774276179.821091,
-  "src/renderer/src/stores/appStore.js": 1775591329.5510259,
-  "src/renderer/src/stores/kioskStore.js": 1774103092.6085951,
-  "src/renderer/src/pages/ProcessWhitelistPage.vue": 1775712962.0674272,
-  "src/renderer/src/pages/SchedulesPage.vue": 1776012112.2585042,
-  "src/renderer/src/pages/WebFilterPage.vue": 1775815062.8446214,
-  "src/renderer/src/pages/AppControlPage.vue": 1775712976.4962344,
-  "src/renderer/src/pages/KioskPage.vue": 1774258752.535202,
-  "src/renderer/src/pages/SettingsPage.vue": 1775587926.8830814,
-  "src/renderer/src/pages/DashboardPage.vue": 1775918630.271686,
-  "src/renderer/src/router/routes.js": 1774103092.6085348,
-  "src/renderer/src/router/index.js": 1774103092.6081774,
-  "src/renderer/src/components/LockdownWizard.vue": 1775588527.3453348,
-  "src/renderer/src/components/AppSidebar.vue": 1775111791.4321423,
-  "src/renderer/src/components/AppModal.vue": 1774112071.703552,
-  "src/renderer/src/components/AppListItemIcon.vue": 1774103092.6077814,
-  "src/renderer/src/components/kiosk/UrlRestrictionsTab.vue": 1774258752.535202,
-  "src/renderer/src/components/kiosk/RestrictionTab.vue": 1774103092.607899,
-  "src/renderer/src/components/kiosk/ProfilesTab.vue": 1774258752.535202,
-  "src/preload/index.js": 1775898356.9700515,
-  "src/shared/lockIdleMinutes.js": 1774103092.6085951,
-  "src/shared/quotaUsageKey.js": 1774104720.8724387,
-  "src/shared/screenTimeUsage.js": 1774106059.5879338,
-  "README.md": 1775673034.8960044,
-  "memory.md": 1775503053.749783,
-  "CLAUDE.md": 1776022290.913507,
-  "claude.md": 1774902100.6341956,
-  "hagezi/fake.txt": 1774103092.5945628,
-  "hagezi/nsfw.txt": 1774103092.6013472,
-  "hagezi/popupads.txt": 1774103092.6033473,
-  "hagezi/social.txt": 1774103092.6033473,
-  "hagezi/gambling.txt": 1774103092.5998852,
-  "hagezi/anti.piracy.txt": 1774103092.5937448,
-  "info/dns-info.md": 1775589801.4080226,
-  "images/quota-exemptions.png": 1774258752.53203,
-  "images/kiosk-systemsettings.png": 1774258752.531443,
-  "images/lockdownwizard.png": 1774902100.6369798,
-  "images/osos.svg": 1774258752.5315661,
-  "images/kiosk-profiles.png": 1774258752.5309064,
-  "images/tray-64.png": 1774103092.6043472,
-  "images/pc.png": 1775068709.2423813,
-  "images/screentime.png": 1774258752.532602,
-  "images/tray-24.png": 1774103092.6043472,
-  "images/settings.png": 1774258752.5335267,
-  "images/webfilter.png": 1774258752.5340927,
-  "images/app-control.png": 1774258752.5301847,
-  "images/pc.svg": 1775068728.1873903,
-  "images/dashboard.png": 1774902100.636752,
-  "images/icons/48x48.png": 1775846974.9133837,
-  "images/icons/32x32.png": 1775846974.8470438,
-  "images/icons/128x128.png": 1775846975.044166,
-  "images/icons/256x256.png": 1775846975.1251657,
-  "images/icons/16x16.png": 1775846974.7833142,
-  "images/icons/64x64.png": 1775846974.9763649,
-  "images/icons/512x512.png": 1775846975.2171655
+  "daemon/defaultSync.js": {
+    "mtime": 1775815088.597503,
+    "ast_hash": "",
+    "semantic_hash": ""
+  },
+  "daemon/parental-control-daemon.js": {
+    "mtime": 1776019454.6637874,
+    "ast_hash": "",
+    "semantic_hash": ""
+  },
+  "src/main/logger.js": {
+    "mtime": 1774902100.6391952,
+    "ast_hash": "",
+    "semantic_hash": ""
+  },
+  "src/main/warningPanelTheme.js": {
+    "mtime": 1776010136.0045345,
+    "ast_hash": "",
+    "semantic_hash": ""
+  },
+  "src/main/daemonPrivilegedOps.js": {
+    "mtime": 1775917077.016716,
+    "ast_hash": "",
+    "semantic_hash": ""
+  },
+  "src/main/warningWindow.js": {
+    "mtime": 1776019497.6080997,
+    "ast_hash": "",
+    "semantic_hash": ""
+  },
+  "src/main/linuxLoginUsers.js": {
+    "mtime": 1774106313.476738,
+    "ast_hash": "",
+    "semantic_hash": ""
+  },
+  "src/main/graphicalSessionDetect.js": {
+    "mtime": 1774902100.638309,
+    "ast_hash": "",
+    "semantic_hash": ""
+  },
+  "src/main/defaultProfileStore.js": {
+    "mtime": 1775901272.4983487,
+    "ast_hash": "",
+    "semantic_hash": ""
+  },
+  "src/main/warningModeMain.js": {
+    "mtime": 1776019465.6216114,
+    "ast_hash": "",
+    "semantic_hash": ""
+  },
+  "src/main/desktopSessionEnviron.js": {
+    "mtime": 1774111572.2620888,
+    "ast_hash": "",
+    "semantic_hash": ""
+  },
+  "src/main/registerHeavyIpc.js": {
+    "mtime": 1775917114.8172212,
+    "ast_hash": "",
+    "semantic_hash": ""
+  },
+  "src/main/daemonClient.js": {
+    "mtime": 1774902100.638309,
+    "ast_hash": "",
+    "semantic_hash": ""
+  },
+  "src/main/lockscreenWindow.js": {
+    "mtime": 1776010280.2265494,
+    "ast_hash": "",
+    "semantic_hash": ""
+  },
+  "src/main/windowIcon.js": {
+    "mtime": 1774260500.2313302,
+    "ast_hash": "",
+    "semantic_hash": ""
+  },
+  "src/main/index.js": {
+    "mtime": 1775808863.866862,
+    "ast_hash": "",
+    "semantic_hash": ""
+  },
+  "src/main/LockdownService.js": {
+    "mtime": 1774902100.638309,
+    "ast_hash": "",
+    "semantic_hash": ""
+  },
+  "src/main/appImageResolve.js": {
+    "mtime": 1774107119.4315872,
+    "ast_hash": "",
+    "semantic_hash": ""
+  },
+  "src/main/ipc/schedulesIpc.js": {
+    "mtime": 1776012092.9358814,
+    "ast_hash": "",
+    "semantic_hash": ""
+  },
+  "src/main/ipc/settingsIpc.js": {
+    "mtime": 1775808791.547519,
+    "ast_hash": "",
+    "semantic_hash": ""
+  },
+  "src/main/ipc/settingsDangerIpc.js": {
+    "mtime": 1775898861.1250467,
+    "ast_hash": "",
+    "semantic_hash": ""
+  },
+  "src/main/ipc/desktopIconResolve.js": {
+    "mtime": 1774104788.9503202,
+    "ast_hash": "",
+    "semantic_hash": ""
+  },
+  "src/main/ipc/quotaIpc.js": {
+    "mtime": 1774902100.6391952,
+    "ast_hash": "",
+    "semantic_hash": ""
+  },
+  "src/main/ipc/appBlockerIpc.js": {
+    "mtime": 1775917099.8704166,
+    "ast_hash": "",
+    "semantic_hash": ""
+  },
+  "src/main/ipc/activityIpc.js": {
+    "mtime": 1774103092.6068246,
+    "ast_hash": "",
+    "semantic_hash": ""
+  },
+  "src/main/ipc/localCalendarDay.js": {
+    "mtime": 1774103092.6069167,
+    "ast_hash": "",
+    "semantic_hash": ""
+  },
+  "src/main/ipc/profileIpc.js": {
+    "mtime": 1774902100.6391952,
+    "ast_hash": "",
+    "semantic_hash": ""
+  },
+  "src/main/ipc/systemIpc.js": {
+    "mtime": 1774902100.6391952,
+    "ast_hash": "",
+    "semantic_hash": ""
+  },
+  "src/main/ipc/processWhitelistIpc.js": {
+    "mtime": 1774902100.6391952,
+    "ast_hash": "",
+    "semantic_hash": ""
+  },
+  "src/main/ipc/activityLog.js": {
+    "mtime": 1774902100.638309,
+    "ast_hash": "",
+    "semantic_hash": ""
+  },
+  "src/main/ipc/webFilterHagezi.js": {
+    "mtime": 1775843183.2455964,
+    "ast_hash": "",
+    "semantic_hash": ""
+  },
+  "src/main/ipc/backupIpc.js": {
+    "mtime": 1775503040.0810127,
+    "ast_hash": "",
+    "semantic_hash": ""
+  },
+  "src/main/ipc/configIpc.js": {
+    "mtime": 1774103092.6069167,
+    "ast_hash": "",
+    "semantic_hash": ""
+  },
+  "src/main/ipc/usageArchivePrune.js": {
+    "mtime": 1774103092.6069167,
+    "ast_hash": "",
+    "semantic_hash": ""
+  },
+  "src/main/ipc/embeddedEnforcementSync.js": {
+    "mtime": 1774104789.2033174,
+    "ast_hash": "",
+    "semantic_hash": ""
+  },
+  "src/main/ipc/lockdownIpc.js": {
+    "mtime": 1775585837.583531,
+    "ast_hash": "",
+    "semantic_hash": ""
+  },
+  "src/main/ipc/webFilterIpc.js": {
+    "mtime": 1775898860.7380614,
+    "ast_hash": "",
+    "semantic_hash": ""
+  },
+  "src/main/ipc/cronInstallPaths.js": {
+    "mtime": 1774104788.605324,
+    "ast_hash": "",
+    "semantic_hash": ""
+  },
+  "src/main/ipc/webFilterCategories.js": {
+    "mtime": 1774103092.6069167,
+    "ast_hash": "",
+    "semantic_hash": ""
+  },
+  "src/renderer/src/App.vue": {
+    "mtime": 1775489879.4314523,
+    "ast_hash": "",
+    "semantic_hash": ""
+  },
+  "src/renderer/src/i18n.js": {
+    "mtime": 1774902100.6401954,
+    "ast_hash": "",
+    "semantic_hash": ""
+  },
+  "src/renderer/src/parentQuit.js": {
+    "mtime": 1775111783.5114093,
+    "ast_hash": "",
+    "semantic_hash": ""
+  },
+  "src/renderer/src/main.js": {
+    "mtime": 1774903936.4651499,
+    "ast_hash": "",
+    "semantic_hash": ""
+  },
+  "src/renderer/src/composables/useConfirm.js": {
+    "mtime": 1774188602.7321317,
+    "ast_hash": "",
+    "semantic_hash": ""
+  },
+  "src/renderer/src/composables/useModal.js": {
+    "mtime": 1774103092.6079943,
+    "ast_hash": "",
+    "semantic_hash": ""
+  },
+  "src/renderer/src/composables/useApplicationLogModal.js": {
+    "mtime": 1775503034.0322027,
+    "ast_hash": "",
+    "semantic_hash": ""
+  },
+  "src/renderer/src/composables/useUnsavedGuard.js": {
+    "mtime": 1775713073.8691738,
+    "ast_hash": "",
+    "semantic_hash": ""
+  },
+  "src/renderer/src/composables/useDesktopLoginUsers.js": {
+    "mtime": 1774106317.721685,
+    "ast_hash": "",
+    "semantic_hash": ""
+  },
+  "src/renderer/src/layouts/MainLayout.vue": {
+    "mtime": 1774276179.821091,
+    "ast_hash": "",
+    "semantic_hash": ""
+  },
+  "src/renderer/src/stores/appStore.js": {
+    "mtime": 1775591329.5510259,
+    "ast_hash": "",
+    "semantic_hash": ""
+  },
+  "src/renderer/src/stores/kioskStore.js": {
+    "mtime": 1774103092.6085951,
+    "ast_hash": "",
+    "semantic_hash": ""
+  },
+  "src/renderer/src/pages/ProcessWhitelistPage.vue": {
+    "mtime": 1775712962.0674272,
+    "ast_hash": "",
+    "semantic_hash": ""
+  },
+  "src/renderer/src/pages/SchedulesPage.vue": {
+    "mtime": 1776012112.2585042,
+    "ast_hash": "",
+    "semantic_hash": ""
+  },
+  "src/renderer/src/pages/WebFilterPage.vue": {
+    "mtime": 1775815062.8446214,
+    "ast_hash": "",
+    "semantic_hash": ""
+  },
+  "src/renderer/src/pages/AppControlPage.vue": {
+    "mtime": 1775712976.4962344,
+    "ast_hash": "",
+    "semantic_hash": ""
+  },
+  "src/renderer/src/pages/KioskPage.vue": {
+    "mtime": 1774258752.535202,
+    "ast_hash": "",
+    "semantic_hash": ""
+  },
+  "src/renderer/src/pages/SettingsPage.vue": {
+    "mtime": 1775587926.8830814,
+    "ast_hash": "",
+    "semantic_hash": ""
+  },
+  "src/renderer/src/pages/DashboardPage.vue": {
+    "mtime": 1775918630.271686,
+    "ast_hash": "",
+    "semantic_hash": ""
+  },
+  "src/renderer/src/router/routes.js": {
+    "mtime": 1774103092.6085348,
+    "ast_hash": "",
+    "semantic_hash": ""
+  },
+  "src/renderer/src/router/index.js": {
+    "mtime": 1774103092.6081774,
+    "ast_hash": "",
+    "semantic_hash": ""
+  },
+  "src/renderer/src/components/LockdownWizard.vue": {
+    "mtime": 1775588527.3453348,
+    "ast_hash": "",
+    "semantic_hash": ""
+  },
+  "src/renderer/src/components/AppSidebar.vue": {
+    "mtime": 1775111791.4321423,
+    "ast_hash": "",
+    "semantic_hash": ""
+  },
+  "src/renderer/src/components/AppModal.vue": {
+    "mtime": 1774112071.703552,
+    "ast_hash": "",
+    "semantic_hash": ""
+  },
+  "src/renderer/src/components/AppListItemIcon.vue": {
+    "mtime": 1774103092.6077814,
+    "ast_hash": "",
+    "semantic_hash": ""
+  },
+  "src/renderer/src/components/kiosk/UrlRestrictionsTab.vue": {
+    "mtime": 1774258752.535202,
+    "ast_hash": "",
+    "semantic_hash": ""
+  },
+  "src/renderer/src/components/kiosk/RestrictionTab.vue": {
+    "mtime": 1774103092.607899,
+    "ast_hash": "",
+    "semantic_hash": ""
+  },
+  "src/renderer/src/components/kiosk/ProfilesTab.vue": {
+    "mtime": 1774258752.535202,
+    "ast_hash": "",
+    "semantic_hash": ""
+  },
+  "src/preload/index.js": {
+    "mtime": 1775898356.9700515,
+    "ast_hash": "",
+    "semantic_hash": ""
+  },
+  "src/shared/lockIdleMinutes.js": {
+    "mtime": 1774103092.6085951,
+    "ast_hash": "",
+    "semantic_hash": ""
+  },
+  "src/shared/quotaUsageKey.js": {
+    "mtime": 1774104720.8724387,
+    "ast_hash": "",
+    "semantic_hash": ""
+  },
+  "src/shared/screenTimeUsage.js": {
+    "mtime": 1774106059.5879338,
+    "ast_hash": "",
+    "semantic_hash": ""
+  },
+  "README.md": {
+    "mtime": 1775673034.8960044,
+    "ast_hash": "",
+    "semantic_hash": ""
+  },
+  "memory.md": {
+    "mtime": 1775503053.749783,
+    "ast_hash": "",
+    "semantic_hash": ""
+  },
+  "CLAUDE.md": {
+    "mtime": 1776022290.913507,
+    "ast_hash": "",
+    "semantic_hash": ""
+  },
+  "hagezi/fake.txt": {
+    "mtime": 1774103092.5945628,
+    "ast_hash": "",
+    "semantic_hash": ""
+  },
+  "hagezi/nsfw.txt": {
+    "mtime": 1774103092.6013472,
+    "ast_hash": "",
+    "semantic_hash": ""
+  },
+  "hagezi/popupads.txt": {
+    "mtime": 1774103092.6033473,
+    "ast_hash": "",
+    "semantic_hash": ""
+  },
+  "hagezi/social.txt": {
+    "mtime": 1774103092.6033473,
+    "ast_hash": "",
+    "semantic_hash": ""
+  },
+  "hagezi/gambling.txt": {
+    "mtime": 1774103092.5998852,
+    "ast_hash": "",
+    "semantic_hash": ""
+  },
+  "hagezi/anti.piracy.txt": {
+    "mtime": 1774103092.5937448,
+    "ast_hash": "",
+    "semantic_hash": ""
+  },
+  "info/dns-info.md": {
+    "mtime": 1775589801.4080226,
+    "ast_hash": "",
+    "semantic_hash": ""
+  },
+  "images/quota-exemptions.png": {
+    "mtime": 1774258752.53203,
+    "ast_hash": "",
+    "semantic_hash": ""
+  },
+  "images/kiosk-systemsettings.png": {
+    "mtime": 1774258752.531443,
+    "ast_hash": "",
+    "semantic_hash": ""
+  },
+  "images/lockdownwizard.png": {
+    "mtime": 1774902100.6369798,
+    "ast_hash": "",
+    "semantic_hash": ""
+  },
+  "images/osos.svg": {
+    "mtime": 1774258752.5315661,
+    "ast_hash": "",
+    "semantic_hash": ""
+  },
+  "images/kiosk-profiles.png": {
+    "mtime": 1774258752.5309064,
+    "ast_hash": "",
+    "semantic_hash": ""
+  },
+  "images/tray-64.png": {
+    "mtime": 1774103092.6043472,
+    "ast_hash": "",
+    "semantic_hash": ""
+  },
+  "images/pc.png": {
+    "mtime": 1775068709.2423813,
+    "ast_hash": "",
+    "semantic_hash": ""
+  },
+  "images/screentime.png": {
+    "mtime": 1774258752.532602,
+    "ast_hash": "",
+    "semantic_hash": ""
+  },
+  "images/tray-24.png": {
+    "mtime": 1774103092.6043472,
+    "ast_hash": "",
+    "semantic_hash": ""
+  },
+  "images/settings.png": {
+    "mtime": 1774258752.5335267,
+    "ast_hash": "",
+    "semantic_hash": ""
+  },
+  "images/webfilter.png": {
+    "mtime": 1774258752.5340927,
+    "ast_hash": "",
+    "semantic_hash": ""
+  },
+  "images/app-control.png": {
+    "mtime": 1774258752.5301847,
+    "ast_hash": "",
+    "semantic_hash": ""
+  },
+  "images/pc.svg": {
+    "mtime": 1775068728.1873903,
+    "ast_hash": "",
+    "semantic_hash": ""
+  },
+  "images/dashboard.png": {
+    "mtime": 1774902100.636752,
+    "ast_hash": "",
+    "semantic_hash": ""
+  },
+  "images/icons/48x48.png": {
+    "mtime": 1775846974.9133837,
+    "ast_hash": "",
+    "semantic_hash": ""
+  },
+  "images/icons/32x32.png": {
+    "mtime": 1775846974.8470438,
+    "ast_hash": "",
+    "semantic_hash": ""
+  },
+  "images/icons/128x128.png": {
+    "mtime": 1775846975.044166,
+    "ast_hash": "",
+    "semantic_hash": ""
+  },
+  "images/icons/256x256.png": {
+    "mtime": 1775846975.1251657,
+    "ast_hash": "",
+    "semantic_hash": ""
+  },
+  "images/icons/16x16.png": {
+    "mtime": 1775846974.7833142,
+    "ast_hash": "",
+    "semantic_hash": ""
+  },
+  "images/icons/64x64.png": {
+    "mtime": 1775846974.9763649,
+    "ast_hash": "",
+    "semantic_hash": ""
+  },
+  "images/icons/512x512.png": {
+    "mtime": 1775846975.2171655,
+    "ast_hash": "",
+    "semantic_hash": ""
+  },
+  "/home/valueerror/STUFF/DEV/LiFE-Parental-Control/.venv-graphify/bin/Activate.ps1": {
+    "mtime": 1777836078.0605657,
+    "ast_hash": "ffb074b8336789578f50a6c1a1632342",
+    "semantic_hash": ""
+  },
+  "/home/valueerror/STUFF/DEV/LiFE-Parental-Control/.venv-graphify/bin/pip": {
+    "mtime": 1777836078.0606427,
+    "ast_hash": "73eb8efe30d03b10f567685b4afdb6b8",
+    "semantic_hash": ""
+  },
+  "/home/valueerror/STUFF/DEV/LiFE-Parental-Control/.venv-graphify/bin/pip3": {
+    "mtime": 1777836078.0606427,
+    "ast_hash": "73eb8efe30d03b10f567685b4afdb6b8",
+    "semantic_hash": ""
+  },
+  "/home/valueerror/STUFF/DEV/LiFE-Parental-Control/daemon/defaultSync.js": {
+    "mtime": 1777909266.22702,
+    "ast_hash": "f2470da5648b04ac188c9877c7ba6521",
+    "semantic_hash": ""
+  },
+  "/home/valueerror/STUFF/DEV/LiFE-Parental-Control/daemon/parental-control-daemon.js": {
+    "mtime": 1778224584.6096127,
+    "ast_hash": "2647719571f624a3c71f6138d024bc68",
+    "semantic_hash": ""
+  },
+  "/home/valueerror/STUFF/DEV/LiFE-Parental-Control/daemon/peerCredLinux.js": {
+    "mtime": 1778224584.6096127,
+    "ast_hash": "1f19c8faac87e83536686e3f4889ee3e",
+    "semantic_hash": ""
+  },
+  "/home/valueerror/STUFF/DEV/LiFE-Parental-Control/daemon/schoolTimesDefaults.js": {
+    "mtime": 1777885922.2623346,
+    "ast_hash": "9df97b6ef10d6630751843046c41ba5d",
+    "semantic_hash": ""
+  },
+  "/home/valueerror/STUFF/DEV/LiFE-Parental-Control/electron.vite.config.mjs": {
+    "mtime": 1774260247.314013,
+    "ast_hash": "c373d5661208846904dcd15eeca89aad",
+    "semantic_hash": ""
+  },
+  "/home/valueerror/STUFF/DEV/LiFE-Parental-Control/eslint.config.mjs": {
+    "mtime": 1774258752.529468,
+    "ast_hash": "e851d306f3a0ff313bca8d906dc2c29a",
+    "semantic_hash": ""
+  },
+  "/home/valueerror/STUFF/DEV/LiFE-Parental-Control/lang/de.json": {
+    "mtime": 1784538732.9356475,
+    "ast_hash": "ac9575f45d1b0a2e8071ff7a93d57ecd",
+    "semantic_hash": ""
+  },
+  "/home/valueerror/STUFF/DEV/LiFE-Parental-Control/lang/en.json": {
+    "mtime": 1784538741.1171086,
+    "ast_hash": "558351e3696f1edd78fedf3ae341187d",
+    "semantic_hash": ""
+  },
+  "/home/valueerror/STUFF/DEV/LiFE-Parental-Control/package.json": {
+    "mtime": 1778007773.9269733,
+    "ast_hash": "61b5e0510f3d1b2e0d7f98c445df0692",
+    "semantic_hash": ""
+  },
+  "/home/valueerror/STUFF/DEV/LiFE-Parental-Control/packaging/99-life-parental-dns": {
+    "mtime": 1775802028.940661,
+    "ast_hash": "41461d0ca8d9d74addedd2770be5cf41",
+    "semantic_hash": ""
+  },
+  "/home/valueerror/STUFF/DEV/LiFE-Parental-Control/packaging/app-monitor-background-excludes.json": {
+    "mtime": 1777922626.1754303,
+    "ast_hash": "2854da3f7394b3c3aa3e01d1cb88009b",
+    "semantic_hash": ""
+  },
+  "/home/valueerror/STUFF/DEV/LiFE-Parental-Control/packaging/debian/postinst.sh": {
+    "mtime": 1784538793.2066154,
+    "ast_hash": "3220381d59fdb1d14af170f8bde1b92c",
+    "semantic_hash": ""
+  },
+  "/home/valueerror/STUFF/DEV/LiFE-Parental-Control/packaging/debian/postrm.sh": {
+    "mtime": 1775669017.6183562,
+    "ast_hash": "9c284eb35ff42621c66d851adcc6777b",
+    "semantic_hash": ""
+  },
+  "/home/valueerror/STUFF/DEV/LiFE-Parental-Control/packaging/life-parental-install.sh": {
+    "mtime": 1784538789.7467787,
+    "ast_hash": "69046b53e17c8ff8165bf581ba7397f5",
+    "semantic_hash": ""
+  },
+  "/home/valueerror/STUFF/DEV/LiFE-Parental-Control/packaging/life-parental-lockdown.sh": {
+    "mtime": 1776416575.6860707,
+    "ast_hash": "9a3761fc8dfae9eddef1d6f0b6594968",
+    "semantic_hash": ""
+  },
+  "/home/valueerror/STUFF/DEV/LiFE-Parental-Control/packaging/life-parental-unlock.sh": {
+    "mtime": 1784538683.8539357,
+    "ast_hash": "9d7ab351d75a0b732c86b14916eec5c8",
+    "semantic_hash": ""
+  },
+  "/home/valueerror/STUFF/DEV/LiFE-Parental-Control/scripts/verify-kiosk-catalog.mjs": {
+    "mtime": 1774103092.6067019,
+    "ast_hash": "d69b81e784abbbfef492a28d5ada0c0a",
+    "semantic_hash": ""
+  },
+  "/home/valueerror/STUFF/DEV/LiFE-Parental-Control/src/main/LockdownService.js": {
+    "mtime": 1784538694.7631233,
+    "ast_hash": "23118567fe0a9bb75ddcefdc4beff839",
+    "semantic_hash": ""
+  },
+  "/home/valueerror/STUFF/DEV/LiFE-Parental-Control/src/main/appImageGnomeIntegration.js": {
+    "mtime": 1777450162.502781,
+    "ast_hash": "6ec2efe422a76aeec56a15fb9a065081",
+    "semantic_hash": ""
+  },
+  "/home/valueerror/STUFF/DEV/LiFE-Parental-Control/src/main/appImageResolve.js": {
+    "mtime": 1776057689.9693248,
+    "ast_hash": "c89cdd5048d829b2a9df5df1aeddd8fc",
+    "semantic_hash": ""
+  },
+  "/home/valueerror/STUFF/DEV/LiFE-Parental-Control/src/main/daemonClient.js": {
+    "mtime": 1774902100.638309,
+    "ast_hash": "ed9741df8a0e00ae8b5c5311c6726263",
+    "semantic_hash": ""
+  },
+  "/home/valueerror/STUFF/DEV/LiFE-Parental-Control/src/main/daemonPrivilegedOps.js": {
+    "mtime": 1777909092.9706864,
+    "ast_hash": "d172f441ab97d0d05d7d2c624cd606f2",
+    "semantic_hash": ""
+  },
+  "/home/valueerror/STUFF/DEV/LiFE-Parental-Control/src/main/defaultProfileStore.js": {
+    "mtime": 1784536668.6363437,
+    "ast_hash": "20820cf549889876de9dadb4c0934a36",
+    "semantic_hash": ""
+  },
+  "/home/valueerror/STUFF/DEV/LiFE-Parental-Control/src/main/desktopSessionEnviron.js": {
+    "mtime": 1774111572.2620888,
+    "ast_hash": "8cce6aac59eb32ae39f2124cb1a3953c",
+    "semantic_hash": ""
+  },
+  "/home/valueerror/STUFF/DEV/LiFE-Parental-Control/src/main/graphicalSessionDetect.js": {
+    "mtime": 1774902100.638309,
+    "ast_hash": "18b7d340ec552b13fe9c7ec4307f3ecb",
+    "semantic_hash": ""
+  },
+  "/home/valueerror/STUFF/DEV/LiFE-Parental-Control/src/main/index.js": {
+    "mtime": 1777452412.322216,
+    "ast_hash": "7d4ab65fe800e7aadcfbdbc1d0d1986e",
+    "semantic_hash": ""
+  },
+  "/home/valueerror/STUFF/DEV/LiFE-Parental-Control/src/main/ipc/activityIpc.js": {
+    "mtime": 1774103092.6068246,
+    "ast_hash": "e83b47274e1a7fac62e2ec23f6a108e3",
+    "semantic_hash": ""
+  },
+  "/home/valueerror/STUFF/DEV/LiFE-Parental-Control/src/main/ipc/activityLog.js": {
+    "mtime": 1774902100.638309,
+    "ast_hash": "abff36c04ad9b79a2c619b7215c714cc",
+    "semantic_hash": ""
+  },
+  "/home/valueerror/STUFF/DEV/LiFE-Parental-Control/src/main/ipc/appBlockerIpc.js": {
+    "mtime": 1777922491.89289,
+    "ast_hash": "19510afd9c80ddd50d2033110be81b19",
+    "semantic_hash": ""
+  },
+  "/home/valueerror/STUFF/DEV/LiFE-Parental-Control/src/main/ipc/backupIpc.js": {
+    "mtime": 1784536668.6363437,
+    "ast_hash": "edafed4b9fea3c06cb54016036af64bc",
+    "semantic_hash": ""
+  },
+  "/home/valueerror/STUFF/DEV/LiFE-Parental-Control/src/main/ipc/configIpc.js": {
+    "mtime": 1774103092.6069167,
+    "ast_hash": "d29666f30d23f8bd2b6feb9e420cf486",
+    "semantic_hash": ""
+  },
+  "/home/valueerror/STUFF/DEV/LiFE-Parental-Control/src/main/ipc/cronInstallPaths.js": {
+    "mtime": 1774104788.605324,
+    "ast_hash": "83c30b5a72199c05bd20b77b4215cbbd",
+    "semantic_hash": ""
+  },
+  "/home/valueerror/STUFF/DEV/LiFE-Parental-Control/src/main/ipc/desktopIconResolve.js": {
+    "mtime": 1774104788.9503202,
+    "ast_hash": "a0ff0514f97b6ac5340df84b44e5f8db",
+    "semantic_hash": ""
+  },
+  "/home/valueerror/STUFF/DEV/LiFE-Parental-Control/src/main/ipc/embeddedEnforcementSync.js": {
+    "mtime": 1774104789.2033174,
+    "ast_hash": "e013f702ebeec59a438e2d76a99b6b81",
+    "semantic_hash": ""
+  },
+  "/home/valueerror/STUFF/DEV/LiFE-Parental-Control/src/main/ipc/localCalendarDay.js": {
+    "mtime": 1774103092.6069167,
+    "ast_hash": "0bbeafd2713b06e01d401e840fdf3902",
+    "semantic_hash": ""
+  },
+  "/home/valueerror/STUFF/DEV/LiFE-Parental-Control/src/main/ipc/lockdownIpc.js": {
+    "mtime": 1776416487.9072568,
+    "ast_hash": "ac39e144cad041e25468bf5286c00bee",
+    "semantic_hash": ""
+  },
+  "/home/valueerror/STUFF/DEV/LiFE-Parental-Control/src/main/ipc/processWhitelistIpc.js": {
+    "mtime": 1774902100.6391952,
+    "ast_hash": "e786f127995f412d4d0ebef865178230",
+    "semantic_hash": ""
+  },
+  "/home/valueerror/STUFF/DEV/LiFE-Parental-Control/src/main/ipc/profileIpc.js": {
+    "mtime": 1774902100.6391952,
+    "ast_hash": "4e1c8086a788f95b0a51e59356dae115",
+    "semantic_hash": ""
+  },
+  "/home/valueerror/STUFF/DEV/LiFE-Parental-Control/src/main/ipc/quotaIpc.js": {
+    "mtime": 1777475768.8375547,
+    "ast_hash": "11b2d2fab55d7348fdac50758f27776c",
+    "semantic_hash": ""
+  },
+  "/home/valueerror/STUFF/DEV/LiFE-Parental-Control/src/main/ipc/schedulesIpc.js": {
+    "mtime": 1777834434.142328,
+    "ast_hash": "3034b074f1abdadb4d67044c5dc02318",
+    "semantic_hash": ""
+  },
+  "/home/valueerror/STUFF/DEV/LiFE-Parental-Control/src/main/ipc/settingsDangerIpc.js": {
+    "mtime": 1784538699.8722322,
+    "ast_hash": "bb323f8734cc29bc60b9897442915a28",
+    "semantic_hash": ""
+  },
+  "/home/valueerror/STUFF/DEV/LiFE-Parental-Control/src/main/ipc/settingsIpc.js": {
+    "mtime": 1777839316.5969088,
+    "ast_hash": "d508b4976f7fe58b1d6f7f3b77233ca4",
+    "semantic_hash": ""
+  },
+  "/home/valueerror/STUFF/DEV/LiFE-Parental-Control/src/main/ipc/systemIpc.js": {
+    "mtime": 1774902100.6391952,
+    "ast_hash": "721868d6af84270159b7b417ea703a91",
+    "semantic_hash": ""
+  },
+  "/home/valueerror/STUFF/DEV/LiFE-Parental-Control/src/main/ipc/usageArchivePrune.js": {
+    "mtime": 1774103092.6069167,
+    "ast_hash": "bf6a7f80196acb587cb925953546e10f",
+    "semantic_hash": ""
+  },
+  "/home/valueerror/STUFF/DEV/LiFE-Parental-Control/src/main/ipc/webFilterCategories.js": {
+    "mtime": 1774103092.6069167,
+    "ast_hash": "c3a41084e679a8d7d34e2546928d644e",
+    "semantic_hash": ""
+  },
+  "/home/valueerror/STUFF/DEV/LiFE-Parental-Control/src/main/ipc/webFilterHagezi.js": {
+    "mtime": 1776155153.488092,
+    "ast_hash": "5d807d15a439b62ccb66191cd9ffee0d",
+    "semantic_hash": ""
+  },
+  "/home/valueerror/STUFF/DEV/LiFE-Parental-Control/src/main/ipc/webFilterIpc.js": {
+    "mtime": 1777889409.4258046,
+    "ast_hash": "294127982705cfa09ae1fa3a22df81dc",
+    "semantic_hash": ""
+  },
+  "/home/valueerror/STUFF/DEV/LiFE-Parental-Control/src/main/linuxLoginUsers.js": {
+    "mtime": 1774106313.476738,
+    "ast_hash": "a8ff3b94ba3b5722f4d2b5d6e8767d60",
+    "semantic_hash": ""
+  },
+  "/home/valueerror/STUFF/DEV/LiFE-Parental-Control/src/main/lockscreenWindow.js": {
+    "mtime": 1776010280.2265494,
+    "ast_hash": "797226f9ca97edfbbeafc041465d3514",
+    "semantic_hash": ""
+  },
+  "/home/valueerror/STUFF/DEV/LiFE-Parental-Control/src/main/logger.js": {
+    "mtime": 1774902100.6391952,
+    "ast_hash": "e5da1c09392018ef65e2b5342fe29ddb",
+    "semantic_hash": ""
+  },
+  "/home/valueerror/STUFF/DEV/LiFE-Parental-Control/src/main/registerHeavyIpc.js": {
+    "mtime": 1784538799.512158,
+    "ast_hash": "1c0d8dc07afafa7286ed8573964ed73b",
+    "semantic_hash": ""
+  },
+  "/home/valueerror/STUFF/DEV/LiFE-Parental-Control/src/main/warningModeMain.js": {
+    "mtime": 1776019465.6216114,
+    "ast_hash": "913f4fd86151e2cbcd89015ed3b45668",
+    "semantic_hash": ""
+  },
+  "/home/valueerror/STUFF/DEV/LiFE-Parental-Control/src/main/warningPanelTheme.js": {
+    "mtime": 1776010136.0045345,
+    "ast_hash": "f3775db3dd8768ea89eac6911a54626f",
+    "semantic_hash": ""
+  },
+  "/home/valueerror/STUFF/DEV/LiFE-Parental-Control/src/main/warningWindow.js": {
+    "mtime": 1776019497.6080997,
+    "ast_hash": "ab74332f3e665bc60b2e6f59cbc6cf78",
+    "semantic_hash": ""
+  },
+  "/home/valueerror/STUFF/DEV/LiFE-Parental-Control/src/main/windowIcon.js": {
+    "mtime": 1777448458.5724144,
+    "ast_hash": "6de7a53477fa8e309ade2b61b6f1df49",
+    "semantic_hash": ""
+  },
+  "/home/valueerror/STUFF/DEV/LiFE-Parental-Control/src/preload/index.js": {
+    "mtime": 1784538705.6498077,
+    "ast_hash": "6f7ab27c6976dc05597b5ea12529a84b",
+    "semantic_hash": ""
+  },
+  "/home/valueerror/STUFF/DEV/LiFE-Parental-Control/src/renderer/src/App.vue": {
+    "mtime": 1777893462.937079,
+    "ast_hash": "21ab103d4e8b82838d0ff3305e051f51",
+    "semantic_hash": ""
+  },
+  "/home/valueerror/STUFF/DEV/LiFE-Parental-Control/src/renderer/src/components/AppListItemIcon.vue": {
+    "mtime": 1774103092.6077814,
+    "ast_hash": "c416f32e09ba70f81746a02acc57d6aa",
+    "semantic_hash": ""
+  },
+  "/home/valueerror/STUFF/DEV/LiFE-Parental-Control/src/renderer/src/components/AppModal.vue": {
+    "mtime": 1774112071.703552,
+    "ast_hash": "c1c1f2028e1e8e49ce7fb94f193a279b",
+    "semantic_hash": ""
+  },
+  "/home/valueerror/STUFF/DEV/LiFE-Parental-Control/src/renderer/src/components/AppSidebar.vue": {
+    "mtime": 1775111791.4321423,
+    "ast_hash": "04ed16aefa0509cbce1104c180df8eed",
+    "semantic_hash": ""
+  },
+  "/home/valueerror/STUFF/DEV/LiFE-Parental-Control/src/renderer/src/components/LockdownWizard.vue": {
+    "mtime": 1776416483.1058068,
+    "ast_hash": "433a2dcb3c53faaf182df7c5a6f24af2",
+    "semantic_hash": ""
+  },
+  "/home/valueerror/STUFF/DEV/LiFE-Parental-Control/src/renderer/src/components/kiosk/ProfilesTab.vue": {
+    "mtime": 1774258752.535202,
+    "ast_hash": "9b0d9c58a62a2d14ee61d297e56113a8",
+    "semantic_hash": ""
+  },
+  "/home/valueerror/STUFF/DEV/LiFE-Parental-Control/src/renderer/src/components/kiosk/RestrictionTab.vue": {
+    "mtime": 1774103092.607899,
+    "ast_hash": "7af0dce90a2d22fae350873461908fa6",
+    "semantic_hash": ""
+  },
+  "/home/valueerror/STUFF/DEV/LiFE-Parental-Control/src/renderer/src/components/kiosk/UrlRestrictionsTab.vue": {
+    "mtime": 1774258752.535202,
+    "ast_hash": "20a14ba0b9bddbfc44773d36c34b51b0",
+    "semantic_hash": ""
+  },
+  "/home/valueerror/STUFF/DEV/LiFE-Parental-Control/src/renderer/src/composables/unsavedPrompt.js": {
+    "mtime": 1777885922.2623346,
+    "ast_hash": "9eb96843cce622edb6c2b430d6d23d35",
+    "semantic_hash": ""
+  },
+  "/home/valueerror/STUFF/DEV/LiFE-Parental-Control/src/renderer/src/composables/unsavedQuitRegistry.js": {
+    "mtime": 1777885922.2623346,
+    "ast_hash": "ac02fc6f48fba49ab1b2e0bda6e95c00",
+    "semantic_hash": ""
+  },
+  "/home/valueerror/STUFF/DEV/LiFE-Parental-Control/src/renderer/src/composables/useApplicationLogModal.js": {
+    "mtime": 1775503034.0322027,
+    "ast_hash": "99789dfef97be363ea405411db436863",
+    "semantic_hash": ""
+  },
+  "/home/valueerror/STUFF/DEV/LiFE-Parental-Control/src/renderer/src/composables/useConfirm.js": {
+    "mtime": 1774188602.7321317,
+    "ast_hash": "3caaf839f4434a9da1a920211d3fa5e6",
+    "semantic_hash": ""
+  },
+  "/home/valueerror/STUFF/DEV/LiFE-Parental-Control/src/renderer/src/composables/useDesktopLoginUsers.js": {
+    "mtime": 1774106317.721685,
+    "ast_hash": "a6ef42fd99b0119789a076e402de52d0",
+    "semantic_hash": ""
+  },
+  "/home/valueerror/STUFF/DEV/LiFE-Parental-Control/src/renderer/src/composables/useModal.js": {
+    "mtime": 1774103092.6079943,
+    "ast_hash": "5f0b3a242b675da19b22b53f3788622f",
+    "semantic_hash": ""
+  },
+  "/home/valueerror/STUFF/DEV/LiFE-Parental-Control/src/renderer/src/composables/useUnsavedGuard.js": {
+    "mtime": 1777877814.7601516,
+    "ast_hash": "8dae8988823c931c6bab64f0ce0b3bcc",
+    "semantic_hash": ""
+  },
+  "/home/valueerror/STUFF/DEV/LiFE-Parental-Control/src/renderer/src/i18n.js": {
+    "mtime": 1774902100.6401954,
+    "ast_hash": "a59ace6c210bdb96c21513905a46f9d2",
+    "semantic_hash": ""
+  },
+  "/home/valueerror/STUFF/DEV/LiFE-Parental-Control/src/renderer/src/layouts/MainLayout.vue": {
+    "mtime": 1777886435.9910855,
+    "ast_hash": "b7e5385de15eeb10ae7493e22f1ac6dc",
+    "semantic_hash": ""
+  },
+  "/home/valueerror/STUFF/DEV/LiFE-Parental-Control/src/renderer/src/main.js": {
+    "mtime": 1774903936.4651499,
+    "ast_hash": "4f1f69346e0b50177b8c6df9d4c861e8",
+    "semantic_hash": ""
+  },
+  "/home/valueerror/STUFF/DEV/LiFE-Parental-Control/src/renderer/src/pages/AppControlPage.vue": {
+    "mtime": 1777909621.1047993,
+    "ast_hash": "8997bc22c110df6a319081bdd5caedf7",
+    "semantic_hash": ""
+  },
+  "/home/valueerror/STUFF/DEV/LiFE-Parental-Control/src/renderer/src/pages/DashboardPage.vue": {
+    "mtime": 1777909063.5957997,
+    "ast_hash": "4de8906bfffb4b2e4084897af33b5a50",
+    "semantic_hash": ""
+  },
+  "/home/valueerror/STUFF/DEV/LiFE-Parental-Control/src/renderer/src/pages/KioskPage.vue": {
+    "mtime": 1774258752.535202,
+    "ast_hash": "06ba1e67d92f965d469d045a8f5f7991",
+    "semantic_hash": ""
+  },
+  "/home/valueerror/STUFF/DEV/LiFE-Parental-Control/src/renderer/src/pages/ProcessWhitelistPage.vue": {
+    "mtime": 1777907327.6725464,
+    "ast_hash": "f2e600659a466f2f4a7e53e7cbce0e8e",
+    "semantic_hash": ""
+  },
+  "/home/valueerror/STUFF/DEV/LiFE-Parental-Control/src/renderer/src/pages/SchedulesPage.vue": {
+    "mtime": 1777836574.8833501,
+    "ast_hash": "7ba326ac28b727cd9f892f50d3fc70fe",
+    "semantic_hash": ""
+  },
+  "/home/valueerror/STUFF/DEV/LiFE-Parental-Control/src/renderer/src/pages/SettingsPage.vue": {
+    "mtime": 1784538820.1998477,
+    "ast_hash": "35ebbd81df4b1e4fbf2d4266b7091f92",
+    "semantic_hash": ""
+  },
+  "/home/valueerror/STUFF/DEV/LiFE-Parental-Control/src/renderer/src/pages/WebFilterPage.vue": {
+    "mtime": 1777907327.6725464,
+    "ast_hash": "ee5eb172675a97df86b3e45936db6cda",
+    "semantic_hash": ""
+  },
+  "/home/valueerror/STUFF/DEV/LiFE-Parental-Control/src/renderer/src/parentQuit.js": {
+    "mtime": 1777878037.8169856,
+    "ast_hash": "73959c25cfccdefc2f7cbf5089c727cc",
+    "semantic_hash": ""
+  },
+  "/home/valueerror/STUFF/DEV/LiFE-Parental-Control/src/renderer/src/router/index.js": {
+    "mtime": 1774103092.6081774,
+    "ast_hash": "4084d20ff1a519be97542a0a7dfa76be",
+    "semantic_hash": ""
+  },
+  "/home/valueerror/STUFF/DEV/LiFE-Parental-Control/src/renderer/src/router/routes.js": {
+    "mtime": 1774103092.6085348,
+    "ast_hash": "ccdf85d05b2a1bce9581946d8a692368",
+    "semantic_hash": ""
+  },
+  "/home/valueerror/STUFF/DEV/LiFE-Parental-Control/src/renderer/src/stores/appStore.js": {
+    "mtime": 1777909616.6046782,
+    "ast_hash": "3f5f0483df218a5f6dbc080e75961e54",
+    "semantic_hash": ""
+  },
+  "/home/valueerror/STUFF/DEV/LiFE-Parental-Control/src/renderer/src/stores/kioskStore.js": {
+    "mtime": 1774103092.6085951,
+    "ast_hash": "cff2c31fb151bdf12443d1289f668fa7",
+    "semantic_hash": ""
+  },
+  "/home/valueerror/STUFF/DEV/LiFE-Parental-Control/src/shared/lockIdleMinutes.js": {
+    "mtime": 1777893623.6448998,
+    "ast_hash": "ab7b83cc4e7d28430acd744942bbe73d",
+    "semantic_hash": ""
+  },
+  "/home/valueerror/STUFF/DEV/LiFE-Parental-Control/src/shared/quotaUsageKey.js": {
+    "mtime": 1774104720.8724387,
+    "ast_hash": "06172cfe99034e508a9c6802d4cf0b72",
+    "semantic_hash": ""
+  },
+  "/home/valueerror/STUFF/DEV/LiFE-Parental-Control/src/shared/schoolTimes.js": {
+    "mtime": 1777885922.2623346,
+    "ast_hash": "009c1d0750f0d607202fe9ce3e1904c9",
+    "semantic_hash": ""
+  },
+  "/home/valueerror/STUFF/DEV/LiFE-Parental-Control/src/shared/screenTimeUsage.js": {
+    "mtime": 1774106059.5879338,
+    "ast_hash": "0212cd308f7bfc20869524466a58ddde",
+    "semantic_hash": ""
+  },
+  "/home/valueerror/STUFF/DEV/LiFE-Parental-Control/.github/workflows/package-on-version-bump.yml": {
+    "mtime": 1774258752.5278785,
+    "ast_hash": "77b0e51d7f92503e7a1b8daded6a86b5",
+    "semantic_hash": ""
+  },
+  "/home/valueerror/STUFF/DEV/LiFE-Parental-Control/.github/workflows/package.yml": {
+    "mtime": 1774258752.5278785,
+    "ast_hash": "7a7e58acc55ef5ac313845246450e5b4",
+    "semantic_hash": ""
+  },
+  "/home/valueerror/STUFF/DEV/LiFE-Parental-Control/AGENTS.md": {
+    "mtime": 1776022289.8737743,
+    "ast_hash": "2b5326d8efea3c30a7adaa8cfa2bdd19",
+    "semantic_hash": ""
+  },
+  "/home/valueerror/STUFF/DEV/LiFE-Parental-Control/CLAUDE.md": {
+    "mtime": 1777907327.6725464,
+    "ast_hash": "37c66581c530e84bbadd8e17f5ac989a",
+    "semantic_hash": ""
+  },
+  "/home/valueerror/STUFF/DEV/LiFE-Parental-Control/README.md": {
+    "mtime": 1777894827.0688136,
+    "ast_hash": "412bf5e2753d0b206f8274cb27c0042f",
+    "semantic_hash": ""
+  },
+  "/home/valueerror/STUFF/DEV/LiFE-Parental-Control/docs/superpowers/plans/2026-04-14-doh-iptables-block.md": {
+    "mtime": 1776154501.991611,
+    "ast_hash": "d6e91cd5babb236f92025aa2ca006014",
+    "semantic_hash": ""
+  },
+  "/home/valueerror/STUFF/DEV/LiFE-Parental-Control/docs/superpowers/specs/2026-04-14-doh-iptables-block-design.md": {
+    "mtime": 1776154414.9603124,
+    "ast_hash": "b960e6b088676ea0a99a11028de09f50",
+    "semantic_hash": ""
+  },
+  "/home/valueerror/STUFF/DEV/LiFE-Parental-Control/electron-builder.yml": {
+    "mtime": 1784538795.3197906,
+    "ast_hash": "2c1d11c349c1a5f07ca63d7f0ae1222a",
+    "semantic_hash": ""
+  },
+  "/home/valueerror/STUFF/DEV/LiFE-Parental-Control/hagezi/anti.piracy.txt": {
+    "mtime": 1774103092.5937448,
+    "ast_hash": "65104a48b806085f730a0a89764bffb2",
+    "semantic_hash": ""
+  },
+  "/home/valueerror/STUFF/DEV/LiFE-Parental-Control/hagezi/fake.txt": {
+    "mtime": 1774103092.5945628,
+    "ast_hash": "a26efab66e55afe14d0ab3b498e9651e",
+    "semantic_hash": ""
+  },
+  "/home/valueerror/STUFF/DEV/LiFE-Parental-Control/hagezi/gambling.txt": {
+    "mtime": 1774103092.5998852,
+    "ast_hash": "a994fe63e56b0548725169aeb7079210",
+    "semantic_hash": ""
+  },
+  "/home/valueerror/STUFF/DEV/LiFE-Parental-Control/hagezi/nsfw.txt": {
+    "mtime": 1774103092.6013472,
+    "ast_hash": "b5abf8a8be950c746319d646e0155ee9",
+    "semantic_hash": ""
+  },
+  "/home/valueerror/STUFF/DEV/LiFE-Parental-Control/hagezi/popupads.txt": {
+    "mtime": 1774103092.6033473,
+    "ast_hash": "ac2ad85a9349c7c422d6a38619fca259",
+    "semantic_hash": ""
+  },
+  "/home/valueerror/STUFF/DEV/LiFE-Parental-Control/hagezi/social.txt": {
+    "mtime": 1774103092.6033473,
+    "ast_hash": "8af1fa3eafaf16c31fd4a0d8ecdb627d",
+    "semantic_hash": ""
+  },
+  "/home/valueerror/STUFF/DEV/LiFE-Parental-Control/info/dns-info.md": {
+    "mtime": 1775589801.4080226,
+    "ast_hash": "429e2d2594d85f3c3864b397dd5fbaf0",
+    "semantic_hash": ""
+  },
+  "/home/valueerror/STUFF/DEV/LiFE-Parental-Control/memory.md": {
+    "mtime": 1778224584.609771,
+    "ast_hash": "6cde92e622262459f6427368a80dae66",
+    "semantic_hash": ""
+  },
+  "/home/valueerror/STUFF/DEV/LiFE-Parental-Control/src/renderer/index.html": {
+    "mtime": 1774103092.6069167,
+    "ast_hash": "79c7c9ddfecaeece32f56f50649dae0a",
+    "semantic_hash": ""
+  },
+  "/home/valueerror/STUFF/DEV/LiFE-Parental-Control/images/app-control.png": {
+    "mtime": 1777894276.7730904,
+    "ast_hash": "220d0db7b7fea65c05d1565e13b877ae",
+    "semantic_hash": ""
+  },
+  "/home/valueerror/STUFF/DEV/LiFE-Parental-Control/images/dashboard.png": {
+    "mtime": 1774902100.636752,
+    "ast_hash": "4358c8f396002fef7f4dcc0b781f5500",
+    "semantic_hash": ""
+  },
+  "/home/valueerror/STUFF/DEV/LiFE-Parental-Control/images/icons/128x128.png": {
+    "mtime": 1775846975.044166,
+    "ast_hash": "15387ecdf4a158151696753125c98d31",
+    "semantic_hash": ""
+  },
+  "/home/valueerror/STUFF/DEV/LiFE-Parental-Control/images/icons/16x16.png": {
+    "mtime": 1775846974.7833142,
+    "ast_hash": "38b90ee4dbceaa742a778fa89510dfc8",
+    "semantic_hash": ""
+  },
+  "/home/valueerror/STUFF/DEV/LiFE-Parental-Control/images/icons/256x256.png": {
+    "mtime": 1775846975.1251657,
+    "ast_hash": "b24924dcb8465902ba254fa407c84780",
+    "semantic_hash": ""
+  },
+  "/home/valueerror/STUFF/DEV/LiFE-Parental-Control/images/icons/32x32.png": {
+    "mtime": 1775846974.8470438,
+    "ast_hash": "300542274f83709e9b2a28523f79e6a4",
+    "semantic_hash": ""
+  },
+  "/home/valueerror/STUFF/DEV/LiFE-Parental-Control/images/icons/48x48.png": {
+    "mtime": 1775846974.9133837,
+    "ast_hash": "42557517d08dde93a4a741cf977c55de",
+    "semantic_hash": ""
+  },
+  "/home/valueerror/STUFF/DEV/LiFE-Parental-Control/images/icons/512x512.png": {
+    "mtime": 1775846975.2171655,
+    "ast_hash": "568c0fa8f1990c596c0c725d78cd43cd",
+    "semantic_hash": ""
+  },
+  "/home/valueerror/STUFF/DEV/LiFE-Parental-Control/images/icons/64x64.png": {
+    "mtime": 1775846974.9763649,
+    "ast_hash": "fc5f00a3a07c9675d8eee38ca83b6cef",
+    "semantic_hash": ""
+  },
+  "/home/valueerror/STUFF/DEV/LiFE-Parental-Control/images/kiosk-profiles.png": {
+    "mtime": 1774258752.5309064,
+    "ast_hash": "a0fd4f3a38da085dda33410e9db7df04",
+    "semantic_hash": ""
+  },
+  "/home/valueerror/STUFF/DEV/LiFE-Parental-Control/images/kiosk-systemsettings.png": {
+    "mtime": 1774258752.531443,
+    "ast_hash": "22e42473b9a3911c2e405e3dc9129cab",
+    "semantic_hash": ""
+  },
+  "/home/valueerror/STUFF/DEV/LiFE-Parental-Control/images/lockdownwizard.png": {
+    "mtime": 1777894552.5671933,
+    "ast_hash": "4e2c7f7dd89b1f9ddf6fee6a0de93f21",
+    "semantic_hash": ""
+  },
+  "/home/valueerror/STUFF/DEV/LiFE-Parental-Control/images/osos.svg": {
+    "mtime": 1774258752.5315661,
+    "ast_hash": "94233f72ea826cba4e98fb3eec1b8083",
+    "semantic_hash": ""
+  },
+  "/home/valueerror/STUFF/DEV/LiFE-Parental-Control/images/pc.png": {
+    "mtime": 1775068709.2423813,
+    "ast_hash": "27057562ac3bc7d65848daedfb0d451d",
+    "semantic_hash": ""
+  },
+  "/home/valueerror/STUFF/DEV/LiFE-Parental-Control/images/pc.svg": {
+    "mtime": 1775068728.1873903,
+    "ast_hash": "37a5d0861e66155ba9acb8350d10dc5d",
+    "semantic_hash": ""
+  },
+  "/home/valueerror/STUFF/DEV/LiFE-Parental-Control/images/quota-exemptions.png": {
+    "mtime": 1774258752.53203,
+    "ast_hash": "2e634dd7d166adf25194f6f22ae5daf7",
+    "semantic_hash": ""
+  },
+  "/home/valueerror/STUFF/DEV/LiFE-Parental-Control/images/screentime.png": {
+    "mtime": 1777894339.098601,
+    "ast_hash": "ae2846333b6fd2563d97c7d37f32d5c5",
+    "semantic_hash": ""
+  },
+  "/home/valueerror/STUFF/DEV/LiFE-Parental-Control/images/settings.png": {
+    "mtime": 1777894421.7590115,
+    "ast_hash": "b8333a08e5cc724ec5ac0a8d6521ebf4",
+    "semantic_hash": ""
+  },
+  "/home/valueerror/STUFF/DEV/LiFE-Parental-Control/images/tray-24.png": {
+    "mtime": 1774103092.6043472,
+    "ast_hash": "dca3b0b9e230e26eb192a9d25615aaf4",
+    "semantic_hash": ""
+  },
+  "/home/valueerror/STUFF/DEV/LiFE-Parental-Control/images/tray-64.png": {
+    "mtime": 1774103092.6043472,
+    "ast_hash": "d32cf70c2656a4929668528d67b136dd",
+    "semantic_hash": ""
+  },
+  "/home/valueerror/STUFF/DEV/LiFE-Parental-Control/images/webfilter.png": {
+    "mtime": 1774258752.5340927,
+    "ast_hash": "bb1cfb5d4226f7fc3b861cf188b38082",
+    "semantic_hash": ""
+  }
 }

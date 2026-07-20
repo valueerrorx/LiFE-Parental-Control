@@ -46,7 +46,7 @@
             </RouterLink>
 
             <div class="nav-section-label">{{ $t('nav.advanced') }}</div>
-            <RouterLink v-if="isKDE" to="/kiosk" custom v-slot="{ navigate, isExactActive }">
+            <RouterLink v-if="store.isKdeDesktop" to="/kiosk" custom v-slot="{ navigate, isExactActive }">
                 <button class="nav-item-link" :class="{ active: isExactActive }" @click="navigate">
                     <i class="bi bi-lock-fill" /> {{ $t('nav.kdeKiosk') }}
                     <span v-if="kioskActive" class="ms-auto badge-count badge-schedule" :title="$t('sidebar.kdeKioskActive')">{{ $t('common.on') }}</span>
@@ -101,12 +101,6 @@ const screenTimeOn = computed(() => store.schedule?.enabled === true)
 const kioskActive = computed(() => store.kioskStatus?.active === true)
 const whitelistActive = computed(() => store.whitelistEnabled === true)
 const currentLocale = computed(() => locale.value)
-// Show KDE Kiosk tab only on KDE; hide on GNOME/other desktops
-const isKDE = computed(() => {
-    const d = (store.xdgCurrentDesktop || '').toUpperCase()
-    return !d || d.includes('KDE')
-})
-
 const footerLabel = computed(() => store.invokingLinuxUser || '…')
 const footerTitle = computed(() => undefined)
 

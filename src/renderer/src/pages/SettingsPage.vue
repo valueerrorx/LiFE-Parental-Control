@@ -156,7 +156,7 @@
                                 <span v-if="appInfo && !appInfo.packaged" class="text-muted small ms-1">{{ $t('settings.devLabel') }}</span>
                             </div>
                             <div><span class="text-muted" style="min-width:120px;display:inline-block;">{{ $t('settings.runtime') }}</span> Electron {{ appInfo?.electron ?? '—' }}, Node {{ appInfo?.node ?? '—' }}</div>
-                            <div><span class="text-muted" style="min-width:120px;display:inline-block;">{{ $t('settings.platform') }}</span> {{ $t('settings.platformLabel') }}</div>
+                            <div><span class="text-muted" style="min-width:120px;display:inline-block;">{{ $t('settings.platform') }}</span> {{ platformLabel }}</div>
                             <div><span class="text-muted" style="min-width:120px;display:inline-block;">{{ $t('settings.configDirectory') }}</span> <code>/etc/life-parental/</code></div>
                             <div>
                                 <span class="text-muted" style="min-width:120px;display:inline-block;">{{ $t('settings.runningAs') }}</span>
@@ -302,6 +302,19 @@
                             </button>
                         </div>
                         <div class="pt-2 border-top" style="border-color:#FFCDD2;">
+                            <div class="fw-semibold mb-1" style="font-size:13px;">{{ $t('settings.undoChildLockdown') }}</div>
+                            <p class="text-muted small mb-2" v-html="$t('settings.undoChildLockdownDesc')" />
+                            <div class="d-flex flex-wrap gap-2 align-items-center">
+                                <select v-model="undoLockdownUser" class="form-select form-select-sm" style="max-width:220px;" :disabled="dangerBusy">
+                                    <option value="" disabled>{{ $t('settings.undoChildLockdownSelect') }}</option>
+                                    <option v-for="u in undoLockdownUsers" :key="u" :value="u">{{ u }}</option>
+                                </select>
+                                <button type="button" class="btn-pc-danger" :disabled="dangerBusy || !undoLockdownUser" @click="onUndoChildLockdown">
+                                    <i class="bi bi-unlock me-1" />{{ $t('settings.undoChildLockdownBtn') }}
+                                </button>
+                            </div>
+                        </div>
+                        <div class="pt-2 border-top" style="border-color:#FFCDD2;">
                             <div class="fw-semibold mb-1" style="font-size:13px;">{{ $t('settings.deleteAllUsageHistory') }}</div>
                             <p class="text-muted small mb-2" v-html="$t('settings.deleteAllUsageDesc')" />
                             <button type="button" class="btn-pc-danger" :disabled="dangerBusy" @click="onDeleteAllUsageHistory">
@@ -317,7 +330,7 @@
 </template>
 
 <script setup>
-import { reactive, ref, onMounted } from 'vue'
+import { reactive, ref, computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { confirm } from '../composables/useConfirm.js'
 import { SCHOOL_TIME_WEEKDAY_KEYS, defaultSchoolTimes, normalizeTimeHHMM, normalizeSchoolTimes } from '@shared/schoolTimes.js'
@@ -327,6 +340,14 @@ import { useAppStore } from '../stores/appStore.js'
 const { t } = useI18n()
 const appStore = useAppStore()
 const appInfo = ref(null)
+const platformLabel = computed(() => {
+    const d = (appInfo.value?.xdgCurrentDesktop || '').toUpperCase()
+    if (d.includes('KDE')) return t('settings.platformKde')
+    if (d.includes('GNOME')) return t('settings.platformGnome')
+    const raw = appInfo.value?.xdgCurrentDesktop?.trim()
+    if (raw) return t('settings.platformNamed', { name: raw })
+    return t('settings.platformUnknown')
+})
 const sessionPrefs = reactive({ lockIdleMinutes: DEFAULT_LOCK_IDLE_MINUTES })
 const sessionPrefsMsg = ref('')
 const sessionPrefsError = ref(false)
@@ -347,6 +368,8 @@ const maintError = ref(false)
 const dangerBusy = ref(false)
 const dangerMsg = ref('')
 const dangerError = ref(false)
+const undoLockdownUsers = ref([])
+const undoLockdownUser = ref('')
 
 const grubPasswordActive = ref(false)
 const grubUnrestricted = ref(false)
@@ -510,6 +533,13 @@ async function onQueueDaemonWarningTest() {
 
 onMounted(async () => {
     appInfo.value = await window.api.system.getAppInfo()
+    try {
+        const usersResult = await window.api.system.listDesktopLoginUsers()
+        undoLockdownUsers.value = usersResult?.ok && Array.isArray(usersResult.users) ? usersResult.users : []
+        if (undoLockdownUsers.value.length === 1) undoLockdownUser.value = undoLockdownUsers.value[0]
+    } catch {
+        undoLockdownUsers.value = []
+    }
     const cfg = await window.api.settings.getConfig()
     sessionPrefs.lockIdleMinutes = normalizedLockIdleMinutesOrUndefined(cfg.lockIdleMinutes) ?? DEFAULT_LOCK_IDLE_MINUTES
     const st = await window.api.settings.getSchoolTimes()
@@ -589,6 +619,28 @@ async function onStopAllProtections() {
         await appStore.refreshProtectionsState()
     }
     setTimeout(() => { dangerMsg.value = '' }, 8000)
+}
+
+async function onUndoChildLockdown() {
+    if (!undoLockdownUser.value) return
+    if (!await confirm({
+        title: t('settings.undoChildLockdownConfirmTitle'),
+        message: t('settings.undoChildLockdownConfirmMsg', { user: undoLockdownUser.value }),
+        okLabel: t('settings.undoChildLockdownBtn'),
+        danger: true,
+    })) return
+    dangerBusy.value = true
+    dangerMsg.value = ''
+    const r = await window.api.settings.undoChildLockdown(undoLockdownUser.value)
+    dangerBusy.value = false
+    if (!r?.ok) {
+        dangerMsg.value = r?.error || t('settings.undoChildLockdownFailed')
+        dangerError.value = true
+    } else {
+        dangerMsg.value = t('settings.undoChildLockdownDone', { user: undoLockdownUser.value })
+        dangerError.value = false
+    }
+    setTimeout(() => { dangerMsg.value = '' }, 10000)
 }
 
 async function onDeleteAllUsageHistory() {

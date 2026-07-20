@@ -394,6 +394,14 @@
     "stopAllConfirmMsg": "ALLE LiFE-Schutzma\u00dfnahmen stoppen und entfernen? Dies l\u00f6scht Zeitpl\u00e4ne (Bildschirmzeit aus), Kontingente, Sperren, Web-Filter-Hosts-Block, Bildschirmzeit-Ausnahmen und KDE-Kiosk (falls aktiv \u2014 Sitzung wird neu gestartet).",
     "stopAllLabel": "Alle stoppen",
     "allProtectionsRemoved": "Alle Schutzma\u00dfnahmen entfernt. Sidebar-Status wird aktualisiert\u2026",
+    "undoChildLockdown": "Kind-Account-Lockdown r\u00fcckg\u00e4ngig machen",
+    "undoChildLockdownDesc": "Stellt <code>sudo</code>/<code>wheel</code>, AppImage-FUSE, App-Installation und -Deinstallation f\u00fcr den gew\u00e4hlten Benutzer wieder her. Entfernt LiFE-Lockdown-PolKit- und sudoers-Regeln. Der Kind-Account muss sich danach neu anmelden.",
+    "undoChildLockdownSelect": "Kind-Account w\u00e4hlen",
+    "undoChildLockdownBtn": "Lockdown aufheben",
+    "undoChildLockdownConfirmTitle": "Kind-Account-Lockdown aufheben",
+    "undoChildLockdownConfirmMsg": "Lockdown f\u00fcr {user} vollst\u00e4ndig r\u00fcckg\u00e4ngig machen? Der Account erh\u00e4lt wieder Admin-Rechte (sudo/wheel), AppImages und Paket-Installation/Deinstallation.",
+    "undoChildLockdownDone": "Lockdown f\u00fcr {user} aufgehoben. Bitte am Kind-Account neu anmelden.",
+    "undoChildLockdownFailed": "Lockdown konnte nicht aufgehoben werden.",
     "deleteAllUsageHistory": "Gesamten Nutzungsverlauf l\u00f6schen",
     "deleteAllUsageDesc": "L\u00f6scht jede <code>usage-*.json</code>-, <code>quota-usage-*.json</code>- und <code>app-usage-*.json</code>-Datei im Konfigurationsverzeichnis (alle Tage \u2014 Bildschirmzeit- und App-Kontingentprotokolle). \u00c4ndert keine Zeitpl\u00e4ne oder Limits.",
     "deleteAllUsageBtn": "Gesamten Nutzungsverlauf l\u00f6schen",
@@ -411,7 +419,10 @@
     "pruneLogsMsg": "usage-*.json-, quota-usage-*.json- und app-usage-*.json-Dateien in /etc/life-parental/ \u00e4lter als 120 Tage l\u00f6schen (nach Datum im Dateinamen)?",
     "webFilterRestoreTitle": "Web-Filter-Wiederherstellung",
     "webFilterRestoreMsg": "Web-Filter wiederherstellen: /etc/hosts-Block aus den aktuellen Einstellungen in default.json neu aufbauen?",
-    "platformLabel": "KDE Plasma (Linux)"
+    "platformKde": "KDE Plasma (Linux)",
+    "platformGnome": "GNOME (Linux)",
+    "platformNamed": "{name} (Linux)",
+    "platformUnknown": "Linux (Desktop unbekannt)"
   },
   "kiosk": {
     "title": "KDE Kiosk-Modus",

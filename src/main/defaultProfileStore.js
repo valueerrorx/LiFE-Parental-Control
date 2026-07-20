@@ -114,6 +114,10 @@ function buildFromRaw(raw) {
     return next
 }
 
+export function normalizeDefaultJsonObject(raw) {
+    return buildFromRaw(raw)
+}
+
 export function readDefaultJson(configDir) {
     if (_cache) return JSON.parse(JSON.stringify(_cache))
     const raw = readJsonSafe(defaultJsonPath(configDir))

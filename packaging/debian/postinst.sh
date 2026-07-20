@@ -90,6 +90,13 @@ if [ -f "$lockdown_src" ]; then
     install -D -m 755 "$lockdown_src" /usr/bin/life-parental-lockdown
 fi
 
+# Install unlock script
+unlock_src="${pkg_res}/packaging/life-parental-unlock.sh"
+[ -f "$unlock_src" ] || unlock_src="${pkg_res}/life-parental-unlock.sh"
+if [ -f "$unlock_src" ]; then
+    install -D -m 755 "$unlock_src" /usr/bin/life-parental-unlock
+fi
+
 # Wrapper script in /usr/bin — passes --no-sandbox (required when Electron runs as root)
 cat > /usr/bin/life-parental-control << 'WRAPPER'
 #!/bin/sh

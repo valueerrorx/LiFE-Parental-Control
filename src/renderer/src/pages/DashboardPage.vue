@@ -97,7 +97,7 @@
                     </div>
                 </div>
             </div>
-            <div v-if="isKDE" class="col d-flex">
+            <div v-if="store.isKdeDesktop" class="col d-flex">
                 <div
                     class="stat-card stat-card--clickable h-100 w-100"
                     role="button"
@@ -282,11 +282,6 @@ const WEEK_BAR_FULL_MINUTES = 12 * 60
 
 const store = useAppStore()
 const router = useRouter()
-// Same visibility rule as AppSidebar nav (KDE or unknown XDG_CURRENT_DESKTOP).
-const isKDE = computed(() => {
-    const d = (store.xdgCurrentDesktop || '').toUpperCase()
-    return !d || d.includes('KDE')
-})
 const weekUsage = ref([])
 /** null = today (live store); else YYYY-MM-DD for historical donut. */
 const selectedDonutDate = ref(null)

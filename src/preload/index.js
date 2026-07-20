@@ -97,6 +97,7 @@ contextBridge.exposeInMainWorld('api', {
         saveSchoolTimes: (data) => ipcRenderer.invoke('settings:saveSchoolTimes', data),
         pruneUsageArchives: () => ipcRenderer.invoke('settings:pruneUsageArchives'),
         stopAllProtections: () => ipcRenderer.invoke('settings:stopAllProtections'),
+        undoChildLockdown: (targetUser) => ipcRenderer.invoke('settings:undoChildLockdown', targetUser),
         deleteAllUsageHistory: () => ipcRenderer.invoke('settings:deleteAllUsageHistory'),
         queueDaemonWarningTest: () => ipcRenderer.invoke('settings:queueDaemonWarningTest')
     },

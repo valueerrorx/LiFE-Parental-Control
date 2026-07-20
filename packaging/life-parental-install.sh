@@ -106,6 +106,19 @@ if [ -n "$LOCKDOWN_SRC" ]; then
     echo "life-parental-install: lockdown script installed"
 fi
 
+# --- Unlock script ---
+UNLOCK_SRC=""
+if [ -f "$RES_BASE/packaging/life-parental-unlock.sh" ]; then
+    UNLOCK_SRC="$RES_BASE/packaging/life-parental-unlock.sh"
+elif [ -f "$RES_BASE/life-parental-unlock.sh" ]; then
+    UNLOCK_SRC="$RES_BASE/life-parental-unlock.sh"
+fi
+if [ -n "$UNLOCK_SRC" ]; then
+    cp "$UNLOCK_SRC" /usr/bin/life-parental-unlock
+    chmod 755 /usr/bin/life-parental-unlock
+    echo "life-parental-install: unlock script installed"
+fi
+
 # --- Polkit rules (distro-independent: try both locations) ---
 POLKIT_RULES_SRC="$RES_BASE/polkit/50-org.tuxfamily.life-parental-control.rules"
 POLKIT_RULE_NAME="50-org.tuxfamily.life-parental-control.rules"

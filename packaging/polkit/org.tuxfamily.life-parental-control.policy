@@ -31,4 +31,17 @@
     <annotate key="org.freedesktop.policykit.exec.allow_gui">true</annotate>
   </action>
 
+  <action id="org.tuxfamily.life-parental-control.unlock">
+    <description>Undo LiFE Parental Control child account lockdown</description>
+    <message>Authentication is required to undo child account lockdown.</message>
+    <icon_name>system-lock-screen</icon_name>
+    <defaults>
+      <allow_any>no</allow_any>
+      <allow_inactive>no</allow_inactive>
+      <allow_active>auth_admin</allow_active>
+    </defaults>
+    <annotate key="org.freedesktop.policykit.exec.path">/usr/bin/life-parental-unlock</annotate>
+    <annotate key="org.freedesktop.policykit.exec.allow_gui">true</annotate>
+  </action>
+
 </policyconfig>

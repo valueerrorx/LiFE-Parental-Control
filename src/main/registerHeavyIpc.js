@@ -228,6 +228,15 @@ export function registerHeavyIpc(ipcMain, { appConfigDir, getMainWindow }) {
                     fs.copyFileSync(lockdownSrc, path.join(tmpResBase, 'packaging', 'life-parental-lockdown.sh'))
                 }
 
+                // Copy unlock script (best-effort)
+                const unlockSrc = fs.existsSync(path.join(resBase, 'life-parental-unlock.sh'))
+                    ? path.join(resBase, 'life-parental-unlock.sh')
+                    : path.join(resBase, 'packaging', 'life-parental-unlock.sh')
+                if (fs.existsSync(unlockSrc)) {
+                    fs.mkdirSync(path.join(tmpResBase, 'packaging'), { recursive: true })
+                    fs.copyFileSync(unlockSrc, path.join(tmpResBase, 'packaging', 'life-parental-unlock.sh'))
+                }
+
                 // Copy NM dispatcher script (best-effort)
                 // packaged: resBase/99-life-parental-dns  dev: resBase/packaging/99-life-parental-dns
                 const nmDispatcherSrc = fs.existsSync(path.join(resBase, '99-life-parental-dns'))

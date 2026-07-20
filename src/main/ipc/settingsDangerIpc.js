@@ -6,6 +6,7 @@ import { replaceProcessWhitelistFromBackup } from './processWhitelistIpc.js'
 import { readKioskLockdownSummary, persistKioskConfigText } from './systemIpc.js'
 import { appendActivity } from './activityLog.js'
 import { daemonWipeUsageHistory } from '../daemonPrivilegedOps.js'
+import { executeUnlock } from '../LockdownService.js'
 
 export function registerSettingsDangerIpc(ipcMain, configDir) {
     ipcMain.handle('settings:stopAllProtections', async () => {
@@ -25,6 +26,22 @@ export function registerSettingsDangerIpc(ipcMain, configDir) {
             return { ok: true }
         } catch (e) {
             return { error: e.message }
+        }
+    })
+
+    ipcMain.handle('settings:undoChildLockdown', async (_, targetUser) => {
+        if (typeof targetUser !== 'string' || !targetUser.trim()) {
+            return { ok: false, error: 'Invalid target user' }
+        }
+        const user = targetUser.trim()
+        try {
+            const result = await executeUnlock(user)
+            if (result.ok) {
+                appendActivity(configDir, { action: 'lockdown_undone', targetUser: user })
+            }
+            return result
+        } catch (e) {
+            return { ok: false, error: e.message || String(e) }
         }
     })
 
