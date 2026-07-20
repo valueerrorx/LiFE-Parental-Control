@@ -87,6 +87,8 @@ jobs:
         with:
           node-version: '24'
           cache: npm
+      - name: Install AppImage update tools
+        run: sudo apt-get update && sudo apt-get install -y zsync binutils
       - run: npm ci
       - run: npm run build
         env:
@@ -101,7 +103,7 @@ jobs:
           NAME="LiFE Parental Control ${{ needs.check-version.outputs.version }}"
           echo "Creating release ${TAG}"
           # (fail fast if no assets matched)
-          ASSET_FILES=(dist/*.AppImage dist/*.deb)
+          ASSET_FILES=(dist/*.AppImage dist/*.AppImage.zsync dist/*.deb)
           if [ "${#ASSET_FILES[@]}" -eq 0 ]; then
             echo "No release assets found in dist/"
             exit 1

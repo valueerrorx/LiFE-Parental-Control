@@ -12,7 +12,7 @@
         "dev": "sudo rm -rf ./out && npx electron-vite dev",
         "compile": "electron-vite build",
         "check": "npm run lint && npm run compile",
-        "build": "electron-vite build && electron-builder --publish never",
+        "build": "electron-vite build && electron-builder --publish never && node scripts/embed-appimage-update-info.mjs",
         "lint": "eslint src/main src/preload src/renderer src/shared",
         "verify:kiosk": "node scripts/verify-kiosk-catalog.mjs"
     },
