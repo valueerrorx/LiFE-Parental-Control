@@ -371,6 +371,8 @@
     "runLockdownWizard": "Lockdown wizard",
     "lockdownIntroLead": "This assistant guides you through advanced system lockdown: the selected user is downgraded in privileges so that settings you make in this app cannot be disabled by them under any circumstances.",
     "lockdownIntroSystem": "It prevents this application from being removed and system services that are important for lockdown from being disabled.",
+    "lockdownRestrictedAccount": "User account \"{user}\" is already restricted.",
+    "lockdownRerunHint": "You can run the wizard again to restrict a different account or extend the lockdown.",
     "usageArchiveCleanup": "Usage archive cleanup completed.",
     "quotaScriptRedeployed": "Quota script re-deployed; quota exemptions picked up from disk.",
     "webFilterRestored": "Web filter restored: /etc/hosts rebuilt from current settings.",

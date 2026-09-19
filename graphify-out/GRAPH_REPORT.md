@@ -1,16 +1,16 @@
-# Graph Report - LiFE-Parental-Control  (2026-07-20)
+# Graph Report - LiFE-Parental-Control  (2026-09-19)
 
 ## Corpus Check
-- 100 files · ~499,993 words
+- 101 files · ~500,987 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 1840 nodes · 2806 edges · 158 communities (105 shown, 53 thin omitted)
+- 1862 nodes · 2833 edges · 161 communities (108 shown, 53 thin omitted)
 - Extraction: 97% EXTRACTED · 3% INFERRED · 0% AMBIGUOUS · INFERRED: 95 edges (avg confidence: 0.8)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `c6e099b7`
+- Built from commit: `ef776fbf`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -130,10 +130,13 @@
 - [[_COMMUNITY_Community 137|Community 137]]
 - [[_COMMUNITY_Community 139|Community 139]]
 - [[_COMMUNITY_Community 140|Community 140]]
+- [[_COMMUNITY_Community 158|Community 158]]
+- [[_COMMUNITY_Community 159|Community 159]]
+- [[_COMMUNITY_Community 160|Community 160]]
 
 ## God Nodes (most connected - your core abstractions)
-1. `settings` - 134 edges
-2. `settings` - 134 edges
+1. `settings` - 140 edges
+2. `settings` - 140 edges
 3. `webFilter` - 57 edges
 4. `webFilter` - 57 edges
 5. `schedules` - 48 edges
@@ -183,31 +186,31 @@
 - **LiFE Parental Control Application Icon Set** — pc_png_app_logo, pc_svg_app_logo, icon_16, icon_32, icon_48, icon_64, icon_128, icon_256, icon_512, tray_24_icon [INFERRED 0.95]
 - **LiFE Parental Control UI Feature Screenshots** — dashboard_screenshot, screentime_screenshot, webfilter_screenshot, appcontrol_screenshot, settings_screenshot [EXTRACTED 1.00]
 
-## Communities (158 total, 53 thin omitted)
+## Communities (161 total, 53 thin omitted)
 
 ### Community 0 - "Community 0"
 Cohesion: 0.12
 Nodes (31): atLoggedMinuteBoundary(), buildAndWriteAppCatalog(), clearRequestDaemonWarningTestFlag(), desktopIdStem(), desktopIdTailStem(), findUserXauthorityPath(), getDefaultConfig(), isAppMonitorCatalogEntryExcluded() (+23 more)
 
 ### Community 1 - "Community 1"
-Cohesion: 0.24
-Nodes (16): loadBlockedAppIds(), loadQuotaExemptAppIds(), monitorLabelsFromCatalog(), normalizeQuotaEntry(), quotaRowKey(), readAppMonitorUsage(), readAppMonitorUsageForDate(), readMonitorCatalogEntries() (+8 more)
+Cohesion: 0.27
+Nodes (14): monitorLabelsFromCatalog(), normalizeQuotaEntry(), quotaRowKey(), readAppMonitorUsage(), readAppMonitorUsageForDate(), readMonitorCatalogEntries(), readQuotaEntries(), readQuotas() (+6 more)
 
 ### Community 2 - "Community 2"
 Cohesion: 0.09
 Nodes (56): applyDesktopOverride(), applyDnsmasq(), applyDohChainBulk(), applyFromDefault(), buildApparmorProfile(), buildWebBlockedDomains(), chainExists(), createDefaultSync() (+48 more)
 
 ### Community 3 - "Community 3"
-Cohesion: 0.14
-Nodes (19): registerActivityIpc(), registerBackupIpc(), registerLockdownIpc(), registerProcessWhitelistIpc(), registerQuotaIpc(), registerSchedulesIpc(), registerSettingsDangerIpc(), connect() (+11 more)
+Cohesion: 0.17
+Nodes (12): registerActivityIpc(), appendActivity(), readActivityLog(), registerAppBlockerIpc(), registerBackupIpc(), registerLockdownIpc(), registerQuotaIpc(), registerSchedulesIpc() (+4 more)
 
 ### Community 4 - "Community 4"
-Cohesion: 0.06
-Nodes (79): appendActivity(), readActivityLog(), applyUrgentWindowPresentation(), clearUrgentWindowPresentation(), KIOSK_SECTION_HEADERS, listGraphicalUsers(), persistKioskConfigText(), readKioskLockdownSummary() (+71 more)
+Cohesion: 0.08
+Nodes (67): CATEGORY_TO_HAGEZI_FEED, isKnownWebFilterCategory(), _known, WEB_FILTER_QUICK_ADD_ORDER, WEB_FILTER_STATIC_CATEGORIES, assertAllowedUrl(), dohIpsUrl(), domainsForEnabledFeeds() (+59 more)
 
 ### Community 5 - "Community 5"
-Cohesion: 0.10
-Nodes (35): applyDesktopOverride(), buildApparmorProfile(), desktopExecResolvedPathMissing(), desktopIdStem(), desktopIdTailStem(), execLineToFullPath(), execLineToProcessName(), getAppCatalog() (+27 more)
+Cohesion: 0.20
+Nodes (20): applyDesktopOverride(), buildApparmorProfile(), desktopExecResolvedPathMissing(), desktopIdStem(), desktopIdTailStem(), execLineToFullPath(), execLineToProcessName(), getAppCatalog() (+12 more)
 
 ### Community 6 - "Community 6"
 Cohesion: 0.08
@@ -219,19 +222,19 @@ Nodes (19): promptUnsavedChanges(), activeGuard, getActiveUnsavedQuitGuard(), re
 
 ### Community 8 - "Community 8"
 Cohesion: 0.01
-Nodes (134): settings, about, allProtectionsRemoved, application, appQuotaCleanupMsg, appQuotaCleanupTitle, appQuotas, autoLockAfterIdle (+126 more)
+Nodes (140): settings, about, allProtectionsRemoved, application, appQuotaCleanupMsg, appQuotaCleanupTitle, appQuotas, autoLockAfterIdle (+132 more)
 
 ### Community 9 - "Community 9"
-Cohesion: 0.27
+Cohesion: 0.29
 Nodes (13): analyzeLockdownState(), execFileAsync, executeLockdown(), executeUnlock(), grubHashPassword(), run(), attachRendererLogging(), error() (+5 more)
 
 ### Community 10 - "Community 10"
 Cohesion: 0.01
-Nodes (134): settings, about, allProtectionsRemoved, application, appQuotaCleanupMsg, appQuotaCleanupTitle, appQuotas, autoLockAfterIdle (+126 more)
+Nodes (140): settings, about, allProtectionsRemoved, application, appQuotaCleanupMsg, appQuotaCleanupTitle, appQuotas, autoLockAfterIdle (+132 more)
 
 ### Community 11 - "Community 11"
-Cohesion: 0.33
-Nodes (10): DESKTOP_COMM_FOR_ENV, findDesktopPidForUid(), getUidForLinuxUser(), isSessionGnomeShell(), KEYS_FROM_DESKTOP, parseEnvNullBuffer(), parseProcEnviron(), pickKeysFromMaps() (+2 more)
+Cohesion: 0.11
+Nodes (30): applyUrgentWindowPresentation(), clearUrgentWindowPresentation(), KIOSK_SECTION_HEADERS, listGraphicalUsers(), persistKioskConfigText(), readKioskLockdownSummary(), readPlasmaLayoutLockActive(), registerSystemIpc() (+22 more)
 
 ### Community 12 - "Community 12"
 Cohesion: 0.04
@@ -306,8 +309,8 @@ Cohesion: 0.16
 Nodes (23): allowedHoursOverrideOptionHHMMs(), appendActivityDaemon(), broadcast(), broadcastWarn(), effectiveAllowedHoursEndDayMinutes(), ensureUserMinutes(), findElectronExecPath(), getActiveSeatSessionId() (+15 more)
 
 ### Community 98 - "Community 98"
-Cohesion: 0.21
-Nodes (18): readBlockedFromDisk(), readScheduleFromDisk(), sanitizedDefaultForBackup(), clearSessionLockPreference(), mergePreferencesFromBackup(), registerSettingsIpc(), atomicWriteJson(), buildFromRaw() (+10 more)
+Cohesion: 0.19
+Nodes (21): readBlockedFromDisk(), readScheduleFromDisk(), sanitizedDefaultForBackup(), loadBlockedAppIds(), loadQuotaExemptAppIds(), clearSessionLockPreference(), mergePreferencesFromBackup(), readPreferencesForBackup() (+13 more)
 
 ### Community 99 - "Community 99"
 Cohesion: 0.09
@@ -318,20 +321,20 @@ Cohesion: 0.09
 Nodes (23): app, confirmPassword, createPassword, daemonChecking, daemonInstalling, daemonRetry, daemonUpdating, daemonWaiting (+15 more)
 
 ### Community 101 - "Community 101"
-Cohesion: 0.19
-Nodes (14): localIsoDate(), localIsoDateDaysAgo(), DEFAULT_SCHEDULE, DEFAULT_SCHEDULE_PERIOD, emptyUsage(), normalizePeriod(), persistSchedule(), readSchedule() (+6 more)
+Cohesion: 0.20
+Nodes (13): localIsoDate(), localIsoDateDaysAgo(), DEFAULT_SCHEDULE, DEFAULT_SCHEDULE_PERIOD, emptyUsage(), normalizePeriod(), persistSchedule(), readSchedule() (+5 more)
 
 ### Community 102 - "Community 102"
-Cohesion: 0.19
-Nodes (13): readPreferencesForBackup(), IDLE_LABEL, isLockIdleMinutesAllowed(), LOCK_IDLE_ALLOWED, LOCK_IDLE_MINUTES, LOCK_IDLE_OPTIONS, normalizedLockIdleMinutesOrUndefined(), normalizeQuotaLinuxUser() (+5 more)
+Cohesion: 0.47
+Nodes (6): normalizeQuotaLinuxUser(), quotaBonusMinutes(), quotaUsageKey(), quotaUsedMinutes(), effectiveScreenMinutes(), effectiveScreenMinutesFromFileData()
 
 ### Community 103 - "Community 103"
 Cohesion: 0.16
 Nodes (17): anyUserMatchingEntry(), anyUserRunningProcess(), execFileAsync, getActiveGraphicalSessions(), logindSessionStateLive(), parseLoginctlSession(), pgrepUserAnyCandidate(), pgrepUserProcess() (+9 more)
 
 ### Community 104 - "Community 104"
-Cohesion: 0.13
-Nodes (15): about, okBtn, message, save, quit, cancel, confirm, message (+7 more)
+Cohesion: 0.15
+Nodes (13): message, save, quit, cancel, confirm, message, save, title (+5 more)
 
 ### Community 105 - "Community 105"
 Cohesion: 0.12
@@ -374,8 +377,8 @@ Cohesion: 0.15
 Nodes (12): Build, Configuration files, Development, Distributing settings via `default.json`, Features, LiFE Parental Control, Links, Lockdown script (`/usr/bin/life-parental-lockdown`) (+4 more)
 
 ### Community 115 - "Community 115"
-Cohesion: 0.36
-Nodes (8): syncEmbeddedEnforcementIfNeeded(), readConfig(), readProcessWhitelistConfig(), removeLegacyProcessKillCronArtifacts(), replaceProcessWhitelistFromBackup(), saveConfig(), redeployQuotaFromDisk(), redeployScheduleCron()
+Cohesion: 0.28
+Nodes (10): syncEmbeddedEnforcementIfNeeded(), readConfig(), readProcessWhitelistConfig(), registerProcessWhitelistIpc(), removeLegacyProcessKillCronArtifacts(), replaceProcessWhitelistFromBackup(), saveConfig(), redeployQuotaFromDisk() (+2 more)
 
 ### Community 116 - "Community 116"
 Cohesion: 0.17
@@ -386,8 +389,8 @@ Cohesion: 0.17
 Nodes (12): sidebar, blockedAppsTitle, brand, controlCenter, dailyAppTimeLimits, dailyQuotaExemptions, exit, kdeKioskActive (+4 more)
 
 ### Community 118 - "Community 118"
-Cohesion: 0.17
-Nodes (11): 2026-05-04, Earlier (2026-03-20), IPC surface, KDE integration, LiFE Parental Control — persistent context (compressed), Open / TODO, Recent (2026-05-04), Recent (2026-05-06) (+3 more)
+Cohesion: 0.15
+Nodes (12): 2026-05-04, Earlier (2026-03-20), IPC surface, KDE integration, LiFE Parental Control — persistent context (compressed), Open / TODO, Recent (2026-05-04), Recent (2026-05-06) (+4 more)
 
 ### Community 119 - "Community 119"
 Cohesion: 0.18
@@ -418,8 +421,8 @@ Cohesion: 0.29
 Nodes (7): lockdown, introDefer, introLead, introSettingsHint, selectUser, targetUserLabel, title
 
 ### Community 126 - "Community 126"
-Cohesion: 0.33
-Nodes (6): urlRestrictions, addBlockedPath, desc, eachEntryDesc, noBlockedPaths, remove
+Cohesion: 0.22
+Nodes (8): about, okBtn, urlRestrictions, addBlockedPath, desc, eachEntryDesc, noBlockedPaths, remove
 
 ### Community 127 - "Community 127"
 Cohesion: 0.33
@@ -433,8 +436,20 @@ Nodes (5): buildNotifySendEnvPairs(), buildWarningWindowEnvPairs(), envPairsFrom
 Cohesion: 0.60
 Nodes (4): defaultSchoolTimes(), normalizeSchoolTimes(), normalizeTimeHHMM(), SCHOOL_TIME_WEEKDAY_KEYS
 
+### Community 158 - "Community 158"
+Cohesion: 0.21
+Nodes (14): BREEZE_CONTEXT_SIZES, cacheKey(), desktopIconToDataUrl(), EXTRA_CONTEXTS, HICOLOR_SIZES, ICON_ROOTS, iconNameCache, iconStemVariants() (+6 more)
+
+### Community 159 - "Community 159"
+Cohesion: 0.29
+Nodes (5): distDir, embedUpdateInfo(), rootDir, updInfoOffset(), zsyncMake
+
+### Community 160 - "Community 160"
+Cohesion: 0.32
+Nodes (6): IDLE_LABEL, isLockIdleMinutesAllowed(), LOCK_IDLE_ALLOWED, LOCK_IDLE_MINUTES, LOCK_IDLE_OPTIONS, normalizedLockIdleMinutesOrUndefined()
+
 ## Knowledge Gaps
-- **1176 isolated node(s):** `fs`, `path`, `crypto`, `{ execFile, execFileSync }`, `{ defaultSchoolTimes }` (+1171 more)
+- **1192 isolated node(s):** `fs`, `path`, `crypto`, `{ execFile, execFileSync }`, `{ defaultSchoolTimes }` (+1187 more)
   These have ≤1 connection - possible missing edges or undocumented components.
 - **53 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
@@ -442,16 +457,16 @@ Nodes (4): defaultSchoolTimes(), normalizeSchoolTimes(), normalizeTimeHHMM(), SC
 _Questions this graph is uniquely positioned to answer:_
 
 - **Why does `localIsoDate()` connect `Community 96` to `Community 0`, `Community 97`, `Community 1`, `Community 101`, `Community 15`?**
-  _High betweenness centrality (0.034) - this node is a cross-community bridge._
-- **Why does `settings` connect `Community 8` to `Community 104`?**
+  _High betweenness centrality (0.032) - this node is a cross-community bridge._
+- **Why does `settings` connect `Community 8` to `Community 126`?**
   _High betweenness centrality (0.032) - this node is a cross-community bridge._
 - **Why does `settings` connect `Community 10` to `Community 106`?**
-  _High betweenness centrality (0.021) - this node is a cross-community bridge._
+  _High betweenness centrality (0.024) - this node is a cross-community bridge._
 - **What connects `fs`, `path`, `crypto` to the rest of the system?**
-  _1176 weakly-connected nodes found - possible documentation gaps or missing edges._
+  _1192 weakly-connected nodes found - possible documentation gaps or missing edges._
 - **Should `Community 0` be split into smaller, more focused modules?**
   _Cohesion score 0.11895161290322581 - nodes in this community are weakly interconnected._
 - **Should `Community 2` be split into smaller, more focused modules?**
   _Cohesion score 0.08825248392752776 - nodes in this community are weakly interconnected._
-- **Should `Community 3` be split into smaller, more focused modules?**
-  _Cohesion score 0.14245014245014245 - nodes in this community are weakly interconnected._
+- **Should `Community 4` be split into smaller, more focused modules?**
+  _Cohesion score 0.07625707625707626 - nodes in this community are weakly interconnected._

@@ -15,6 +15,16 @@ export function registerLockdownIpc(ipcMain, configDir) {
         }
     })
 
+    /** Return the child/restricted Linux account chosen in the lockdown wizard, if any. */
+    ipcMain.handle('lockdown:getChildLinuxUser', () => {
+        try {
+            const cfg = readDefaultJson(configDir)
+            return typeof cfg?.childLinuxUser === 'string' ? cfg.childLinuxUser : ''
+        } catch {
+            return ''
+        }
+    })
+
     /** Analyse the current system state for the given target user. */
     ipcMain.handle('lockdown:analyze', async (_, targetUser) => {
         if (typeof targetUser !== 'string' || !targetUser.trim()) {
@@ -35,9 +45,10 @@ export function registerLockdownIpc(ipcMain, configDir) {
         }
         const result = await executeLockdown(targetUser, adminUser, adminPw, { allowInstall, allowUpdate, protectGrub, restrictAppImages })
         if (result.ok) {
-            // Persist wizard-finished flag to config
+            // Persist wizard-finished flag and child account, so other views can pre-select it
             patchDefaultJson(configDir, (d) => {
                 d.finishedLockdownWizard = true
+                d.childLinuxUser = targetUser
                 return d
             })
             appendActivity(configDir, {

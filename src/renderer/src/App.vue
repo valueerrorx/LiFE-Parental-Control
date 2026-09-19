@@ -97,7 +97,7 @@
             <router-view />
         </div>
         <Transition name="pc-session-overlay-fade">
-            <div v-if="!unlocked" class="pc-session-overlay">
+            <div v-if="!unlocked" class="pc-session-overlay" @mousedown="onOverlayMousedown">
                 <div class="lock-card">
                     <div class="lock-icon">
                         <i class="bi bi-shield-lock-fill" />
@@ -126,7 +126,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted, watch } from 'vue'
+import { ref, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { normalizedLockIdleMinutesOrUndefined, DEFAULT_LOCK_IDLE_MINUTES } from '@shared/lockIdleMinutes.js'
 import AppModal from './components/AppModal.vue'
@@ -201,6 +201,23 @@ function onUserActivity() {
     scheduleIdleLock()
 }
 
+// `autofocus` only fires on initial DOM insertion, not when the OS window regains focus
+// after being backgrounded (e.g. alt-tab back after the blur-triggered session lock).
+function refocusUnlockField() {
+    if (unlocked.value || !passwordSet.value) return
+    document.getElementById('session-unlock-pw')?.focus()
+}
+
+// Clicking back into the window to regain focus places the native click-focus wherever the
+// pointer lands, overriding any focus() called from the window 'focus' handler that fires just
+// before this. Redirect that click to the password field unless it targets another control.
+function onOverlayMousedown(event) {
+    const el = document.getElementById('session-unlock-pw')
+    if (!el || event.target === el || event.target.closest('button')) return
+    event.preventDefault()
+    el.focus()
+}
+
 async function resolvePasswordGate() {
     authGateError.value = ''
     const r = await window.api.settings.isPasswordSet()
@@ -273,6 +290,7 @@ onMounted(async () => {
     window.addEventListener('wheel', onUserActivity, { passive: true })
     window.addEventListener('keydown', onUserActivity)
     window.addEventListener('life-parental-lock-prefs', onLockPrefsChanged)
+    window.addEventListener('focus', refocusUnlockField)
     window.api.system.onQuitRequest(quitRequestListener)
     window.api.system.onSessionLockRequest(sessionLockListener)
 
@@ -304,6 +322,7 @@ onUnmounted(() => {
     window.removeEventListener('wheel', onUserActivity)
     window.removeEventListener('keydown', onUserActivity)
     window.removeEventListener('life-parental-lock-prefs', onLockPrefsChanged)
+    window.removeEventListener('focus', refocusUnlockField)
     window.api.system.offQuitRequest(quitRequestListener)
     window.api.system.offSessionLockRequest(sessionLockListener)
     clearIdleLockTimer()
@@ -314,7 +333,10 @@ function onLockPrefsChanged() {
 }
 
 watch(unlocked, (open) => {
-    if (!open) clearIdleLockTimer()
+    if (!open) {
+        clearIdleLockTimer()
+        nextTick(() => refocusUnlockField())
+    }
 })
 
 async function applyUnlockIdlePolicy() {
@@ -376,6 +398,7 @@ async function checkLockdownWizard() {
 function onLockdownWizardClose() {
     store.showLockdownWizard = false
     lockdownWizardDismissedThisSession = true
+    void store.refreshProtectionsState()
 }
 </script>
 

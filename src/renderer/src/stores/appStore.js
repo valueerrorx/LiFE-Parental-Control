@@ -26,6 +26,7 @@ export const useAppStore = defineStore('app', () => {
     const runningAsRoot = ref(null)
     const xdgCurrentDesktop = ref('')
     const invokingLinuxUser = ref('')
+    const childLinuxUser = ref('')
     const quotaViewLinuxUser = ref('')
     const showLockdownWizard = ref(false)
     const isKdeDesktop = computed(() => (xdgCurrentDesktop.value || '').toUpperCase().includes('KDE'))
@@ -180,9 +181,10 @@ export const useAppStore = defineStore('app', () => {
     }
 
     async function refreshProtectionsState() {
-        const [info, cfg] = await Promise.all([
+        const [info, cfg, childUser] = await Promise.all([
             window.api.system.getAppInfo(),
-            window.api.settings.getConfig()
+            window.api.settings.getConfig(),
+            window.api.lockdown.getChildLinuxUser()
         ])
         await Promise.all([
             loadWebFilter(), loadAppControlConfig(), loadBlockedApps(), loadSchedule(), loadKioskStatus(), loadAppQuotas(), loadProcessWhitelist(),
@@ -191,6 +193,7 @@ export const useAppStore = defineStore('app', () => {
         runningAsRoot.value = info?.runningAsRoot ?? null
         xdgCurrentDesktop.value = info?.xdgCurrentDesktop ?? ''
         invokingLinuxUser.value = typeof info?.invokingLinuxUser === 'string' ? info.invokingLinuxUser : ''
+        childLinuxUser.value = typeof childUser === 'string' ? childUser : ''
         quotaViewLinuxUser.value = typeof cfg?.quotaViewLinuxUser === 'string' ? cfg.quotaViewLinuxUser : ''
     }
 
@@ -203,7 +206,7 @@ export const useAppStore = defineStore('app', () => {
     return {
         webFilterEntries, webFilterFeedState, webFilterHostRuleCount, webFilterAllowlist, blockedApps, appControlEnabled, quotaExemptAllowedIds, schedule, todayUsageMinutes, todayExtraAllowanceMinutes, todayUsageUsers, kioskStatus,
         appQuotas, appQuotaUsage, appQuotaExtra, appMonitorUsage, appMonitorLabels, statusMessage, whitelistEnabled, runningAsRoot, xdgCurrentDesktop, isKdeDesktop,
-        invokingLinuxUser, quotaViewLinuxUser,
+        invokingLinuxUser, childLinuxUser, quotaViewLinuxUser,
         webFilterEnabled, webFilterDnsMode, webFilterDohIptablesEnabled, webFilterDohIptablesStatus, installedApps,
         loadWebFilter, saveWebFilter, saveWebFilterAll, persistWebFilterAllowlist, loadAppControlConfig, loadBlockedApps, loadInstalledApps, reloadInstalledApps, loadSchedule, loadKioskStatus, loadAppQuotas,
         loadProcessWhitelist, refreshProtectionsState, setQuotaViewLinuxUser, refreshDohIptablesStatus,

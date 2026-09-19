@@ -105,7 +105,8 @@ contextBridge.exposeInMainWorld('api', {
         isFinished: () => ipcRenderer.invoke('lockdown:isFinished'),
         analyze: (targetUser) => ipcRenderer.invoke('lockdown:analyze', targetUser),
         execute: (payload) => ipcRenderer.invoke('lockdown:execute', payload),
-        markFinished: (skipped) => ipcRenderer.invoke('lockdown:markFinished', skipped)
+        markFinished: (skipped) => ipcRenderer.invoke('lockdown:markFinished', skipped),
+        getChildLinuxUser: () => ipcRenderer.invoke('lockdown:getChildLinuxUser')
     },
     daemon: {
         isConnected: () => ipcRenderer.invoke('daemon:isConnected'),

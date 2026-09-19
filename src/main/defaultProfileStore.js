@@ -28,6 +28,7 @@ const EMPTY_DEFAULT = {
         quotaViewLinuxUser: ''
     },
     blockedDesktopIds: [],
+    childLinuxUser: '',
     quotaExemptions: {
         enabled: false,
         allowedIds: []
@@ -108,6 +109,7 @@ function buildFromRaw(raw) {
     }
     if (Array.isArray(raw.quota)) next.quota = raw.quota
     if (raw.finishedLockdownWizard === true) next.finishedLockdownWizard = true
+    if (typeof raw.childLinuxUser === 'string' && raw.childLinuxUser.trim()) next.childLinuxUser = raw.childLinuxUser.trim()
     if (raw.schoolTimes != null && typeof raw.schoolTimes === 'object' && !Array.isArray(raw.schoolTimes)) {
         next.schoolTimes = normalizeSchoolTimes(raw.schoolTimes)
     }

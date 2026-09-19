@@ -7,6 +7,7 @@ import { readKioskLockdownSummary, persistKioskConfigText } from './systemIpc.js
 import { appendActivity } from './activityLog.js'
 import { daemonWipeUsageHistory } from '../daemonPrivilegedOps.js'
 import { executeUnlock } from '../LockdownService.js'
+import { patchDefaultJson } from '../defaultProfileStore.js'
 
 export function registerSettingsDangerIpc(ipcMain, configDir) {
     ipcMain.handle('settings:stopAllProtections', async () => {
@@ -37,6 +38,10 @@ export function registerSettingsDangerIpc(ipcMain, configDir) {
         try {
             const result = await executeUnlock(user)
             if (result.ok) {
+                patchDefaultJson(configDir, (d) => {
+                    if (d.childLinuxUser === user) d.childLinuxUser = ''
+                    return d
+                })
                 appendActivity(configDir, { action: 'lockdown_undone', targetUser: user })
             }
             return result

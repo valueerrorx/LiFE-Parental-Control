@@ -83,6 +83,10 @@
                     <div class="pc-card-body">
                         <p class="text-muted small mb-2">{{ $t('settings.lockdownIntroLead') }}</p>
                         <p class="text-muted small mb-3">{{ $t('settings.lockdownIntroSystem') }}</p>
+                        <div v-if="appStore.childLinuxUser" class="alert alert-success py-2 px-3 mb-3" style="font-size:13px;">
+                            <i class="bi bi-shield-check me-1" />{{ $t('settings.lockdownRestrictedAccount', { user: appStore.childLinuxUser }) }}
+                            <div class="text-muted mt-1">{{ $t('settings.lockdownRerunHint') }}</div>
+                        </div>
                         <button type="button" class="btn btn-success" @click="appStore.showLockdownWizard = true">
                             <i class="bi bi-shield-lock me-1" />{{ $t('settings.runLockdownWizard') }}
                         </button>

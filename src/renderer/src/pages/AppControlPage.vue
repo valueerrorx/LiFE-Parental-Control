@@ -297,6 +297,7 @@ const addQuotaLinuxUserOptions = computed(() => {
 
 const blockUserOptions = computed(() => {
     const set = new Set(['', ...desktopLoginUsers.value])
+    if (store.childLinuxUser) set.add(store.childLinuxUser)
     for (const app of apps.value) {
         if (app.blocked && app.linuxUser) set.add(app.linuxUser)
     }
@@ -510,6 +511,7 @@ function onRemoveQuota(q) {
 function onToggle(app) {
     app.blocked = !app.blocked
     if (!app.blocked) { app.linuxUser = ''; app.allowAtSchoolTime = false }
+    else if (!app.linuxUser && store.childLinuxUser) app.linuxUser = store.childLinuxUser
     const orig = store.blockedApps.includes(app.id)
     if (app.blocked !== orig) pendingBlocked.value.add(app.id)
     else pendingBlocked.value.delete(app.id)

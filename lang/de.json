@@ -371,6 +371,8 @@
     "runLockdownWizard": "Absicherungs-Assistent",
     "lockdownIntroLead": "Dieser Assistent f\u00fchrt Sie durch eine fortgeschrittene System-Absicherung: Der ausgew\u00e4hlte Benutzer wird in seinen Rechten herabgestuft, damit Einstellungen, die Sie in dieser Software vornehmen, von diesem unter keinen Umst\u00e4nden deaktiviert werden k\u00f6nnen.",
     "lockdownIntroSystem": "Er verhindert, dass die Applikation selbst entfernt bzw. f\u00fcr die Absicherung wichtige Systemdienste deaktiviert werden k\u00f6nnen.",
+    "lockdownRestrictedAccount": "Benutzerkonto \"{user}\" ist bereits abgesichert (restricted).",
+    "lockdownRerunHint": "Der Assistent kann erneut ausgef\u00fchrt werden, um ein anderes Konto abzusichern oder die Absicherung zu erweitern.",
     "usageArchiveCleanup": "Nutzungsarchiv-Bereinigung abgeschlossen.",
     "quotaScriptRedeployed": "Durchsetzungsskript neu eingesetzt; Bildschirmzeit-Ausnahmen von Disk geladen.",
     "webFilterRestored": "Web-Filter wiederhergestellt: /etc/hosts aus aktuellen Einstellungen neu aufgebaut.",
