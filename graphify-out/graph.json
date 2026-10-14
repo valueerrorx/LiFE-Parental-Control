@@ -469,10 +469,19 @@
       "norm_label": "{ defaultschooltimes }"
     },
     {
+      "label": "{ chooseUpstream, dnsmasqServerDirective, restartDnsmasq, stopDnsmasq, upstreamDrifted, pointResolvAtLocalDnsmasq, releaseResolvToNetworkManager }",
+      "file_type": "code",
+      "source_file": "daemon/defaultSync.js",
+      "source_location": "L9",
+      "id": "daemon_defaultsync_chooseupstream_dnsmasqserverdirective_restartdnsmasq_stopdnsmasq_upstreamdrifted_pointresolvatlocaldnsmasq_releaseresolvtonetworkmanager",
+      "community": 2,
+      "norm_label": "{ chooseupstream, dnsmasqserverdirective, restartdnsmasq, stopdnsmasq, upstreamdrifted, pointresolvatlocaldnsmasq, releaseresolvtonetworkmanager }"
+    },
+    {
       "label": "EMPTY_DEFAULT",
       "file_type": "code",
       "source_file": "daemon/defaultSync.js",
-      "source_location": "L12",
+      "source_location": "L13",
       "id": "daemon_defaultsync_empty_default",
       "community": 2,
       "norm_label": "empty_default"
@@ -481,7 +490,7 @@
       "label": "HAGEZI_FEEDS",
       "file_type": "code",
       "source_file": "daemon/defaultSync.js",
-      "source_location": "L44",
+      "source_location": "L45",
       "id": "daemon_defaultsync_hagezi_feeds",
       "community": 2,
       "norm_label": "hagezi_feeds"
@@ -490,7 +499,7 @@
       "label": "HAGEZI_FEED_BY_ID",
       "file_type": "code",
       "source_file": "daemon/defaultSync.js",
-      "source_location": "L53",
+      "source_location": "L54",
       "id": "daemon_defaultsync_hagezi_feed_by_id",
       "community": 2,
       "norm_label": "hagezi_feed_by_id"
@@ -499,7 +508,7 @@
       "label": "DESKTOP_DIRS",
       "file_type": "code",
       "source_file": "daemon/defaultSync.js",
-      "source_location": "L55",
+      "source_location": "L56",
       "id": "daemon_defaultsync_desktop_dirs",
       "community": 2,
       "norm_label": "desktop_dirs"
@@ -508,7 +517,7 @@
       "label": "parseDohIpList()",
       "file_type": "code",
       "source_file": "daemon/defaultSync.js",
-      "source_location": "L68",
+      "source_location": "L69",
       "id": "daemon_defaultsync_parsedohiplist",
       "community": 2,
       "norm_label": "parsedohiplist()"
@@ -517,7 +526,7 @@
       "label": "resolveCmdPathSync()",
       "file_type": "code",
       "source_file": "daemon/defaultSync.js",
-      "source_location": "L93",
+      "source_location": "L94",
       "id": "daemon_defaultsync_resolvecmdpathsync",
       "community": 2,
       "norm_label": "resolvecmdpathsync()"
@@ -526,7 +535,7 @@
       "label": "hasCmdSync()",
       "file_type": "code",
       "source_file": "daemon/defaultSync.js",
-      "source_location": "L111",
+      "source_location": "L112",
       "id": "daemon_defaultsync_hascmdsync",
       "community": 2,
       "norm_label": "hascmdsync()"
@@ -535,7 +544,7 @@
       "label": "iptSync()",
       "file_type": "code",
       "source_file": "daemon/defaultSync.js",
-      "source_location": "L115",
+      "source_location": "L116",
       "id": "daemon_defaultsync_iptsync",
       "community": 2,
       "norm_label": "iptsync()"
@@ -544,7 +553,7 @@
       "label": "chainExists()",
       "file_type": "code",
       "source_file": "daemon/defaultSync.js",
-      "source_location": "L135",
+      "source_location": "L136",
       "id": "daemon_defaultsync_chainexists",
       "community": 2,
       "norm_label": "chainexists()"
@@ -553,7 +562,7 @@
       "label": "outputHookPresent()",
       "file_type": "code",
       "source_file": "daemon/defaultSync.js",
-      "source_location": "L139",
+      "source_location": "L140",
       "id": "daemon_defaultsync_outputhookpresent",
       "community": 2,
       "norm_label": "outputhookpresent()"
@@ -562,7 +571,7 @@
       "label": "ensureOutputHook()",
       "file_type": "code",
       "source_file": "daemon/defaultSync.js",
-      "source_location": "L146",
+      "source_location": "L147",
       "id": "daemon_defaultsync_ensureoutputhook",
       "community": 2,
       "norm_label": "ensureoutputhook()"
@@ -571,7 +580,7 @@
       "label": "removeOutputHookAll()",
       "file_type": "code",
       "source_file": "daemon/defaultSync.js",
-      "source_location": "L152",
+      "source_location": "L153",
       "id": "daemon_defaultsync_removeoutputhookall",
       "community": 2,
       "norm_label": "removeoutputhookall()"
@@ -580,7 +589,7 @@
       "label": "ensureChain()",
       "file_type": "code",
       "source_file": "daemon/defaultSync.js",
-      "source_location": "L161",
+      "source_location": "L162",
       "id": "daemon_defaultsync_ensurechain",
       "community": 2,
       "norm_label": "ensurechain()"
@@ -589,7 +598,7 @@
       "label": "deleteChain()",
       "file_type": "code",
       "source_file": "daemon/defaultSync.js",
-      "source_location": "L168",
+      "source_location": "L169",
       "id": "daemon_defaultsync_deletechain",
       "community": 2,
       "norm_label": "deletechain()"
@@ -598,7 +607,7 @@
       "label": "applyDohChainBulk()",
       "file_type": "code",
       "source_file": "daemon/defaultSync.js",
-      "source_location": "L178",
+      "source_location": "L179",
       "id": "daemon_defaultsync_applydohchainbulk",
       "community": 2,
       "norm_label": "applydohchainbulk()"
@@ -607,7 +616,7 @@
       "label": "ensureDohIptablesEnabled()",
       "file_type": "code",
       "source_file": "daemon/defaultSync.js",
-      "source_location": "L206",
+      "source_location": "L207",
       "id": "daemon_defaultsync_ensuredohiptablesenabled",
       "community": 2,
       "norm_label": "ensuredohiptablesenabled()"
@@ -616,7 +625,7 @@
       "label": "ensureDohIptablesDisabled()",
       "file_type": "code",
       "source_file": "daemon/defaultSync.js",
-      "source_location": "L263",
+      "source_location": "L264",
       "id": "daemon_defaultsync_ensuredohiptablesdisabled",
       "community": 2,
       "norm_label": "ensuredohiptablesdisabled()"
@@ -625,7 +634,7 @@
       "label": "dohIptablesStatus()",
       "file_type": "code",
       "source_file": "daemon/defaultSync.js",
-      "source_location": "L274",
+      "source_location": "L275",
       "id": "daemon_defaultsync_dohiptablesstatus",
       "community": 2,
       "norm_label": "dohiptablesstatus()"
@@ -634,7 +643,7 @@
       "label": "desktopIdStem()",
       "file_type": "code",
       "source_file": "daemon/defaultSync.js",
-      "source_location": "L281",
+      "source_location": "L282",
       "id": "daemon_defaultsync_desktopidstem",
       "community": 2,
       "norm_label": "desktopidstem()"
@@ -643,7 +652,7 @@
       "label": "desktopIdTailStem()",
       "file_type": "code",
       "source_file": "daemon/defaultSync.js",
-      "source_location": "L285",
+      "source_location": "L286",
       "id": "daemon_defaultsync_desktopidtailstem",
       "community": 2,
       "norm_label": "desktopidtailstem()"
@@ -652,7 +661,7 @@
       "label": "levenshtein()",
       "file_type": "code",
       "source_file": "daemon/defaultSync.js",
-      "source_location": "L291",
+      "source_location": "L292",
       "id": "daemon_defaultsync_levenshtein",
       "community": 2,
       "norm_label": "levenshtein()"
@@ -661,7 +670,7 @@
       "label": "resolveBlockedIdsAgainstInstalled()",
       "file_type": "code",
       "source_file": "daemon/defaultSync.js",
-      "source_location": "L315",
+      "source_location": "L316",
       "id": "daemon_defaultsync_resolveblockedidsagainstinstalled",
       "community": 2,
       "norm_label": "resolveblockedidsagainstinstalled()"
@@ -670,7 +679,7 @@
       "label": "readInstalledDesktopIds()",
       "file_type": "code",
       "source_file": "daemon/defaultSync.js",
-      "source_location": "L383",
+      "source_location": "L384",
       "id": "daemon_defaultsync_readinstalleddesktopids",
       "community": 2,
       "norm_label": "readinstalleddesktopids()"
@@ -679,7 +688,7 @@
       "label": "normalizeAllowlist()",
       "file_type": "code",
       "source_file": "daemon/defaultSync.js",
-      "source_location": "L396",
+      "source_location": "L397",
       "id": "daemon_defaultsync_normalizeallowlist",
       "community": 2,
       "norm_label": "normalizeallowlist()"
@@ -688,7 +697,7 @@
       "label": "parseDnsmasqDomains()",
       "file_type": "code",
       "source_file": "daemon/defaultSync.js",
-      "source_location": "L407",
+      "source_location": "L408",
       "id": "daemon_defaultsync_parsednsmasqdomains",
       "community": 2,
       "norm_label": "parsednsmasqdomains()"
@@ -697,7 +706,7 @@
       "label": "loadFeedFileText()",
       "file_type": "code",
       "source_file": "daemon/defaultSync.js",
-      "source_location": "L419",
+      "source_location": "L420",
       "id": "daemon_defaultsync_loadfeedfiletext",
       "community": 2,
       "norm_label": "loadfeedfiletext()"
@@ -706,52 +715,16 @@
       "label": "buildWebBlockedDomains()",
       "file_type": "code",
       "source_file": "daemon/defaultSync.js",
-      "source_location": "L429",
+      "source_location": "L430",
       "id": "daemon_defaultsync_buildwebblockeddomains",
       "community": 2,
       "norm_label": "buildwebblockeddomains()"
     },
     {
-      "label": "DNSMASQ_DNS4EU",
-      "file_type": "code",
-      "source_file": "daemon/defaultSync.js",
-      "source_location": "L463",
-      "id": "daemon_defaultsync_dnsmasq_dns4eu",
-      "community": 2,
-      "norm_label": "dnsmasq_dns4eu"
-    },
-    {
-      "label": "VALID_DNS_MODES",
-      "file_type": "code",
-      "source_file": "daemon/defaultSync.js",
-      "source_location": "L469",
-      "id": "daemon_defaultsync_valid_dns_modes",
-      "community": 2,
-      "norm_label": "valid_dns_modes"
-    },
-    {
-      "label": "resolveDhcpDns()",
-      "file_type": "code",
-      "source_file": "daemon/defaultSync.js",
-      "source_location": "L471",
-      "id": "daemon_defaultsync_resolvedhcpdns",
-      "community": 2,
-      "norm_label": "resolvedhcpdns()"
-    },
-    {
-      "label": "probeDns4euSync()",
-      "file_type": "code",
-      "source_file": "daemon/defaultSync.js",
-      "source_location": "L485",
-      "id": "daemon_defaultsync_probedns4eusync",
-      "community": 2,
-      "norm_label": "probedns4eusync()"
-    },
-    {
       "label": "applyDnsmasq()",
       "file_type": "code",
       "source_file": "daemon/defaultSync.js",
-      "source_location": "L496",
+      "source_location": "L464",
       "id": "daemon_defaultsync_applydnsmasq",
       "community": 2,
       "norm_label": "applydnsmasq()"
@@ -760,7 +733,7 @@
       "label": "flushDns()",
       "file_type": "code",
       "source_file": "daemon/defaultSync.js",
-      "source_location": "L580",
+      "source_location": "L532",
       "id": "daemon_defaultsync_flushdns",
       "community": 2,
       "norm_label": "flushdns()"
@@ -769,7 +742,7 @@
       "label": "writeHostsBlockedDomains()",
       "file_type": "code",
       "source_file": "daemon/defaultSync.js",
-      "source_location": "L586",
+      "source_location": "L538",
       "id": "daemon_defaultsync_writehostsblockeddomains",
       "community": 2,
       "norm_label": "writehostsblockeddomains()"
@@ -778,7 +751,7 @@
       "label": "normalizeSchedule()",
       "file_type": "code",
       "source_file": "daemon/defaultSync.js",
-      "source_location": "L609",
+      "source_location": "L561",
       "id": "daemon_defaultsync_normalizeschedule",
       "community": 2,
       "norm_label": "normalizeschedule()"
@@ -787,7 +760,7 @@
       "label": "normalizeBlockedIds()",
       "file_type": "code",
       "source_file": "daemon/defaultSync.js",
-      "source_location": "L625",
+      "source_location": "L577",
       "id": "daemon_defaultsync_normalizeblockedids",
       "community": 2,
       "norm_label": "normalizeblockedids()"
@@ -796,7 +769,7 @@
       "label": "normalizeAppControl()",
       "file_type": "code",
       "source_file": "daemon/defaultSync.js",
-      "source_location": "L637",
+      "source_location": "L589",
       "id": "daemon_defaultsync_normalizeappcontrol",
       "community": 2,
       "norm_label": "normalizeappcontrol()"
@@ -805,7 +778,7 @@
       "label": "normalizeQuotaExemptions()",
       "file_type": "code",
       "source_file": "daemon/defaultSync.js",
-      "source_location": "L644",
+      "source_location": "L596",
       "id": "daemon_defaultsync_normalizequotaexemptions",
       "community": 2,
       "norm_label": "normalizequotaexemptions()"
@@ -814,7 +787,7 @@
       "label": "normalizeQuotaEntries()",
       "file_type": "code",
       "source_file": "daemon/defaultSync.js",
-      "source_location": "L653",
+      "source_location": "L605",
       "id": "daemon_defaultsync_normalizequotaentries",
       "community": 2,
       "norm_label": "normalizequotaentries()"
@@ -823,7 +796,7 @@
       "label": "writeJsonFile()",
       "file_type": "code",
       "source_file": "daemon/defaultSync.js",
-      "source_location": "L675",
+      "source_location": "L627",
       "id": "daemon_defaultsync_writejsonfile",
       "community": 2,
       "norm_label": "writejsonfile()"
@@ -832,7 +805,7 @@
       "label": "applyDesktopOverride()",
       "file_type": "code",
       "source_file": "daemon/defaultSync.js",
-      "source_location": "L680",
+      "source_location": "L632",
       "id": "daemon_defaultsync_applydesktopoverride",
       "community": 2,
       "norm_label": "applydesktopoverride()"
@@ -841,7 +814,7 @@
       "label": "applyFromDefault()",
       "file_type": "code",
       "source_file": "daemon/defaultSync.js",
-      "source_location": "L728",
+      "source_location": "L680",
       "id": "daemon_defaultsync_applyfromdefault",
       "community": 2,
       "norm_label": "applyfromdefault()"
@@ -850,7 +823,7 @@
       "label": "ensureDefaultJsonExists()",
       "file_type": "code",
       "source_file": "daemon/defaultSync.js",
-      "source_location": "L774",
+      "source_location": "L732",
       "id": "daemon_defaultsync_ensuredefaultjsonexists",
       "community": 2,
       "norm_label": "ensuredefaultjsonexists()"
@@ -859,7 +832,7 @@
       "label": "fileHash()",
       "file_type": "code",
       "source_file": "daemon/defaultSync.js",
-      "source_location": "L788",
+      "source_location": "L746",
       "id": "daemon_defaultsync_filehash",
       "community": 2,
       "norm_label": "filehash()"
@@ -868,10 +841,199 @@
       "label": "createDefaultSync()",
       "file_type": "code",
       "source_file": "daemon/defaultSync.js",
-      "source_location": "L797",
+      "source_location": "L755",
       "id": "daemon_defaultsync_createdefaultsync",
       "community": 2,
       "norm_label": "createdefaultsync()"
+    },
+    {
+      "label": "dnsUpstream.js",
+      "file_type": "code",
+      "source_file": "daemon/dnsUpstream.js",
+      "source_location": "L1",
+      "id": "daemon_dnsupstream",
+      "community": 2,
+      "norm_label": "dnsupstream.js"
+    },
+    {
+      "label": "fs",
+      "file_type": "code",
+      "source_file": "daemon/dnsUpstream.js",
+      "source_location": "L4",
+      "id": "daemon_dnsupstream_fs",
+      "community": 2,
+      "norm_label": "fs"
+    },
+    {
+      "label": "{ execFileSync, spawnSync }",
+      "file_type": "code",
+      "source_file": "daemon/dnsUpstream.js",
+      "source_location": "L5",
+      "id": "daemon_dnsupstream_execfilesync_spawnsync",
+      "community": 2,
+      "norm_label": "{ execfilesync, spawnsync }"
+    },
+    {
+      "label": "DNS4EU",
+      "file_type": "code",
+      "source_file": "daemon/dnsUpstream.js",
+      "source_location": "L10",
+      "id": "daemon_dnsupstream_dns4eu",
+      "community": 2,
+      "norm_label": "dns4eu"
+    },
+    {
+      "label": "isUsableDns()",
+      "file_type": "code",
+      "source_file": "daemon/dnsUpstream.js",
+      "source_location": "L17",
+      "id": "daemon_dnsupstream_isusabledns",
+      "community": 2,
+      "norm_label": "isusabledns()"
+    },
+    {
+      "label": "dnsmasqServerDirective()",
+      "file_type": "code",
+      "source_file": "daemon/dnsUpstream.js",
+      "source_location": "L30",
+      "id": "daemon_dnsupstream_dnsmasqserverdirective",
+      "community": 2,
+      "norm_label": "dnsmasqserverdirective()"
+    },
+    {
+      "label": "nameserversInText()",
+      "file_type": "code",
+      "source_file": "daemon/dnsUpstream.js",
+      "source_location": "L34",
+      "id": "daemon_dnsupstream_nameserversintext",
+      "community": 2,
+      "norm_label": "nameserversintext()"
+    },
+    {
+      "label": "defaultRouteDev()",
+      "file_type": "code",
+      "source_file": "daemon/dnsUpstream.js",
+      "source_location": "L43",
+      "id": "daemon_dnsupstream_defaultroutedev",
+      "community": 2,
+      "norm_label": "defaultroutedev()"
+    },
+    {
+      "label": "dnsFromDevice()",
+      "file_type": "code",
+      "source_file": "daemon/dnsUpstream.js",
+      "source_location": "L54",
+      "id": "daemon_dnsupstream_dnsfromdevice",
+      "community": 2,
+      "norm_label": "dnsfromdevice()"
+    },
+    {
+      "label": "resolveLiveDhcpDns()",
+      "file_type": "code",
+      "source_file": "daemon/dnsUpstream.js",
+      "source_location": "L65",
+      "id": "daemon_dnsupstream_resolvelivedhcpdns",
+      "community": 2,
+      "norm_label": "resolvelivedhcpdns()"
+    },
+    {
+      "label": "probeDnsUdpSync()",
+      "file_type": "code",
+      "source_file": "daemon/dnsUpstream.js",
+      "source_location": "L78",
+      "id": "daemon_dnsupstream_probednsudpsync",
+      "community": 2,
+      "norm_label": "probednsudpsync()"
+    },
+    {
+      "label": "chooseUpstream()",
+      "file_type": "code",
+      "source_file": "daemon/dnsUpstream.js",
+      "source_location": "L102",
+      "id": "daemon_dnsupstream_chooseupstream",
+      "community": 2,
+      "norm_label": "chooseupstream()"
+    },
+    {
+      "label": "dnsmasqIsActive()",
+      "file_type": "code",
+      "source_file": "daemon/dnsUpstream.js",
+      "source_location": "L113",
+      "id": "daemon_dnsupstream_dnsmasqisactive",
+      "community": 2,
+      "norm_label": "dnsmasqisactive()"
+    },
+    {
+      "label": "restartDnsmasq()",
+      "file_type": "code",
+      "source_file": "daemon/dnsUpstream.js",
+      "source_location": "L123",
+      "id": "daemon_dnsupstream_restartdnsmasq",
+      "community": 2,
+      "norm_label": "restartdnsmasq()"
+    },
+    {
+      "label": "stopDnsmasq()",
+      "file_type": "code",
+      "source_file": "daemon/dnsUpstream.js",
+      "source_location": "L138",
+      "id": "daemon_dnsupstream_stopdnsmasq",
+      "community": 2,
+      "norm_label": "stopdnsmasq()"
+    },
+    {
+      "label": "unlockResolvConf()",
+      "file_type": "code",
+      "source_file": "daemon/dnsUpstream.js",
+      "source_location": "L146",
+      "id": "daemon_dnsupstream_unlockresolvconf",
+      "community": 2,
+      "norm_label": "unlockresolvconf()"
+    },
+    {
+      "label": "pointResolvAtLocalDnsmasq()",
+      "file_type": "code",
+      "source_file": "daemon/dnsUpstream.js",
+      "source_location": "L150",
+      "id": "daemon_dnsupstream_pointresolvatlocaldnsmasq",
+      "community": 2,
+      "norm_label": "pointresolvatlocaldnsmasq()"
+    },
+    {
+      "label": "readDnsmasqUpstream()",
+      "file_type": "code",
+      "source_file": "daemon/dnsUpstream.js",
+      "source_location": "L162",
+      "id": "daemon_dnsupstream_readdnsmasqupstream",
+      "community": 2,
+      "norm_label": "readdnsmasqupstream()"
+    },
+    {
+      "label": "resolvPointsAtLocal()",
+      "file_type": "code",
+      "source_file": "daemon/dnsUpstream.js",
+      "source_location": "L172",
+      "id": "daemon_dnsupstream_resolvpointsatlocal",
+      "community": 2,
+      "norm_label": "resolvpointsatlocal()"
+    },
+    {
+      "label": "upstreamDrifted()",
+      "file_type": "code",
+      "source_file": "daemon/dnsUpstream.js",
+      "source_location": "L181",
+      "id": "daemon_dnsupstream_upstreamdrifted",
+      "community": 2,
+      "norm_label": "upstreamdrifted()"
+    },
+    {
+      "label": "releaseResolvToNetworkManager()",
+      "file_type": "code",
+      "source_file": "daemon/dnsUpstream.js",
+      "source_location": "L192",
+      "id": "daemon_dnsupstream_releaseresolvtonetworkmanager",
+      "community": 2,
+      "norm_label": "releaseresolvtonetworkmanager()"
     },
     {
       "label": "parental-control-daemon.js",
@@ -946,10 +1108,19 @@
       "norm_label": "{ createdefaultsync, dohiptablesstatus, ensuredohiptablesenabled, ensuredohiptablesdisabled }"
     },
     {
-      "label": "{ defaultSchoolTimes }",
+      "label": "{ chooseUpstream, resolveLiveDhcpDns, isUsableDns, dnsmasqServerDirective, restartDnsmasq, stopDnsmasq, pointResolvAtLocalDnsmasq, releaseResolvToNetworkManager }",
       "file_type": "code",
       "source_file": "daemon/parental-control-daemon.js",
       "source_location": "L13",
+      "id": "daemon_parental_control_daemon_chooseupstream_resolvelivedhcpdns_isusabledns_dnsmasqserverdirective_restartdnsmasq_stopdnsmasq_pointresolvatlocaldnsmasq_releaseresolvtonetworkmanager",
+      "community": 15,
+      "norm_label": "{ chooseupstream, resolvelivedhcpdns, isusabledns, dnsmasqserverdirective, restartdnsmasq, stopdnsmasq, pointresolvatlocaldnsmasq, releaseresolvtonetworkmanager }"
+    },
+    {
+      "label": "{ defaultSchoolTimes }",
+      "file_type": "code",
+      "source_file": "daemon/parental-control-daemon.js",
+      "source_location": "L14",
       "id": "daemon_parental_control_daemon_defaultschooltimes",
       "community": 15,
       "norm_label": "{ defaultschooltimes }"
@@ -958,7 +1129,7 @@
       "label": "{ getUnixPeerUid }",
       "file_type": "code",
       "source_file": "daemon/parental-control-daemon.js",
-      "source_location": "L14",
+      "source_location": "L15",
       "id": "daemon_parental_control_daemon_getunixpeeruid",
       "community": 15,
       "norm_label": "{ getunixpeeruid }"
@@ -967,7 +1138,7 @@
       "label": "DAY_KEYS",
       "file_type": "code",
       "source_file": "daemon/parental-control-daemon.js",
-      "source_location": "L16",
+      "source_location": "L17",
       "id": "daemon_parental_control_daemon_day_keys",
       "community": 15,
       "norm_label": "day_keys"
@@ -976,16 +1147,16 @@
       "label": "isSchoolTimeNow()",
       "file_type": "code",
       "source_file": "daemon/parental-control-daemon.js",
-      "source_location": "L22",
+      "source_location": "L23",
       "id": "daemon_parental_control_daemon_isschooltimenow",
-      "community": 97,
+      "community": 103,
       "norm_label": "isschooltimenow()"
     },
     {
       "label": "execFileAsync",
       "file_type": "code",
       "source_file": "daemon/parental-control-daemon.js",
-      "source_location": "L35",
+      "source_location": "L36",
       "id": "daemon_parental_control_daemon_execfileasync",
       "community": 103,
       "norm_label": "execfileasync"
@@ -994,7 +1165,7 @@
       "label": "LOGOUT_BLOCKED_INFO_ONCE_TYPES",
       "file_type": "code",
       "source_file": "daemon/parental-control-daemon.js",
-      "source_location": "L61",
+      "source_location": "L62",
       "id": "daemon_parental_control_daemon_logout_blocked_info_once_types",
       "community": 15,
       "norm_label": "logout_blocked_info_once_types"
@@ -1003,7 +1174,7 @@
       "label": "NOTIFY_SEND_BIN",
       "file_type": "code",
       "source_file": "daemon/parental-control-daemon.js",
-      "source_location": "L63",
+      "source_location": "L64",
       "id": "daemon_parental_control_daemon_notify_send_bin",
       "community": 15,
       "norm_label": "notify_send_bin"
@@ -1012,16 +1183,16 @@
       "label": "logLine()",
       "file_type": "code",
       "source_file": "daemon/parental-control-daemon.js",
-      "source_location": "L75",
+      "source_location": "L76",
       "id": "daemon_parental_control_daemon_logline",
-      "community": 0,
+      "community": 15,
       "norm_label": "logline()"
     },
     {
       "label": "log",
       "file_type": "code",
       "source_file": "daemon/parental-control-daemon.js",
-      "source_location": "L90",
+      "source_location": "L91",
       "id": "daemon_parental_control_daemon_log",
       "community": 15,
       "norm_label": "log"
@@ -1030,16 +1201,16 @@
       "label": "appendActivityDaemon()",
       "file_type": "code",
       "source_file": "daemon/parental-control-daemon.js",
-      "source_location": "L97",
+      "source_location": "L98",
       "id": "daemon_parental_control_daemon_appendactivitydaemon",
-      "community": 97,
+      "community": 103,
       "norm_label": "appendactivitydaemon()"
     },
     {
       "label": "tickWorkChain",
       "file_type": "code",
       "source_file": "daemon/parental-control-daemon.js",
-      "source_location": "L109",
+      "source_location": "L110",
       "id": "daemon_parental_control_daemon_tickworkchain",
       "community": 15,
       "norm_label": "tickworkchain"
@@ -1048,7 +1219,7 @@
       "label": "appBlockKnownPids",
       "file_type": "code",
       "source_file": "daemon/parental-control-daemon.js",
-      "source_location": "L110",
+      "source_location": "L111",
       "id": "daemon_parental_control_daemon_appblockknownpids",
       "community": 15,
       "norm_label": "appblockknownpids"
@@ -1057,7 +1228,7 @@
       "label": "appBlockNotifyLastMs",
       "file_type": "code",
       "source_file": "daemon/parental-control-daemon.js",
-      "source_location": "L112",
+      "source_location": "L113",
       "id": "daemon_parental_control_daemon_appblocknotifylastms",
       "community": 15,
       "norm_label": "appblocknotifylastms"
@@ -1066,7 +1237,7 @@
       "label": "appQuotaWarnOnce",
       "file_type": "code",
       "source_file": "daemon/parental-control-daemon.js",
-      "source_location": "L115",
+      "source_location": "L116",
       "id": "daemon_parental_control_daemon_appquotawarnonce",
       "community": 15,
       "norm_label": "appquotawarnonce"
@@ -1075,7 +1246,7 @@
       "label": "quotaLinuxUserNoSessionWarnOnce",
       "file_type": "code",
       "source_file": "daemon/parental-control-daemon.js",
-      "source_location": "L116",
+      "source_location": "L117",
       "id": "daemon_parental_control_daemon_quotalinuxusernosessionwarnonce",
       "community": 15,
       "norm_label": "quotalinuxusernosessionwarnonce"
@@ -1084,7 +1255,7 @@
       "label": "clients",
       "file_type": "code",
       "source_file": "daemon/parental-control-daemon.js",
-      "source_location": "L123",
+      "source_location": "L124",
       "id": "daemon_parental_control_daemon_clients",
       "community": 15,
       "norm_label": "clients"
@@ -1093,52 +1264,52 @@
       "label": "localIsoDate()",
       "file_type": "code",
       "source_file": "daemon/parental-control-daemon.js",
-      "source_location": "L130",
+      "source_location": "L131",
       "id": "daemon_parental_control_daemon_localisodate",
-      "community": 96,
+      "community": 97,
       "norm_label": "localisodate()"
     },
     {
       "label": "normalizeLinuxUser()",
       "file_type": "code",
       "source_file": "daemon/parental-control-daemon.js",
-      "source_location": "L136",
+      "source_location": "L137",
       "id": "daemon_parental_control_daemon_normalizelinuxuser",
-      "community": 96,
+      "community": 103,
       "norm_label": "normalizelinuxuser()"
     },
     {
       "label": "quotaUsageKey()",
       "file_type": "code",
       "source_file": "daemon/parental-control-daemon.js",
-      "source_location": "L144",
+      "source_location": "L145",
       "id": "daemon_parental_control_daemon_quotausagekey",
-      "community": 96,
+      "community": 103,
       "norm_label": "quotausagekey()"
     },
     {
       "label": "quotaUsedMinutes()",
       "file_type": "code",
       "source_file": "daemon/parental-control-daemon.js",
-      "source_location": "L149",
+      "source_location": "L150",
       "id": "daemon_parental_control_daemon_quotausedminutes",
-      "community": 96,
+      "community": 103,
       "norm_label": "quotausedminutes()"
     },
     {
       "label": "quotaBonusMinutes()",
       "file_type": "code",
       "source_file": "daemon/parental-control-daemon.js",
-      "source_location": "L158",
+      "source_location": "L159",
       "id": "daemon_parental_control_daemon_quotabonusminutes",
-      "community": 96,
+      "community": 103,
       "norm_label": "quotabonusminutes()"
     },
     {
       "label": "effectiveScreenMinutes()",
       "file_type": "code",
       "source_file": "daemon/parental-control-daemon.js",
-      "source_location": "L167",
+      "source_location": "L168",
       "id": "daemon_parental_control_daemon_effectivescreenminutes",
       "community": 96,
       "norm_label": "effectivescreenminutes()"
@@ -1147,7 +1318,7 @@
       "label": "DEFAULT_SCHEDULE_PERIOD",
       "file_type": "code",
       "source_file": "daemon/parental-control-daemon.js",
-      "source_location": "L177",
+      "source_location": "L178",
       "id": "daemon_parental_control_daemon_default_schedule_period",
       "community": 15,
       "norm_label": "default_schedule_period"
@@ -1156,7 +1327,7 @@
       "label": "DEFAULT_SCHEDULE",
       "file_type": "code",
       "source_file": "daemon/parental-control-daemon.js",
-      "source_location": "L182",
+      "source_location": "L183",
       "id": "daemon_parental_control_daemon_default_schedule",
       "community": 15,
       "norm_label": "default_schedule"
@@ -1165,7 +1336,7 @@
       "label": "DESKTOP_DIRS",
       "file_type": "code",
       "source_file": "daemon/parental-control-daemon.js",
-      "source_location": "L192",
+      "source_location": "L193",
       "id": "daemon_parental_control_daemon_desktop_dirs",
       "community": 15,
       "norm_label": "desktop_dirs"
@@ -1174,43 +1345,43 @@
       "label": "desktopIdStem()",
       "file_type": "code",
       "source_file": "daemon/parental-control-daemon.js",
-      "source_location": "L202",
+      "source_location": "L203",
       "id": "daemon_parental_control_daemon_desktopidstem",
-      "community": 0,
+      "community": 129,
       "norm_label": "desktopidstem()"
     },
     {
       "label": "desktopIdTailStem()",
       "file_type": "code",
       "source_file": "daemon/parental-control-daemon.js",
-      "source_location": "L206",
+      "source_location": "L207",
       "id": "daemon_parental_control_daemon_desktopidtailstem",
-      "community": 0,
+      "community": 129,
       "norm_label": "desktopidtailstem()"
     },
     {
       "label": "levenshtein()",
       "file_type": "code",
       "source_file": "daemon/parental-control-daemon.js",
-      "source_location": "L212",
+      "source_location": "L213",
       "id": "daemon_parental_control_daemon_levenshtein",
-      "community": 0,
+      "community": 15,
       "norm_label": "levenshtein()"
     },
     {
       "label": "readInstalledDesktopIds()",
       "file_type": "code",
       "source_file": "daemon/parental-control-daemon.js",
-      "source_location": "L236",
+      "source_location": "L237",
       "id": "daemon_parental_control_daemon_readinstalleddesktopids",
-      "community": 0,
+      "community": 129,
       "norm_label": "readinstalleddesktopids()"
     },
     {
       "label": "execLineToExeBasenames()",
       "file_type": "code",
       "source_file": "daemon/parental-control-daemon.js",
-      "source_location": "L249",
+      "source_location": "L250",
       "id": "daemon_parental_control_daemon_execlinetoexebasenames",
       "community": 15,
       "norm_label": "execlinetoexebasenames()"
@@ -1219,7 +1390,7 @@
       "label": "mergeBlockedEntriesFromCatalog()",
       "file_type": "code",
       "source_file": "daemon/parental-control-daemon.js",
-      "source_location": "L290",
+      "source_location": "L291",
       "id": "daemon_parental_control_daemon_mergeblockedentriesfromcatalog",
       "community": 15,
       "norm_label": "mergeblockedentriesfromcatalog()"
@@ -1228,97 +1399,97 @@
       "label": "resolveBlockedIdsAgainstInstalled()",
       "file_type": "code",
       "source_file": "daemon/parental-control-daemon.js",
-      "source_location": "L316",
+      "source_location": "L317",
       "id": "daemon_parental_control_daemon_resolveblockedidsagainstinstalled",
-      "community": 0,
+      "community": 129,
       "norm_label": "resolveblockedidsagainstinstalled()"
     },
     {
       "label": "normalizePeriod()",
       "file_type": "code",
       "source_file": "daemon/parental-control-daemon.js",
-      "source_location": "L393",
+      "source_location": "L394",
       "id": "daemon_parental_control_daemon_normalizeperiod",
-      "community": 0,
+      "community": 129,
       "norm_label": "normalizeperiod()"
     },
     {
       "label": "normalizeScheduleFromDefault()",
       "file_type": "code",
       "source_file": "daemon/parental-control-daemon.js",
-      "source_location": "L404",
+      "source_location": "L405",
       "id": "daemon_parental_control_daemon_normalizeschedulefromdefault",
-      "community": 0,
+      "community": 129,
       "norm_label": "normalizeschedulefromdefault()"
     },
     {
       "label": "normalizeQuotaEntriesFromDefault()",
       "file_type": "code",
       "source_file": "daemon/parental-control-daemon.js",
-      "source_location": "L424",
+      "source_location": "L425",
       "id": "daemon_parental_control_daemon_normalizequotaentriesfromdefault",
-      "community": 0,
+      "community": 129,
       "norm_label": "normalizequotaentriesfromdefault()"
     },
     {
       "label": "getDefaultConfig()",
       "file_type": "code",
       "source_file": "daemon/parental-control-daemon.js",
-      "source_location": "L451",
+      "source_location": "L452",
       "id": "daemon_parental_control_daemon_getdefaultconfig",
-      "community": 0,
+      "community": 129,
       "norm_label": "getdefaultconfig()"
     },
     {
       "label": "readSchedule()",
       "file_type": "code",
       "source_file": "daemon/parental-control-daemon.js",
-      "source_location": "L537",
+      "source_location": "L538",
       "id": "daemon_parental_control_daemon_readschedule",
-      "community": 0,
+      "community": 129,
       "norm_label": "readschedule()"
     },
     {
       "label": "emptyUsage()",
       "file_type": "code",
       "source_file": "daemon/parental-control-daemon.js",
-      "source_location": "L541",
+      "source_location": "L542",
       "id": "daemon_parental_control_daemon_emptyusage",
-      "community": 96,
+      "community": 97,
       "norm_label": "emptyusage()"
     },
     {
       "label": "readUsage()",
       "file_type": "code",
       "source_file": "daemon/parental-control-daemon.js",
-      "source_location": "L545",
+      "source_location": "L546",
       "id": "daemon_parental_control_daemon_readusage",
-      "community": 96,
+      "community": 97,
       "norm_label": "readusage()"
     },
     {
       "label": "writeUsage()",
       "file_type": "code",
       "source_file": "daemon/parental-control-daemon.js",
-      "source_location": "L576",
+      "source_location": "L577",
       "id": "daemon_parental_control_daemon_writeusage",
-      "community": 96,
+      "community": 97,
       "norm_label": "writeusage()"
     },
     {
       "label": "readQuotaUsageState()",
       "file_type": "code",
       "source_file": "daemon/parental-control-daemon.js",
-      "source_location": "L583",
+      "source_location": "L584",
       "id": "daemon_parental_control_daemon_readquotausagestate",
-      "community": 96,
+      "community": 97,
       "norm_label": "readquotausagestate()"
     },
     {
       "label": "writeQuotaUsageState()",
       "file_type": "code",
       "source_file": "daemon/parental-control-daemon.js",
-      "source_location": "L597",
+      "source_location": "L598",
       "id": "daemon_parental_control_daemon_writequotausagestate",
       "community": 96,
       "norm_label": "writequotausagestate()"
@@ -1327,16 +1498,16 @@
       "label": "readQuotaEntries()",
       "file_type": "code",
       "source_file": "daemon/parental-control-daemon.js",
-      "source_location": "L603",
+      "source_location": "L604",
       "id": "daemon_parental_control_daemon_readquotaentries",
-      "community": 0,
+      "community": 129,
       "norm_label": "readquotaentries()"
     },
     {
       "label": "loadBlockedAppIds()",
       "file_type": "code",
       "source_file": "daemon/parental-control-daemon.js",
-      "source_location": "L607",
+      "source_location": "L608",
       "id": "daemon_parental_control_daemon_loadblockedappids",
       "community": 0,
       "norm_label": "loadblockedappids()"
@@ -1345,7 +1516,7 @@
       "label": "loadQuotaExemptAppIds()",
       "file_type": "code",
       "source_file": "daemon/parental-control-daemon.js",
-      "source_location": "L611",
+      "source_location": "L612",
       "id": "daemon_parental_control_daemon_loadquotaexemptappids",
       "community": 121,
       "norm_label": "loadquotaexemptappids()"
@@ -1354,7 +1525,7 @@
       "label": "readMonitorCatalogEntries()",
       "file_type": "code",
       "source_file": "daemon/parental-control-daemon.js",
-      "source_location": "L615",
+      "source_location": "L616",
       "id": "daemon_parental_control_daemon_readmonitorcatalogentries",
       "community": 121,
       "norm_label": "readmonitorcatalogentries()"
@@ -1363,25 +1534,25 @@
       "label": "readAppMonitorUsage()",
       "file_type": "code",
       "source_file": "daemon/parental-control-daemon.js",
-      "source_location": "L622",
+      "source_location": "L623",
       "id": "daemon_parental_control_daemon_readappmonitorusage",
-      "community": 96,
+      "community": 121,
       "norm_label": "readappmonitorusage()"
     },
     {
       "label": "writeAppMonitorUsage()",
       "file_type": "code",
       "source_file": "daemon/parental-control-daemon.js",
-      "source_location": "L631",
+      "source_location": "L632",
       "id": "daemon_parental_control_daemon_writeappmonitorusage",
-      "community": 96,
+      "community": 121,
       "norm_label": "writeappmonitorusage()"
     },
     {
       "label": "execLineToProcessName()",
       "file_type": "code",
       "source_file": "daemon/parental-control-daemon.js",
-      "source_location": "L640",
+      "source_location": "L641",
       "id": "daemon_parental_control_daemon_execlinetoprocessname",
       "community": 15,
       "norm_label": "execlinetoprocessname()"
@@ -1390,7 +1561,7 @@
       "label": "isBareInterpreterCommName()",
       "file_type": "code",
       "source_file": "daemon/parental-control-daemon.js",
-      "source_location": "L736",
+      "source_location": "L737",
       "id": "daemon_parental_control_daemon_isbareinterpretercommname",
       "community": 15,
       "norm_label": "isbareinterpretercommname()"
@@ -1399,7 +1570,7 @@
       "label": "desktopExecCommAliases()",
       "file_type": "code",
       "source_file": "daemon/parental-control-daemon.js",
-      "source_location": "L757",
+      "source_location": "L758",
       "id": "daemon_parental_control_daemon_desktopexeccommaliases",
       "community": 15,
       "norm_label": "desktopexeccommaliases()"
@@ -1408,7 +1579,7 @@
       "label": "desktopExecResolvedProcessName()",
       "file_type": "code",
       "source_file": "daemon/parental-control-daemon.js",
-      "source_location": "L811",
+      "source_location": "L812",
       "id": "daemon_parental_control_daemon_desktopexecresolvedprocessname",
       "community": 15,
       "norm_label": "desktopexecresolvedprocessname()"
@@ -1417,7 +1588,7 @@
       "label": "parseDesktopFile()",
       "file_type": "code",
       "source_file": "daemon/parental-control-daemon.js",
-      "source_location": "L834",
+      "source_location": "L835",
       "id": "daemon_parental_control_daemon_parsedesktopfile",
       "community": 15,
       "norm_label": "parsedesktopfile()"
@@ -1426,7 +1597,7 @@
       "label": "execLineToFullPath()",
       "file_type": "code",
       "source_file": "daemon/parental-control-daemon.js",
-      "source_location": "L866",
+      "source_location": "L867",
       "id": "daemon_parental_control_daemon_execlinetofullpath",
       "community": 15,
       "norm_label": "execlinetofullpath()"
@@ -1435,7 +1606,7 @@
       "label": "listHomeLocalShareApplicationsDirs()",
       "file_type": "code",
       "source_file": "daemon/parental-control-daemon.js",
-      "source_location": "L891",
+      "source_location": "L892",
       "id": "daemon_parental_control_daemon_listhomelocalshareapplicationsdirs",
       "community": 15,
       "norm_label": "listhomelocalshareapplicationsdirs()"
@@ -1444,7 +1615,7 @@
       "label": "readAllDesktopApps()",
       "file_type": "code",
       "source_file": "daemon/parental-control-daemon.js",
-      "source_location": "L915",
+      "source_location": "L916",
       "id": "daemon_parental_control_daemon_readalldesktopapps",
       "community": 15,
       "norm_label": "readalldesktopapps()"
@@ -1453,25 +1624,25 @@
       "label": "loadAppMonitorBackgroundExcludeSets()",
       "file_type": "code",
       "source_file": "daemon/parental-control-daemon.js",
-      "source_location": "L935",
+      "source_location": "L936",
       "id": "daemon_parental_control_daemon_loadappmonitorbackgroundexcludesets",
-      "community": 0,
+      "community": 15,
       "norm_label": "loadappmonitorbackgroundexcludesets()"
     },
     {
       "label": "isAppMonitorCatalogEntryExcluded()",
       "file_type": "code",
       "source_file": "daemon/parental-control-daemon.js",
-      "source_location": "L962",
+      "source_location": "L963",
       "id": "daemon_parental_control_daemon_isappmonitorcatalogentryexcluded",
-      "community": 0,
+      "community": 15,
       "norm_label": "isappmonitorcatalogentryexcluded()"
     },
     {
       "label": "portableIdForAppImagePath()",
       "file_type": "code",
       "source_file": "daemon/parental-control-daemon.js",
-      "source_location": "L971",
+      "source_location": "L972",
       "id": "daemon_parental_control_daemon_portableidforappimagepath",
       "community": 0,
       "norm_label": "portableidforappimagepath()"
@@ -1480,16 +1651,16 @@
       "label": "readPortableAppImagesState()",
       "file_type": "code",
       "source_file": "daemon/parental-control-daemon.js",
-      "source_location": "L981",
+      "source_location": "L982",
       "id": "daemon_parental_control_daemon_readportableappimagesstate",
-      "community": 0,
+      "community": 15,
       "norm_label": "readportableappimagesstate()"
     },
     {
       "label": "writePortableAppImagesState()",
       "file_type": "code",
       "source_file": "daemon/parental-control-daemon.js",
-      "source_location": "L1006",
+      "source_location": "L1007",
       "id": "daemon_parental_control_daemon_writeportableappimagesstate",
       "community": 0,
       "norm_label": "writeportableappimagesstate()"
@@ -1498,7 +1669,7 @@
       "label": "scanRunningAppImagesProc()",
       "file_type": "code",
       "source_file": "daemon/parental-control-daemon.js",
-      "source_location": "L1026",
+      "source_location": "L1027",
       "id": "daemon_parental_control_daemon_scanrunningappimagesproc",
       "community": 0,
       "norm_label": "scanrunningappimagesproc()"
@@ -1507,7 +1678,7 @@
       "label": "updatePortableAppImagesCache()",
       "file_type": "code",
       "source_file": "daemon/parental-control-daemon.js",
-      "source_location": "L1231",
+      "source_location": "L1232",
       "id": "daemon_parental_control_daemon_updateportableappimagescache",
       "community": 0,
       "norm_label": "updateportableappimagescache()"
@@ -1516,16 +1687,16 @@
       "label": "portableAppImageCatalogEntries()",
       "file_type": "code",
       "source_file": "daemon/parental-control-daemon.js",
-      "source_location": "L1250",
+      "source_location": "L1251",
       "id": "daemon_parental_control_daemon_portableappimagecatalogentries",
-      "community": 0,
+      "community": 15,
       "norm_label": "portableappimagecatalogentries()"
     },
     {
       "label": "loadQuotaExemptProcessNamesLower()",
       "file_type": "code",
       "source_file": "daemon/parental-control-daemon.js",
-      "source_location": "L1262",
+      "source_location": "L1263",
       "id": "daemon_parental_control_daemon_loadquotaexemptprocessnameslower",
       "community": 121,
       "norm_label": "loadquotaexemptprocessnameslower()"
@@ -1534,7 +1705,7 @@
       "label": "listNonQuotaExemptRunningCatalogApps()",
       "file_type": "code",
       "source_file": "daemon/parental-control-daemon.js",
-      "source_location": "L1272",
+      "source_location": "L1273",
       "id": "daemon_parental_control_daemon_listnonquotaexemptrunningcatalogapps",
       "community": 121,
       "norm_label": "listnonquotaexemptrunningcatalogapps()"
@@ -1543,7 +1714,7 @@
       "label": "anyWhitelistedMonitorCatalogAppRunning()",
       "file_type": "code",
       "source_file": "daemon/parental-control-daemon.js",
-      "source_location": "L1303",
+      "source_location": "L1304",
       "id": "daemon_parental_control_daemon_anywhitelistedmonitorcatalogapprunning",
       "community": 121,
       "norm_label": "anywhitelistedmonitorcatalogapprunning()"
@@ -1552,52 +1723,43 @@
       "label": "notifyExemptScreenTimeStillCountingIfNeeded()",
       "file_type": "code",
       "source_file": "daemon/parental-control-daemon.js",
-      "source_location": "L1323",
+      "source_location": "L1324",
       "id": "daemon_parental_control_daemon_notifyexemptscreentimestillcountingifneeded",
-      "community": 97,
+      "community": 0,
       "norm_label": "notifyexemptscreentimestillcountingifneeded()"
     },
     {
       "label": "notifyExemptScreenTimePausedIfNeeded()",
       "file_type": "code",
       "source_file": "daemon/parental-control-daemon.js",
-      "source_location": "L1346",
+      "source_location": "L1347",
       "id": "daemon_parental_control_daemon_notifyexemptscreentimepausedifneeded",
-      "community": 97,
+      "community": 0,
       "norm_label": "notifyexemptscreentimepausedifneeded()"
     },
     {
       "label": "notifyLogoutBlockedWhileWhitelistOnlyOnce()",
       "file_type": "code",
       "source_file": "daemon/parental-control-daemon.js",
-      "source_location": "L1369",
+      "source_location": "L1370",
       "id": "daemon_parental_control_daemon_notifylogoutblockedwhilewhitelistonlyonce",
-      "community": 97,
+      "community": 0,
       "norm_label": "notifylogoutblockedwhilewhitelistonlyonce()"
     },
     {
       "label": "buildAndWriteAppCatalog()",
       "file_type": "code",
       "source_file": "daemon/parental-control-daemon.js",
-      "source_location": "L1383",
+      "source_location": "L1384",
       "id": "daemon_parental_control_daemon_buildandwriteappcatalog",
-      "community": 0,
+      "community": 15,
       "norm_label": "buildandwriteappcatalog()"
-    },
-    {
-      "label": "probeDns4euSync()",
-      "file_type": "code",
-      "source_file": "daemon/parental-control-daemon.js",
-      "source_location": "L1410",
-      "id": "daemon_parental_control_daemon_probedns4eusync",
-      "community": 96,
-      "norm_label": "probedns4eusync()"
     },
     {
       "label": "hashPassword()",
       "file_type": "code",
       "source_file": "daemon/parental-control-daemon.js",
-      "source_location": "L1422",
+      "source_location": "L1411",
       "id": "daemon_parental_control_daemon_hashpassword",
       "community": 96,
       "norm_label": "hashpassword()"
@@ -1606,7 +1768,7 @@
       "label": "readPasswordSecurity()",
       "file_type": "code",
       "source_file": "daemon/parental-control-daemon.js",
-      "source_location": "L1428",
+      "source_location": "L1417",
       "id": "daemon_parental_control_daemon_readpasswordsecurity",
       "community": 96,
       "norm_label": "readpasswordsecurity()"
@@ -1615,7 +1777,7 @@
       "label": "writeAuthFile()",
       "file_type": "code",
       "source_file": "daemon/parental-control-daemon.js",
-      "source_location": "L1441",
+      "source_location": "L1430",
       "id": "daemon_parental_control_daemon_writeauthfile",
       "community": 96,
       "norm_label": "writeauthfile()"
@@ -1624,7 +1786,7 @@
       "label": "checkParentPassword()",
       "file_type": "code",
       "source_file": "daemon/parental-control-daemon.js",
-      "source_location": "L1450",
+      "source_location": "L1439",
       "id": "daemon_parental_control_daemon_checkparentpassword",
       "community": 96,
       "norm_label": "checkparentpassword()"
@@ -1633,7 +1795,7 @@
       "label": "DESKTOP_COMM_NAMES",
       "file_type": "code",
       "source_file": "daemon/parental-control-daemon.js",
-      "source_location": "L1460",
+      "source_location": "L1449",
       "id": "daemon_parental_control_daemon_desktop_comm_names",
       "community": 15,
       "norm_label": "desktop_comm_names"
@@ -1642,16 +1804,16 @@
       "label": "parseLoginctlSession()",
       "file_type": "code",
       "source_file": "daemon/parental-control-daemon.js",
-      "source_location": "L1462",
+      "source_location": "L1451",
       "id": "daemon_parental_control_daemon_parseloginctlsession",
-      "community": 103,
+      "community": 0,
       "norm_label": "parseloginctlsession()"
     },
     {
       "label": "userHasDesktopEnvironment()",
       "file_type": "code",
       "source_file": "daemon/parental-control-daemon.js",
-      "source_location": "L1472",
+      "source_location": "L1461",
       "id": "daemon_parental_control_daemon_userhasdesktopenvironment",
       "community": 103,
       "norm_label": "userhasdesktopenvironment()"
@@ -1660,16 +1822,16 @@
       "label": "logindSessionStateLive()",
       "file_type": "code",
       "source_file": "daemon/parental-control-daemon.js",
-      "source_location": "L1483",
+      "source_location": "L1472",
       "id": "daemon_parental_control_daemon_logindsessionstatelive",
-      "community": 103,
+      "community": 0,
       "norm_label": "logindsessionstatelive()"
     },
     {
       "label": "getActiveGraphicalSessions()",
       "file_type": "code",
       "source_file": "daemon/parental-control-daemon.js",
-      "source_location": "L1488",
+      "source_location": "L1477",
       "id": "daemon_parental_control_daemon_getactivegraphicalsessions",
       "community": 103,
       "norm_label": "getactivegraphicalsessions()"
@@ -1678,16 +1840,16 @@
       "label": "uniqueUsers()",
       "file_type": "code",
       "source_file": "daemon/parental-control-daemon.js",
-      "source_location": "L1517",
+      "source_location": "L1506",
       "id": "daemon_parental_control_daemon_uniqueusers",
-      "community": 96,
+      "community": 121,
       "norm_label": "uniqueusers()"
     },
     {
       "label": "pgrepUserProcess()",
       "file_type": "code",
       "source_file": "daemon/parental-control-daemon.js",
-      "source_location": "L1524",
+      "source_location": "L1513",
       "id": "daemon_parental_control_daemon_pgrepuserprocess",
       "community": 103,
       "norm_label": "pgrepuserprocess()"
@@ -1696,7 +1858,7 @@
       "label": "readProcCmdlineLower()",
       "file_type": "code",
       "source_file": "daemon/parental-control-daemon.js",
-      "source_location": "L1533",
+      "source_location": "L1522",
       "id": "daemon_parental_control_daemon_readproccmdlinelower",
       "community": 103,
       "norm_label": "readproccmdlinelower()"
@@ -1705,7 +1867,7 @@
       "label": "procCommMatchesCandidates()",
       "file_type": "code",
       "source_file": "daemon/parental-control-daemon.js",
-      "source_location": "L1542",
+      "source_location": "L1531",
       "id": "daemon_parental_control_daemon_proccommmatchescandidates",
       "community": 103,
       "norm_label": "proccommmatchescandidates()"
@@ -1714,7 +1876,7 @@
       "label": "userHasProcessMatchingEntry()",
       "file_type": "code",
       "source_file": "daemon/parental-control-daemon.js",
-      "source_location": "L1554",
+      "source_location": "L1543",
       "id": "daemon_parental_control_daemon_userhasprocessmatchingentry",
       "community": 103,
       "norm_label": "userhasprocessmatchingentry()"
@@ -1723,7 +1885,7 @@
       "label": "anyUserMatchingEntry()",
       "file_type": "code",
       "source_file": "daemon/parental-control-daemon.js",
-      "source_location": "L1571",
+      "source_location": "L1560",
       "id": "daemon_parental_control_daemon_anyusermatchingentry",
       "community": 103,
       "norm_label": "anyusermatchingentry()"
@@ -1732,7 +1894,7 @@
       "label": "pkillUsersMatchingEntry()",
       "file_type": "code",
       "source_file": "daemon/parental-control-daemon.js",
-      "source_location": "L1586",
+      "source_location": "L1575",
       "id": "daemon_parental_control_daemon_pkillusersmatchingentry",
       "community": 103,
       "norm_label": "pkillusersmatchingentry()"
@@ -1741,7 +1903,7 @@
       "label": "processNameCandidatesForAppEntry()",
       "file_type": "code",
       "source_file": "daemon/parental-control-daemon.js",
-      "source_location": "L1618",
+      "source_location": "L1607",
       "id": "daemon_parental_control_daemon_processnamecandidatesforappentry",
       "community": 121,
       "norm_label": "processnamecandidatesforappentry()"
@@ -1750,7 +1912,7 @@
       "label": "appMonitoringIdentityKey()",
       "file_type": "code",
       "source_file": "daemon/parental-control-daemon.js",
-      "source_location": "L1644",
+      "source_location": "L1633",
       "id": "daemon_parental_control_daemon_appmonitoringidentitykey",
       "community": 15,
       "norm_label": "appmonitoringidentitykey()"
@@ -1759,7 +1921,7 @@
       "label": "dedupeAppsByMonitoringIdentity()",
       "file_type": "code",
       "source_file": "daemon/parental-control-daemon.js",
-      "source_location": "L1658",
+      "source_location": "L1647",
       "id": "daemon_parental_control_daemon_dedupeappsbymonitoringidentity",
       "community": 15,
       "norm_label": "dedupeappsbymonitoringidentity()"
@@ -1768,97 +1930,97 @@
       "label": "pgrepUserAnyCandidate()",
       "file_type": "code",
       "source_file": "daemon/parental-control-daemon.js",
-      "source_location": "L1679",
+      "source_location": "L1668",
       "id": "daemon_parental_control_daemon_pgrepuseranycandidate",
-      "community": 103,
+      "community": 121,
       "norm_label": "pgrepuseranycandidate()"
     },
     {
       "label": "terminateSessionsForPolicy()",
       "file_type": "code",
       "source_file": "daemon/parental-control-daemon.js",
-      "source_location": "L1695",
+      "source_location": "L1684",
       "id": "daemon_parental_control_daemon_terminatesessionsforpolicy",
-      "community": 97,
+      "community": 103,
       "norm_label": "terminatesessionsforpolicy()"
     },
     {
       "label": "loadExemptAppProcessNames()",
       "file_type": "code",
       "source_file": "daemon/parental-control-daemon.js",
-      "source_location": "L1742",
+      "source_location": "L1731",
       "id": "daemon_parental_control_daemon_loadexemptappprocessnames",
-      "community": 121,
+      "community": 129,
       "norm_label": "loadexemptappprocessnames()"
     },
     {
       "label": "broadcast()",
       "file_type": "code",
       "source_file": "daemon/parental-control-daemon.js",
-      "source_location": "L1775",
+      "source_location": "L1764",
       "id": "daemon_parental_control_daemon_broadcast",
-      "community": 97,
+      "community": 0,
       "norm_label": "broadcast()"
     },
     {
       "label": "broadcastWarn()",
       "file_type": "code",
       "source_file": "daemon/parental-control-daemon.js",
-      "source_location": "L1783",
+      "source_location": "L1772",
       "id": "daemon_parental_control_daemon_broadcastwarn",
-      "community": 97,
+      "community": 0,
       "norm_label": "broadcastwarn()"
     },
     {
       "label": "findElectronExecPath()",
       "file_type": "code",
       "source_file": "daemon/parental-control-daemon.js",
-      "source_location": "L1790",
+      "source_location": "L1779",
       "id": "daemon_parental_control_daemon_findelectronexecpath",
-      "community": 97,
+      "community": 0,
       "norm_label": "findelectronexecpath()"
     },
     {
       "label": "queryLoginctlSessionFields()",
       "file_type": "code",
       "source_file": "daemon/parental-control-daemon.js",
-      "source_location": "L1807",
+      "source_location": "L1796",
       "id": "daemon_parental_control_daemon_queryloginctlsessionfields",
-      "community": 103,
+      "community": 0,
       "norm_label": "queryloginctlsessionfields()"
     },
     {
       "label": "userHasDesktopEnvironmentSync()",
       "file_type": "code",
       "source_file": "daemon/parental-control-daemon.js",
-      "source_location": "L1826",
+      "source_location": "L1815",
       "id": "daemon_parental_control_daemon_userhasdesktopenvironmentsync",
-      "community": 103,
+      "community": 0,
       "norm_label": "userhasdesktopenvironmentsync()"
     },
     {
       "label": "waylandSocketName()",
       "file_type": "code",
       "source_file": "daemon/parental-control-daemon.js",
-      "source_location": "L1836",
+      "source_location": "L1825",
       "id": "daemon_parental_control_daemon_waylandsocketname",
-      "community": 103,
+      "community": 0,
       "norm_label": "waylandsocketname()"
     },
     {
       "label": "getUnixHomeDir()",
       "file_type": "code",
       "source_file": "daemon/parental-control-daemon.js",
-      "source_location": "L1846",
+      "source_location": "L1835",
       "id": "daemon_parental_control_daemon_getunixhomedir",
-      "community": 129,
+      "community": 0,
       "norm_label": "getunixhomedir()"
     },
     {
       "label": "querySessionXauthorityFromLogind()",
       "file_type": "code",
       "source_file": "daemon/parental-control-daemon.js",
-      "source_location": "L1858",
+      "source_location": "L1847",
       "id": "daemon_parental_control_daemon_querysessionxauthorityfromlogind",
       "community": 0,
       "norm_label": "querysessionxauthorityfromlogind()"
@@ -1867,7 +2029,7 @@
       "label": "findUserXauthorityPath()",
       "file_type": "code",
       "source_file": "daemon/parental-control-daemon.js",
-      "source_location": "L1873",
+      "source_location": "L1862",
       "id": "daemon_parental_control_daemon_finduserxauthoritypath",
       "community": 0,
       "norm_label": "finduserxauthoritypath()"
@@ -1876,7 +2038,7 @@
       "label": "resolveXauthorityForX11Session()",
       "file_type": "code",
       "source_file": "daemon/parental-control-daemon.js",
-      "source_location": "L1899",
+      "source_location": "L1888",
       "id": "daemon_parental_control_daemon_resolvexauthorityforx11session",
       "community": 0,
       "norm_label": "resolvexauthorityforx11session()"
@@ -1885,7 +2047,7 @@
       "label": "SKIP_LOGIN_USERS",
       "file_type": "code",
       "source_file": "daemon/parental-control-daemon.js",
-      "source_location": "L1905",
+      "source_location": "L1894",
       "id": "daemon_parental_control_daemon_skip_login_users",
       "community": 15,
       "norm_label": "skip_login_users"
@@ -1894,25 +2056,25 @@
       "label": "trySessionToActiveUserInfo()",
       "file_type": "code",
       "source_file": "daemon/parental-control-daemon.js",
-      "source_location": "L1908",
+      "source_location": "L1897",
       "id": "daemon_parental_control_daemon_trysessiontoactiveuserinfo",
-      "community": 103,
+      "community": 0,
       "norm_label": "trysessiontoactiveuserinfo()"
     },
     {
       "label": "listActiveUserInfos()",
       "file_type": "code",
       "source_file": "daemon/parental-control-daemon.js",
-      "source_location": "L2003",
+      "source_location": "L1992",
       "id": "daemon_parental_control_daemon_listactiveuserinfos",
-      "community": 97,
+      "community": 0,
       "norm_label": "listactiveuserinfos()"
     },
     {
       "label": "preferredLinuxUserForWarnings()",
       "file_type": "code",
       "source_file": "daemon/parental-control-daemon.js",
-      "source_location": "L2020",
+      "source_location": "L2009",
       "id": "daemon_parental_control_daemon_preferredlinuxuserforwarnings",
       "community": 0,
       "norm_label": "preferredlinuxuserforwarnings()"
@@ -1921,25 +2083,25 @@
       "label": "getActiveSeatSessionId()",
       "file_type": "code",
       "source_file": "daemon/parental-control-daemon.js",
-      "source_location": "L2025",
+      "source_location": "L2014",
       "id": "daemon_parental_control_daemon_getactiveseatsessionid",
-      "community": 97,
+      "community": 0,
       "norm_label": "getactiveseatsessionid()"
     },
     {
       "label": "getFirstActiveUserInfo()",
       "file_type": "code",
       "source_file": "daemon/parental-control-daemon.js",
-      "source_location": "L2034",
+      "source_location": "L2023",
       "id": "daemon_parental_control_daemon_getfirstactiveuserinfo",
-      "community": 97,
+      "community": 0,
       "norm_label": "getfirstactiveuserinfo()"
     },
     {
       "label": "WARNING_LOGIND_ENV_KEYS",
       "file_type": "code",
       "source_file": "daemon/parental-control-daemon.js",
-      "source_location": "L2068",
+      "source_location": "L2057",
       "id": "daemon_parental_control_daemon_warning_logind_env_keys",
       "community": 15,
       "norm_label": "warning_logind_env_keys"
@@ -1948,7 +2110,7 @@
       "label": "NOTIFY_SEND_LOGIND_ENV_KEYS",
       "file_type": "code",
       "source_file": "daemon/parental-control-daemon.js",
-      "source_location": "L2071",
+      "source_location": "L2060",
       "id": "daemon_parental_control_daemon_notify_send_logind_env_keys",
       "community": 15,
       "norm_label": "notify_send_logind_env_keys"
@@ -1957,16 +2119,16 @@
       "label": "envPairsFromLoginctlSessionEnvironment()",
       "file_type": "code",
       "source_file": "daemon/parental-control-daemon.js",
-      "source_location": "L2081",
+      "source_location": "L2070",
       "id": "daemon_parental_control_daemon_envpairsfromloginctlsessionenvironment",
-      "community": 129,
+      "community": 0,
       "norm_label": "envpairsfromloginctlsessionenvironment()"
     },
     {
       "label": "COMPOSITOR_PROCS_FOR_ENV",
       "file_type": "code",
       "source_file": "daemon/parental-control-daemon.js",
-      "source_location": "L2097",
+      "source_location": "L2086",
       "id": "daemon_parental_control_daemon_compositor_procs_for_env",
       "community": 15,
       "norm_label": "compositor_procs_for_env"
@@ -1975,52 +2137,52 @@
       "label": "readEnvVarsFromUserProcess()",
       "file_type": "code",
       "source_file": "daemon/parental-control-daemon.js",
-      "source_location": "L2105",
+      "source_location": "L2094",
       "id": "daemon_parental_control_daemon_readenvvarsfromuserprocess",
-      "community": 129,
+      "community": 0,
       "norm_label": "readenvvarsfromuserprocess()"
     },
     {
       "label": "buildWarningWindowEnvPairs()",
       "file_type": "code",
       "source_file": "daemon/parental-control-daemon.js",
-      "source_location": "L2144",
+      "source_location": "L2133",
       "id": "daemon_parental_control_daemon_buildwarningwindowenvpairs",
-      "community": 129,
+      "community": 0,
       "norm_label": "buildwarningwindowenvpairs()"
     },
     {
       "label": "buildNotifySendEnvPairs()",
       "file_type": "code",
       "source_file": "daemon/parental-control-daemon.js",
-      "source_location": "L2174",
+      "source_location": "L2163",
       "id": "daemon_parental_control_daemon_buildnotifysendenvpairs",
-      "community": 129,
+      "community": 0,
       "norm_label": "buildnotifysendenvpairs()"
     },
     {
       "label": "spawnWarningWindow()",
       "file_type": "code",
       "source_file": "daemon/parental-control-daemon.js",
-      "source_location": "L2211",
+      "source_location": "L2200",
       "id": "daemon_parental_control_daemon_spawnwarningwindow",
-      "community": 97,
+      "community": 0,
       "norm_label": "spawnwarningwindow()"
     },
     {
       "label": "notifyOrSpawn()",
       "file_type": "code",
       "source_file": "daemon/parental-control-daemon.js",
-      "source_location": "L2288",
+      "source_location": "L2277",
       "id": "daemon_parental_control_daemon_notifyorspawn",
-      "community": 97,
+      "community": 0,
       "norm_label": "notifyorspawn()"
     },
     {
       "label": "isoWeekday()",
       "file_type": "code",
       "source_file": "daemon/parental-control-daemon.js",
-      "source_location": "L2338",
+      "source_location": "L2327",
       "id": "daemon_parental_control_daemon_isoweekday",
       "community": 96,
       "norm_label": "isoweekday()"
@@ -2029,7 +2191,7 @@
       "label": "scheduleStartDayMinutes()",
       "file_type": "code",
       "source_file": "daemon/parental-control-daemon.js",
-      "source_location": "L2343",
+      "source_location": "L2332",
       "id": "daemon_parental_control_daemon_schedulestartdayminutes",
       "community": 97,
       "norm_label": "schedulestartdayminutes()"
@@ -2038,7 +2200,7 @@
       "label": "scheduleEndDayMinutes()",
       "file_type": "code",
       "source_file": "daemon/parental-control-daemon.js",
-      "source_location": "L2348",
+      "source_location": "L2337",
       "id": "daemon_parental_control_daemon_scheduleenddayminutes",
       "community": 97,
       "norm_label": "scheduleenddayminutes()"
@@ -2047,7 +2209,7 @@
       "label": "parseOverrideEndDayMinutes()",
       "file_type": "code",
       "source_file": "daemon/parental-control-daemon.js",
-      "source_location": "L2354",
+      "source_location": "L2343",
       "id": "daemon_parental_control_daemon_parseoverrideenddayminutes",
       "community": 97,
       "norm_label": "parseoverrideenddayminutes()"
@@ -2056,16 +2218,16 @@
       "label": "allowedHoursPostLogoutOverrideEndHHMM()",
       "file_type": "code",
       "source_file": "daemon/parental-control-daemon.js",
-      "source_location": "L2368",
+      "source_location": "L2357",
       "id": "daemon_parental_control_daemon_allowedhourspostlogoutoverrideendhhmm",
-      "community": 96,
+      "community": 97,
       "norm_label": "allowedhourspostlogoutoverrideendhhmm()"
     },
     {
       "label": "effectiveAllowedHoursEndDayMinutes()",
       "file_type": "code",
       "source_file": "daemon/parental-control-daemon.js",
-      "source_location": "L2374",
+      "source_location": "L2363",
       "id": "daemon_parental_control_daemon_effectiveallowedhoursenddayminutes",
       "community": 97,
       "norm_label": "effectiveallowedhoursenddayminutes()"
@@ -2074,7 +2236,7 @@
       "label": "allowedHoursOverrideOptionHHMMs()",
       "file_type": "code",
       "source_file": "daemon/parental-control-daemon.js",
-      "source_location": "L2386",
+      "source_location": "L2375",
       "id": "daemon_parental_control_daemon_allowedhoursoverrideoptionhhmms",
       "community": 97,
       "norm_label": "allowedhoursoverrideoptionhhmms()"
@@ -2083,7 +2245,7 @@
       "label": "isWithinAllowedHours()",
       "file_type": "code",
       "source_file": "daemon/parental-control-daemon.js",
-      "source_location": "L2399",
+      "source_location": "L2388",
       "id": "daemon_parental_control_daemon_iswithinallowedhours",
       "community": 97,
       "norm_label": "iswithinallowedhours()"
@@ -2092,16 +2254,16 @@
       "label": "atLoggedMinuteBoundary()",
       "file_type": "code",
       "source_file": "daemon/parental-control-daemon.js",
-      "source_location": "L2408",
+      "source_location": "L2397",
       "id": "daemon_parental_control_daemon_atloggedminuteboundary",
-      "community": 0,
+      "community": 15,
       "norm_label": "atloggedminuteboundary()"
     },
     {
       "label": "ensureUserMinutes()",
       "file_type": "code",
       "source_file": "daemon/parental-control-daemon.js",
-      "source_location": "L2413",
+      "source_location": "L2402",
       "id": "daemon_parental_control_daemon_ensureuserminutes",
       "community": 97,
       "norm_label": "ensureuserminutes()"
@@ -2110,7 +2272,7 @@
       "label": "tickScreenTime()",
       "file_type": "code",
       "source_file": "daemon/parental-control-daemon.js",
-      "source_location": "L2420",
+      "source_location": "L2409",
       "id": "daemon_parental_control_daemon_tickscreentime",
       "community": 97,
       "norm_label": "tickscreentime()"
@@ -2119,43 +2281,43 @@
       "label": "resetAppQuotaWarnIfNewDay()",
       "file_type": "code",
       "source_file": "daemon/parental-control-daemon.js",
-      "source_location": "L2712",
+      "source_location": "L2701",
       "id": "daemon_parental_control_daemon_resetappquotawarnifnewday",
-      "community": 96,
+      "community": 97,
       "norm_label": "resetappquotawarnifnewday()"
     },
     {
       "label": "tickAppQuotas()",
       "file_type": "code",
       "source_file": "daemon/parental-control-daemon.js",
-      "source_location": "L2721",
+      "source_location": "L2710",
       "id": "daemon_parental_control_daemon_tickappquotas",
-      "community": 96,
+      "community": 103,
       "norm_label": "tickappquotas()"
     },
     {
       "label": "tickAppMonitor()",
       "file_type": "code",
       "source_file": "daemon/parental-control-daemon.js",
-      "source_location": "L2854",
+      "source_location": "L2843",
       "id": "daemon_parental_control_daemon_tickappmonitor",
-      "community": 96,
+      "community": 121,
       "norm_label": "tickappmonitor()"
     },
     {
       "label": "tickAppBlockPoller()",
       "file_type": "code",
       "source_file": "daemon/parental-control-daemon.js",
-      "source_location": "L2894",
+      "source_location": "L2883",
       "id": "daemon_parental_control_daemon_tickappblockpoller",
-      "community": 97,
+      "community": 103,
       "norm_label": "tickappblockpoller()"
     },
     {
       "label": "clearRequestDaemonWarningTestFlag()",
       "file_type": "code",
       "source_file": "daemon/parental-control-daemon.js",
-      "source_location": "L3002",
+      "source_location": "L2991",
       "id": "daemon_parental_control_daemon_clearrequestdaemonwarningtestflag",
       "community": 0,
       "norm_label": "clearrequestdaemonwarningtestflag()"
@@ -2164,7 +2326,7 @@
       "label": "maybeHandleDaemonWarningTestRequest()",
       "file_type": "code",
       "source_file": "daemon/parental-control-daemon.js",
-      "source_location": "L3019",
+      "source_location": "L3008",
       "id": "daemon_parental_control_daemon_maybehandledaemonwarningtestrequest",
       "community": 0,
       "norm_label": "maybehandledaemonwarningtestrequest()"
@@ -2173,7 +2335,7 @@
       "label": "PRIVILEGED_SOCKET_TYPES",
       "file_type": "code",
       "source_file": "daemon/parental-control-daemon.js",
-      "source_location": "L3032",
+      "source_location": "L3021",
       "id": "daemon_parental_control_daemon_privileged_socket_types",
       "community": 15,
       "norm_label": "privileged_socket_types"
@@ -2182,34 +2344,34 @@
       "label": "readSocketPrivilegedUidSet()",
       "file_type": "code",
       "source_file": "daemon/parental-control-daemon.js",
-      "source_location": "L3041",
+      "source_location": "L3030",
       "id": "daemon_parental_control_daemon_readsocketprivilegeduidset",
-      "community": 15,
+      "community": 96,
       "norm_label": "readsocketprivilegeduidset()"
     },
     {
       "label": "readPreferencesManagementLinuxUid()",
       "file_type": "code",
       "source_file": "daemon/parental-control-daemon.js",
-      "source_location": "L3056",
+      "source_location": "L3045",
       "id": "daemon_parental_control_daemon_readpreferencesmanagementlinuxuid",
-      "community": 15,
+      "community": 96,
       "norm_label": "readpreferencesmanagementlinuxuid()"
     },
     {
       "label": "socketPrivilegedPeer()",
       "file_type": "code",
       "source_file": "daemon/parental-control-daemon.js",
-      "source_location": "L3064",
+      "source_location": "L3053",
       "id": "daemon_parental_control_daemon_socketprivilegedpeer",
-      "community": 15,
+      "community": 96,
       "norm_label": "socketprivilegedpeer()"
     },
     {
       "label": "denySocketPrivileged()",
       "file_type": "code",
       "source_file": "daemon/parental-control-daemon.js",
-      "source_location": "L3073",
+      "source_location": "L3062",
       "id": "daemon_parental_control_daemon_denysocketprivileged",
       "community": 96,
       "norm_label": "denysocketprivileged()"
@@ -2218,16 +2380,16 @@
       "label": "allowsPrivilegedWriteConfig()",
       "file_type": "code",
       "source_file": "daemon/parental-control-daemon.js",
-      "source_location": "L3081",
+      "source_location": "L3070",
       "id": "daemon_parental_control_daemon_allowsprivilegedwriteconfig",
-      "community": 15,
+      "community": 96,
       "norm_label": "allowsprivilegedwriteconfig()"
     },
     {
       "label": "tickWork()",
       "file_type": "code",
       "source_file": "daemon/parental-control-daemon.js",
-      "source_location": "L3092",
+      "source_location": "L3081",
       "id": "daemon_parental_control_daemon_tickwork",
       "community": 0,
       "norm_label": "tickwork()"
@@ -2236,7 +2398,7 @@
       "label": "handleClientCommand()",
       "file_type": "code",
       "source_file": "daemon/parental-control-daemon.js",
-      "source_location": "L3112",
+      "source_location": "L3101",
       "id": "daemon_parental_control_daemon_handleclientcommand",
       "community": 96,
       "norm_label": "handleclientcommand()"
@@ -2245,16 +2407,16 @@
       "label": "startSocketServer()",
       "file_type": "code",
       "source_file": "daemon/parental-control-daemon.js",
-      "source_location": "L4042",
+      "source_location": "L3916",
       "id": "daemon_parental_control_daemon_startsocketserver",
-      "community": 0,
+      "community": 15,
       "norm_label": "startsocketserver()"
     },
     {
       "label": "defaultSync",
       "file_type": "code",
       "source_file": "daemon/parental-control-daemon.js",
-      "source_location": "L4132",
+      "source_location": "L4006",
       "id": "daemon_parental_control_daemon_defaultsync",
       "community": 15,
       "norm_label": "defaultsync"
@@ -6828,7 +6990,7 @@
       "source_file": "lang/en.json",
       "source_location": "L1",
       "id": "lang_en",
-      "community": 106,
+      "community": 127,
       "norm_label": "en.json"
     },
     {
@@ -11031,7 +11193,7 @@
       "source_file": "lang/en.json",
       "source_location": "L486",
       "id": "lang_en_about",
-      "community": 106,
+      "community": 127,
       "norm_label": "about"
     },
     {
@@ -11040,7 +11202,7 @@
       "source_file": "lang/en.json",
       "source_location": "L487",
       "id": "lang_en_about_okbtn",
-      "community": 106,
+      "community": 127,
       "norm_label": "okbtn"
     },
     {
@@ -12790,7 +12952,7 @@
       "source_file": "src/main/ipc/activityLog.js",
       "source_location": "L1",
       "id": "ipc_activitylog",
-      "community": 3,
+      "community": 115,
       "norm_label": "activitylog.js"
     },
     {
@@ -12799,7 +12961,7 @@
       "source_file": "src/main/ipc/activityLog.js",
       "source_location": "L8",
       "id": "ipc_activitylog_appendactivity",
-      "community": 3,
+      "community": 115,
       "norm_label": "appendactivity()"
     },
     {
@@ -12808,7 +12970,7 @@
       "source_file": "src/main/ipc/activityLog.js",
       "source_location": "L12",
       "id": "ipc_activitylog_readactivitylog",
-      "community": 3,
+      "community": 115,
       "norm_label": "readactivitylog()"
     },
     {
@@ -13213,7 +13375,7 @@
       "source_file": "src/main/ipc/lockdownIpc.js",
       "source_location": "L1",
       "id": "ipc_lockdownipc",
-      "community": 3,
+      "community": 115,
       "norm_label": "lockdownipc.js"
     },
     {
@@ -13285,7 +13447,7 @@
       "source_file": "src/main/ipc/processWhitelistIpc.js",
       "source_location": "L54",
       "id": "ipc_processwhitelistipc_registerprocesswhitelistipc",
-      "community": 115,
+      "community": 3,
       "norm_label": "registerprocesswhitelistipc()"
     },
     {
@@ -13294,7 +13456,7 @@
       "source_file": "src/main/ipc/profileIpc.js",
       "source_location": "L1",
       "id": "ipc_profileipc",
-      "community": 3,
+      "community": 115,
       "norm_label": "profileipc.js"
     },
     {
@@ -13798,7 +13960,7 @@
       "source_file": "src/main/ipc/usageArchivePrune.js",
       "source_location": "L14",
       "id": "ipc_usagearchiveprune_pruneusagearchives",
-      "community": 115,
+      "community": 101,
       "norm_label": "pruneusagearchives()"
     },
     {
@@ -14059,7 +14221,7 @@
       "source_file": "src/main/ipc/webFilterIpc.js",
       "source_location": "L146",
       "id": "ipc_webfilteripc_registerwebfilteripc",
-      "community": 3,
+      "community": 4,
       "norm_label": "registerwebfilteripc()"
     },
     {
@@ -15692,10 +15854,19 @@
       "norm_label": "life parental control \u2014 persistent context (compressed)"
     },
     {
-      "label": "Recent (2026-09-19)",
+      "label": "Recent (2026-10-14)",
       "file_type": "document",
       "source_file": "memory.md",
       "source_location": "L3",
+      "id": "memory_recent_2026_10_14",
+      "community": 118,
+      "norm_label": "recent (2026-10-14)"
+    },
+    {
+      "label": "Recent (2026-09-19)",
+      "file_type": "document",
+      "source_file": "memory.md",
+      "source_location": "L6",
       "id": "memory_recent_2026_09_19",
       "community": 118,
       "norm_label": "recent (2026-09-19)"
@@ -15704,7 +15875,7 @@
       "label": "Recent (2026-05-06)",
       "file_type": "document",
       "source_file": "memory.md",
-      "source_location": "L8",
+      "source_location": "L11",
       "id": "memory_recent_2026_05_06",
       "community": 118,
       "norm_label": "recent (2026-05-06)"
@@ -15713,7 +15884,7 @@
       "label": "Recent (2026-05-04)",
       "file_type": "document",
       "source_file": "memory.md",
-      "source_location": "L12",
+      "source_location": "L15",
       "id": "memory_recent_2026_05_04",
       "community": 118,
       "norm_label": "recent (2026-05-04)"
@@ -15722,7 +15893,7 @@
       "label": "Stack (actual)",
       "file_type": "document",
       "source_file": "memory.md",
-      "source_location": "L17",
+      "source_location": "L20",
       "id": "memory_stack_actual",
       "community": 118,
       "norm_label": "stack (actual)"
@@ -15731,7 +15902,7 @@
       "label": "IPC surface",
       "file_type": "document",
       "source_file": "memory.md",
-      "source_location": "L20",
+      "source_location": "L23",
       "id": "memory_ipc_surface",
       "community": 118,
       "norm_label": "ipc surface"
@@ -15740,7 +15911,7 @@
       "label": "KDE integration",
       "file_type": "document",
       "source_file": "memory.md",
-      "source_location": "L23",
+      "source_location": "L26",
       "id": "memory_kde_integration",
       "community": 118,
       "norm_label": "kde integration"
@@ -15749,7 +15920,7 @@
       "label": "Recent changes (2026-03-20)",
       "file_type": "document",
       "source_file": "memory.md",
-      "source_location": "L26",
+      "source_location": "L29",
       "id": "memory_recent_changes_2026_03_20",
       "community": 118,
       "norm_label": "recent changes (2026-03-20)"
@@ -15758,7 +15929,7 @@
       "label": "Earlier (2026-03-20)",
       "file_type": "document",
       "source_file": "memory.md",
-      "source_location": "L111",
+      "source_location": "L114",
       "id": "memory_earlier_2026_03_20",
       "community": 118,
       "norm_label": "earlier (2026-03-20)"
@@ -15767,7 +15938,7 @@
       "label": "Recent changes (2026-03-20 continued)",
       "file_type": "document",
       "source_file": "memory.md",
-      "source_location": "L119",
+      "source_location": "L122",
       "id": "memory_recent_changes_2026_03_20_continued",
       "community": 118,
       "norm_label": "recent changes (2026-03-20 continued)"
@@ -15776,7 +15947,7 @@
       "label": "2026-05-04",
       "file_type": "document",
       "source_file": "memory.md",
-      "source_location": "L128",
+      "source_location": "L131",
       "id": "memory_2026_05_04",
       "community": 118,
       "norm_label": "2026-05-04"
@@ -15785,10 +15956,55 @@
       "label": "Open / TODO",
       "file_type": "document",
       "source_file": "memory.md",
-      "source_location": "L132",
+      "source_location": "L135",
       "id": "memory_open_todo",
       "community": 118,
       "norm_label": "open / todo"
+    },
+    {
+      "label": "DNSMASQ_DNS4EU",
+      "file_type": "code",
+      "source_file": "daemon/defaultSync.js",
+      "source_location": "L463",
+      "community": 2,
+      "norm_label": "dnsmasq_dns4eu",
+      "id": "daemon_defaultsync_dnsmasq_dns4eu"
+    },
+    {
+      "label": "VALID_DNS_MODES",
+      "file_type": "code",
+      "source_file": "daemon/defaultSync.js",
+      "source_location": "L469",
+      "community": 2,
+      "norm_label": "valid_dns_modes",
+      "id": "daemon_defaultsync_valid_dns_modes"
+    },
+    {
+      "label": "resolveDhcpDns()",
+      "file_type": "code",
+      "source_file": "daemon/defaultSync.js",
+      "source_location": "L471",
+      "community": 2,
+      "norm_label": "resolvedhcpdns()",
+      "id": "daemon_defaultsync_resolvedhcpdns"
+    },
+    {
+      "label": "probeDns4euSync()",
+      "file_type": "code",
+      "source_file": "daemon/defaultSync.js",
+      "source_location": "L485",
+      "community": 2,
+      "norm_label": "probedns4eusync()",
+      "id": "daemon_defaultsync_probedns4eusync"
+    },
+    {
+      "label": "probeDns4euSync()",
+      "file_type": "code",
+      "source_file": "daemon/parental-control-daemon.js",
+      "source_location": "L1410",
+      "community": 96,
+      "norm_label": "probedns4eusync()",
+      "id": "daemon_parental_control_daemon_probedns4eusync"
     },
     {
       "label": "introLead",
@@ -16614,7 +16830,7 @@
       "file_type": "code",
       "source_file": "src/main/ipc/activityLog.js",
       "source_location": "L1",
-      "community": 3,
+      "community": 115,
       "norm_label": "activitylog.js",
       "id": "src_main_ipc_activitylog_js"
     },
@@ -16632,7 +16848,7 @@
       "file_type": "code",
       "source_file": "src/main/ipc/usageArchivePrune.js",
       "source_location": "L1",
-      "community": 115,
+      "community": 101,
       "norm_label": "usagearchiveprune.js",
       "id": "src_main_ipc_usagearchiveprune_js"
     },
@@ -16785,7 +17001,7 @@
       "file_type": "code",
       "source_file": "daemon/parental-control-daemon.js",
       "source_location": "L1344",
-      "community": 96,
+      "community": 103,
       "norm_label": "pkillallusers()",
       "id": "daemon_parental_control_daemon_pkillallusers"
     },
@@ -17441,6 +17657,16 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "daemon/defaultSync.js",
+      "source_location": "L9",
+      "weight": 1.0,
+      "source": "daemon_defaultsync",
+      "target": "daemon_defaultsync_chooseupstream_dnsmasqserverdirective_restartdnsmasq_stopdnsmasq_upstreamdrifted_pointresolvatlocaldnsmasq_releaseresolvtonetworkmanager",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "daemon/defaultSync.js",
       "source_location": "L797",
       "weight": 1.0,
       "confidence_score": 1.0,
@@ -17876,6 +18102,94 @@
       "confidence_score": 1.0,
       "source": "daemon_defaultsync",
       "target": "daemon_defaultsync_writejsonfile"
+    },
+    {
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "daemon/defaultSync.js",
+      "source_location": "L9",
+      "weight": 1.0,
+      "source": "daemon_defaultsync",
+      "target": "daemon_dnsupstream",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "daemon/defaultSync.js",
+      "source_location": "L9",
+      "weight": 1.0,
+      "source": "daemon_defaultsync",
+      "target": "daemon_dnsupstream_chooseupstream",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "daemon/defaultSync.js",
+      "source_location": "L9",
+      "weight": 1.0,
+      "source": "daemon_defaultsync",
+      "target": "daemon_dnsupstream_dnsmasqserverdirective",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "daemon/defaultSync.js",
+      "source_location": "L9",
+      "weight": 1.0,
+      "source": "daemon_defaultsync",
+      "target": "daemon_dnsupstream_pointresolvatlocaldnsmasq",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "daemon/defaultSync.js",
+      "source_location": "L9",
+      "weight": 1.0,
+      "source": "daemon_defaultsync",
+      "target": "daemon_dnsupstream_releaseresolvtonetworkmanager",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "daemon/defaultSync.js",
+      "source_location": "L9",
+      "weight": 1.0,
+      "source": "daemon_defaultsync",
+      "target": "daemon_dnsupstream_restartdnsmasq",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "daemon/defaultSync.js",
+      "source_location": "L9",
+      "weight": 1.0,
+      "source": "daemon_defaultsync",
+      "target": "daemon_dnsupstream_stopdnsmasq",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "daemon/defaultSync.js",
+      "source_location": "L9",
+      "weight": 1.0,
+      "source": "daemon_defaultsync",
+      "target": "daemon_dnsupstream_upstreamdrifted",
+      "confidence_score": 1.0
     },
     {
       "relation": "imports_from",
@@ -18583,24 +18897,13 @@
     },
     {
       "relation": "calls",
-      "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "daemon/defaultSync.js",
-      "source_location": "L504",
+      "source_location": "L842",
       "weight": 1.0,
       "confidence_score": 1.0,
       "source": "daemon_defaultsync_applydnsmasq",
-      "target": "daemon_defaultsync_resolvedhcpdns"
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "daemon/defaultSync.js",
-      "source_location": "L444",
-      "weight": 1.0,
-      "confidence_score": 1.0,
-      "source": "daemon_defaultsync_js",
-      "target": "daemon_defaultsync_resolvedhcpdns"
+      "target": "daemon_defaultsync_applyfromdefault"
     },
     {
       "relation": "calls",
@@ -18614,24 +18917,70 @@
       "target": "daemon_defaultsync_probedns4eusync"
     },
     {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "daemon/defaultSync.js",
-      "source_location": "L458",
-      "weight": 1.0,
-      "confidence_score": 1.0,
-      "source": "daemon_defaultsync_js",
-      "target": "daemon_defaultsync_probedns4eusync"
-    },
-    {
       "relation": "calls",
+      "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "daemon/defaultSync.js",
-      "source_location": "L842",
+      "source_location": "L504",
       "weight": 1.0,
       "confidence_score": 1.0,
       "source": "daemon_defaultsync_applydnsmasq",
-      "target": "daemon_defaultsync_applyfromdefault"
+      "target": "daemon_defaultsync_resolvedhcpdns"
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "daemon/defaultSync.js",
+      "source_location": "L468",
+      "weight": 1.0,
+      "source": "daemon_defaultsync_applydnsmasq",
+      "target": "daemon_dnsupstream_chooseupstream"
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "daemon/defaultSync.js",
+      "source_location": "L509",
+      "weight": 1.0,
+      "source": "daemon_defaultsync_applydnsmasq",
+      "target": "daemon_dnsupstream_dnsmasqserverdirective"
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "daemon/defaultSync.js",
+      "source_location": "L528",
+      "weight": 1.0,
+      "source": "daemon_defaultsync_applydnsmasq",
+      "target": "daemon_dnsupstream_pointresolvatlocaldnsmasq"
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "daemon/defaultSync.js",
+      "source_location": "L525",
+      "weight": 1.0,
+      "source": "daemon_defaultsync_applydnsmasq",
+      "target": "daemon_dnsupstream_releaseresolvtonetworkmanager"
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "daemon/defaultSync.js",
+      "source_location": "L523",
+      "weight": 1.0,
+      "source": "daemon_defaultsync_applydnsmasq",
+      "target": "daemon_dnsupstream_restartdnsmasq"
     },
     {
       "relation": "contains",
@@ -18820,6 +19169,28 @@
       "target": "daemon_defaultsync_applydesktopoverride"
     },
     {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "daemon/defaultSync.js",
+      "source_location": "L719",
+      "weight": 1.0,
+      "source": "daemon_defaultsync_applyfromdefault",
+      "target": "daemon_dnsupstream_releaseresolvtonetworkmanager"
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "daemon/defaultSync.js",
+      "source_location": "L720",
+      "weight": 1.0,
+      "source": "daemon_defaultsync_applyfromdefault",
+      "target": "daemon_dnsupstream_stopdnsmasq"
+    },
+    {
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "daemon/defaultSync.js",
@@ -18890,6 +19261,569 @@
       "confidence_score": 1.0,
       "source": "daemon_parental_control_daemon",
       "target": "daemon_defaultsync_createdefaultsync"
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "daemon/dnsUpstream.js",
+      "source_location": "L102",
+      "weight": 1.0,
+      "source": "daemon_dnsupstream",
+      "target": "daemon_dnsupstream_chooseupstream",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "daemon/dnsUpstream.js",
+      "source_location": "L43",
+      "weight": 1.0,
+      "source": "daemon_dnsupstream",
+      "target": "daemon_dnsupstream_defaultroutedev",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "daemon/dnsUpstream.js",
+      "source_location": "L10",
+      "weight": 1.0,
+      "source": "daemon_dnsupstream",
+      "target": "daemon_dnsupstream_dns4eu",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "daemon/dnsUpstream.js",
+      "source_location": "L54",
+      "weight": 1.0,
+      "source": "daemon_dnsupstream",
+      "target": "daemon_dnsupstream_dnsfromdevice",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "daemon/dnsUpstream.js",
+      "source_location": "L113",
+      "weight": 1.0,
+      "source": "daemon_dnsupstream",
+      "target": "daemon_dnsupstream_dnsmasqisactive",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "daemon/dnsUpstream.js",
+      "source_location": "L30",
+      "weight": 1.0,
+      "source": "daemon_dnsupstream",
+      "target": "daemon_dnsupstream_dnsmasqserverdirective",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "daemon/dnsUpstream.js",
+      "source_location": "L5",
+      "weight": 1.0,
+      "source": "daemon_dnsupstream",
+      "target": "daemon_dnsupstream_execfilesync_spawnsync",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "daemon/dnsUpstream.js",
+      "source_location": "L4",
+      "weight": 1.0,
+      "source": "daemon_dnsupstream",
+      "target": "daemon_dnsupstream_fs",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "daemon/dnsUpstream.js",
+      "source_location": "L17",
+      "weight": 1.0,
+      "source": "daemon_dnsupstream",
+      "target": "daemon_dnsupstream_isusabledns",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "daemon/dnsUpstream.js",
+      "source_location": "L34",
+      "weight": 1.0,
+      "source": "daemon_dnsupstream",
+      "target": "daemon_dnsupstream_nameserversintext",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "daemon/dnsUpstream.js",
+      "source_location": "L150",
+      "weight": 1.0,
+      "source": "daemon_dnsupstream",
+      "target": "daemon_dnsupstream_pointresolvatlocaldnsmasq",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "daemon/dnsUpstream.js",
+      "source_location": "L78",
+      "weight": 1.0,
+      "source": "daemon_dnsupstream",
+      "target": "daemon_dnsupstream_probednsudpsync",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "daemon/dnsUpstream.js",
+      "source_location": "L162",
+      "weight": 1.0,
+      "source": "daemon_dnsupstream",
+      "target": "daemon_dnsupstream_readdnsmasqupstream",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "daemon/dnsUpstream.js",
+      "source_location": "L192",
+      "weight": 1.0,
+      "source": "daemon_dnsupstream",
+      "target": "daemon_dnsupstream_releaseresolvtonetworkmanager",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "daemon/dnsUpstream.js",
+      "source_location": "L65",
+      "weight": 1.0,
+      "source": "daemon_dnsupstream",
+      "target": "daemon_dnsupstream_resolvelivedhcpdns",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "daemon/dnsUpstream.js",
+      "source_location": "L172",
+      "weight": 1.0,
+      "source": "daemon_dnsupstream",
+      "target": "daemon_dnsupstream_resolvpointsatlocal",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "daemon/dnsUpstream.js",
+      "source_location": "L123",
+      "weight": 1.0,
+      "source": "daemon_dnsupstream",
+      "target": "daemon_dnsupstream_restartdnsmasq",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "daemon/dnsUpstream.js",
+      "source_location": "L138",
+      "weight": 1.0,
+      "source": "daemon_dnsupstream",
+      "target": "daemon_dnsupstream_stopdnsmasq",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "daemon/dnsUpstream.js",
+      "source_location": "L146",
+      "weight": 1.0,
+      "source": "daemon_dnsupstream",
+      "target": "daemon_dnsupstream_unlockresolvconf",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "daemon/dnsUpstream.js",
+      "source_location": "L181",
+      "weight": 1.0,
+      "source": "daemon_dnsupstream",
+      "target": "daemon_dnsupstream_upstreamdrifted",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports_from",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "daemon/parental-control-daemon.js",
+      "source_location": "L13",
+      "weight": 1.0,
+      "source": "daemon_parental_control_daemon",
+      "target": "daemon_dnsupstream",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "daemon/dnsUpstream.js",
+      "source_location": "L38",
+      "weight": 1.0,
+      "source": "daemon_dnsupstream_nameserversintext",
+      "target": "daemon_dnsupstream_isusabledns",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "daemon/dnsUpstream.js",
+      "source_location": "L79",
+      "weight": 1.0,
+      "source": "daemon_dnsupstream_probednsudpsync",
+      "target": "daemon_dnsupstream_isusabledns",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "daemon/dnsUpstream.js",
+      "source_location": "L184",
+      "weight": 1.0,
+      "source": "daemon_dnsupstream_upstreamdrifted",
+      "target": "daemon_dnsupstream_isusabledns",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "daemon/parental-control-daemon.js",
+      "source_location": "L13",
+      "weight": 1.0,
+      "source": "daemon_parental_control_daemon",
+      "target": "daemon_dnsupstream_isusabledns",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "daemon/parental-control-daemon.js",
+      "source_location": "L13",
+      "weight": 1.0,
+      "source": "daemon_parental_control_daemon",
+      "target": "daemon_dnsupstream_dnsmasqserverdirective",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "daemon/parental-control-daemon.js",
+      "source_location": "L3425",
+      "weight": 1.0,
+      "source": "daemon_parental_control_daemon_handleclientcommand",
+      "target": "daemon_dnsupstream_dnsmasqserverdirective"
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "daemon/dnsUpstream.js",
+      "source_location": "L196",
+      "weight": 1.0,
+      "source": "daemon_dnsupstream_releaseresolvtonetworkmanager",
+      "target": "daemon_dnsupstream_nameserversintext",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "daemon/dnsUpstream.js",
+      "source_location": "L71",
+      "weight": 1.0,
+      "source": "daemon_dnsupstream_resolvelivedhcpdns",
+      "target": "daemon_dnsupstream_nameserversintext",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "daemon/dnsUpstream.js",
+      "source_location": "L66",
+      "weight": 1.0,
+      "source": "daemon_dnsupstream_resolvelivedhcpdns",
+      "target": "daemon_dnsupstream_defaultroutedev",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "daemon/dnsUpstream.js",
+      "source_location": "L66",
+      "weight": 1.0,
+      "source": "daemon_dnsupstream_resolvelivedhcpdns",
+      "target": "daemon_dnsupstream_dnsfromdevice",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "daemon/dnsUpstream.js",
+      "source_location": "L103",
+      "weight": 1.0,
+      "source": "daemon_dnsupstream_chooseupstream",
+      "target": "daemon_dnsupstream_resolvelivedhcpdns",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "daemon/dnsUpstream.js",
+      "source_location": "L198",
+      "weight": 1.0,
+      "source": "daemon_dnsupstream_releaseresolvtonetworkmanager",
+      "target": "daemon_dnsupstream_resolvelivedhcpdns",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "daemon/dnsUpstream.js",
+      "source_location": "L185",
+      "weight": 1.0,
+      "source": "daemon_dnsupstream_upstreamdrifted",
+      "target": "daemon_dnsupstream_resolvelivedhcpdns",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "daemon/parental-control-daemon.js",
+      "source_location": "L13",
+      "weight": 1.0,
+      "source": "daemon_parental_control_daemon",
+      "target": "daemon_dnsupstream_resolvelivedhcpdns",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "daemon/parental-control-daemon.js",
+      "source_location": "L3456",
+      "weight": 1.0,
+      "source": "daemon_parental_control_daemon_handleclientcommand",
+      "target": "daemon_dnsupstream_resolvelivedhcpdns"
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "daemon/dnsUpstream.js",
+      "source_location": "L108",
+      "weight": 1.0,
+      "source": "daemon_dnsupstream_chooseupstream",
+      "target": "daemon_dnsupstream_probednsudpsync",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "daemon/dnsUpstream.js",
+      "source_location": "L188",
+      "weight": 1.0,
+      "source": "daemon_dnsupstream_upstreamdrifted",
+      "target": "daemon_dnsupstream_probednsudpsync",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "daemon/parental-control-daemon.js",
+      "source_location": "L13",
+      "weight": 1.0,
+      "source": "daemon_parental_control_daemon",
+      "target": "daemon_dnsupstream_chooseupstream",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "daemon/parental-control-daemon.js",
+      "source_location": "L3383",
+      "weight": 1.0,
+      "source": "daemon_parental_control_daemon_handleclientcommand",
+      "target": "daemon_dnsupstream_chooseupstream"
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "daemon/dnsUpstream.js",
+      "source_location": "L135",
+      "weight": 1.0,
+      "source": "daemon_dnsupstream_restartdnsmasq",
+      "target": "daemon_dnsupstream_dnsmasqisactive",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "daemon/parental-control-daemon.js",
+      "source_location": "L13",
+      "weight": 1.0,
+      "source": "daemon_parental_control_daemon",
+      "target": "daemon_dnsupstream_restartdnsmasq",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "daemon/parental-control-daemon.js",
+      "source_location": "L3437",
+      "weight": 1.0,
+      "source": "daemon_parental_control_daemon_handleclientcommand",
+      "target": "daemon_dnsupstream_restartdnsmasq"
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "daemon/parental-control-daemon.js",
+      "source_location": "L13",
+      "weight": 1.0,
+      "source": "daemon_parental_control_daemon",
+      "target": "daemon_dnsupstream_stopdnsmasq",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "daemon/parental-control-daemon.js",
+      "source_location": "L3481",
+      "weight": 1.0,
+      "source": "daemon_parental_control_daemon_handleclientcommand",
+      "target": "daemon_dnsupstream_stopdnsmasq"
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "daemon/dnsUpstream.js",
+      "source_location": "L151",
+      "weight": 1.0,
+      "source": "daemon_dnsupstream_pointresolvatlocaldnsmasq",
+      "target": "daemon_dnsupstream_unlockresolvconf",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "daemon/dnsUpstream.js",
+      "source_location": "L193",
+      "weight": 1.0,
+      "source": "daemon_dnsupstream_releaseresolvtonetworkmanager",
+      "target": "daemon_dnsupstream_unlockresolvconf",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "daemon/parental-control-daemon.js",
+      "source_location": "L13",
+      "weight": 1.0,
+      "source": "daemon_parental_control_daemon",
+      "target": "daemon_dnsupstream_pointresolvatlocaldnsmasq",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "daemon/parental-control-daemon.js",
+      "source_location": "L3442",
+      "weight": 1.0,
+      "source": "daemon_parental_control_daemon_handleclientcommand",
+      "target": "daemon_dnsupstream_pointresolvatlocaldnsmasq"
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "daemon/dnsUpstream.js",
+      "source_location": "L183",
+      "weight": 1.0,
+      "source": "daemon_dnsupstream_upstreamdrifted",
+      "target": "daemon_dnsupstream_readdnsmasqupstream",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "daemon/dnsUpstream.js",
+      "source_location": "L182",
+      "weight": 1.0,
+      "source": "daemon_dnsupstream_upstreamdrifted",
+      "target": "daemon_dnsupstream_resolvpointsatlocal",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "imports",
+      "context": "import",
+      "confidence": "EXTRACTED",
+      "source_file": "daemon/parental-control-daemon.js",
+      "source_location": "L13",
+      "weight": 1.0,
+      "source": "daemon_parental_control_daemon",
+      "target": "daemon_dnsupstream_releaseresolvtonetworkmanager",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "daemon/parental-control-daemon.js",
+      "source_location": "L3385",
+      "weight": 1.0,
+      "source": "daemon_parental_control_daemon_handleclientcommand",
+      "target": "daemon_dnsupstream_releaseresolvtonetworkmanager"
     },
     {
       "relation": "contains",
@@ -19060,6 +19994,16 @@
       "confidence_score": 1.0,
       "source": "daemon_parental_control_daemon",
       "target": "daemon_parental_control_daemon_checkparentpassword"
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "daemon/parental-control-daemon.js",
+      "source_location": "L13",
+      "weight": 1.0,
+      "source": "daemon_parental_control_daemon",
+      "target": "daemon_parental_control_daemon_chooseupstream_resolvelivedhcpdns_isusabledns_dnsmasqserverdirective_restartdnsmasq_stopdnsmasq_pointresolvatlocaldnsmasq_releaseresolvtonetworkmanager",
+      "confidence_score": 1.0
     },
     {
       "relation": "contains",
@@ -22435,27 +23379,6 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "daemon/parental-control-daemon.js",
-      "source_location": "L3433",
-      "weight": 1.0,
-      "confidence_score": 1.0,
-      "source": "daemon_parental_control_daemon_handleclientcommand",
-      "target": "daemon_parental_control_daemon_probedns4eusync"
-    },
-    {
-      "relation": "contains",
-      "confidence": "EXTRACTED",
-      "source_file": "daemon/parental-control-daemon.js",
-      "source_location": "L1198",
-      "weight": 1.0,
-      "confidence_score": 1.0,
-      "source": "daemon_parental_control_daemon_js",
-      "target": "daemon_parental_control_daemon_probedns4eusync"
-    },
-    {
-      "relation": "calls",
-      "context": "call",
-      "confidence": "EXTRACTED",
-      "source_file": "daemon/parental-control-daemon.js",
       "source_location": "L1454",
       "weight": 1.0,
       "confidence_score": 1.0,
@@ -24062,6 +24985,17 @@
       "confidence_score": 1.0,
       "source": "daemon_parental_control_daemon_js",
       "target": "daemon_parental_control_daemon_tickwork"
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "daemon/parental-control-daemon.js",
+      "source_location": "L3433",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "daemon_parental_control_daemon_handleclientcommand",
+      "target": "daemon_parental_control_daemon_probedns4eusync"
     },
     {
       "relation": "contains",
@@ -45817,6 +46751,16 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "memory.md",
+      "source_location": "L3",
+      "weight": 1.0,
+      "source": "memory_life_parental_control_persistent_context_compressed",
+      "target": "memory_recent_2026_10_14",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "memory.md",
       "source_location": "L20",
       "weight": 1.0,
       "confidence_score": 1.0,
@@ -45842,6 +46786,36 @@
       "confidence_score": 1.0,
       "source": "memory_life_parental_control_persistent_context_compressed",
       "target": "memory_stack_actual"
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "daemon/defaultSync.js",
+      "source_location": "L444",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "daemon_defaultsync_js",
+      "target": "daemon_defaultsync_resolvedhcpdns"
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "daemon/defaultSync.js",
+      "source_location": "L458",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "daemon_defaultsync_js",
+      "target": "daemon_defaultsync_probedns4eusync"
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "daemon/parental-control-daemon.js",
+      "source_location": "L1198",
+      "weight": 1.0,
+      "confidence_score": 1.0,
+      "source": "daemon_parental_control_daemon_js",
+      "target": "daemon_parental_control_daemon_probedns4eusync"
     },
     {
       "relation": "imports_from",
@@ -46589,5 +47563,5 @@
       "source_file": "images/dashboard.png"
     }
   ],
-  "built_at_commit": "ef776fbf05dc9975c7c4744b7bd7f0e6e2147292"
+  "built_at_commit": "0302ec8eab5f99b9795bb7639f12081d4f41e921"
 }

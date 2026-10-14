@@ -525,13 +525,13 @@
     "semantic_hash": ""
   },
   "/home/valueerror/STUFF/DEV/LiFE-Parental-Control/daemon/defaultSync.js": {
-    "mtime": 1777909266.22702,
-    "ast_hash": "f2470da5648b04ac188c9877c7ba6521",
+    "mtime": 1791955814.9834208,
+    "ast_hash": "06b21c565785a1dfa21cfbdf84f9c2bd",
     "semantic_hash": ""
   },
   "/home/valueerror/STUFF/DEV/LiFE-Parental-Control/daemon/parental-control-daemon.js": {
-    "mtime": 1778224584.6096127,
-    "ast_hash": "2647719571f624a3c71f6138d024bc68",
+    "mtime": 1791955815.091437,
+    "ast_hash": "0e12d0c4bcac22f9f1713f0d1ccf05be",
     "semantic_hash": ""
   },
   "/home/valueerror/STUFF/DEV/LiFE-Parental-Control/daemon/peerCredLinux.js": {
@@ -565,13 +565,13 @@
     "semantic_hash": ""
   },
   "/home/valueerror/STUFF/DEV/LiFE-Parental-Control/package.json": {
-    "mtime": 1784541898.158171,
-    "ast_hash": "6b74a20b471b03c610879aff3e82596d",
+    "mtime": 1789811043.7856581,
+    "ast_hash": "a0d1d8210563775ae93464606d252c81",
     "semantic_hash": ""
   },
   "/home/valueerror/STUFF/DEV/LiFE-Parental-Control/packaging/99-life-parental-dns": {
-    "mtime": 1775802028.940661,
-    "ast_hash": "41461d0ca8d9d74addedd2770be5cf41",
+    "mtime": 1791955794.5397716,
+    "ast_hash": "76ba72596be67ea10e18ed9aa47ddd6e",
     "semantic_hash": ""
   },
   "/home/valueerror/STUFF/DEV/LiFE-Parental-Control/packaging/app-monitor-background-excludes.json": {
@@ -1050,8 +1050,8 @@
     "semantic_hash": ""
   },
   "/home/valueerror/STUFF/DEV/LiFE-Parental-Control/memory.md": {
-    "mtime": 1789810717.629028,
-    "ast_hash": "cc4e1a7fd0c1942ee2c13e76ec89cba2",
+    "mtime": 1791955817.7753932,
+    "ast_hash": "7b2423e2a7654dbed1fc8d9029fd1bce",
     "semantic_hash": ""
   },
   "/home/valueerror/STUFF/DEV/LiFE-Parental-Control/src/renderer/index.html": {
@@ -1167,6 +1167,11 @@
   "/home/valueerror/STUFF/DEV/LiFE-Parental-Control/scripts/embed-appimage-update-info.mjs": {
     "mtime": 1784539846.297221,
     "ast_hash": "332deaf966da0ceba98d2902c6cd7c66",
+    "semantic_hash": ""
+  },
+  "/home/valueerror/STUFF/DEV/LiFE-Parental-Control/daemon/dnsUpstream.js": {
+    "mtime": 1791955782.2019715,
+    "ast_hash": "b30d00ad8203300564289ee03ea5d0c8",
     "semantic_hash": ""
   }
 }

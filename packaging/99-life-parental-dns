@@ -1,8 +1,7 @@
 #!/bin/sh
 # LiFE Parental Control — NetworkManager dispatcher script
-# On every network-up event: write the current DHCP DNS into default.json.
-# The daemon's defaultSync detects the file change within its tick interval
-# and calls applyDnsmasq, which probes dns4eu and writes the correct config.
+# On every network-up event: store the current DHCP DNS and bump networkEpoch.
+# The daemon re-reads the default route and re-probes dns4eu on that change.
 #
 # SPDX-License-Identifier: GPL-3.0-or-later; Copyright (c) 2026 Thomas Michael Weissel
 
@@ -27,25 +26,24 @@ if [ -z "$DNS" ] && [ -f /run/NetworkManager/resolv.conf ]; then
     DNS=$(awk '/^nameserver/{print $2; exit}' /run/NetworkManager/resolv.conf)
 fi
 
-[ -z "$DNS" ] && exit 0
-
-# Validate: must look like an IPv4 address (no injection possible after this)
-echo "$DNS" | grep -qE '^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$' || exit 0
+# 127.0.0.0/8 is the local stub. Storing it makes dnsmasq forward to itself.
+echo "$DNS" | grep -qE '^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$' || DNS=""
+echo "$DNS" | grep -qE '^127\.' && DNS=""
 
 [ -f "$CONFIG" ] || exit 0
 
-# Write dhcpFallbackDns into default.json — the daemon detects the hash change
-# on the next tick and rewrites dnsmasq.conf via defaultSync.applyDnsmasq,
-# which probes dns4eu reachability and picks the correct single upstream.
+# Bump networkEpoch on every link-up so the daemon re-probes the upstream,
+# even when the DHCP DNS address itself did not change.
 LIFE_DHCP_DNS="$DNS" node -e "
 const fs  = require('fs');
 const CONFIG = '/etc/life-parental/default.json';
-const dns = process.env.LIFE_DHCP_DNS;
+const dns = process.env.LIFE_DHCP_DNS || '';
 try {
     const obj = JSON.parse(fs.readFileSync(CONFIG, 'utf8'));
     if (!obj.webfilter) obj.webfilter = {};
-    if (obj.webfilter.dhcpFallbackDns === dns) process.exit(0);
-    obj.webfilter.dhcpFallbackDns = dns;
+    const epoch = Number(obj.webfilter.networkEpoch) || 0;
+    obj.webfilter.networkEpoch = epoch + 1;
+    if (dns) obj.webfilter.dhcpFallbackDns = dns;
     const tmp = CONFIG + '.tmp';
     fs.writeFileSync(tmp, JSON.stringify(obj, null, 2) + '\n', 'utf8');
     fs.renameSync(tmp, CONFIG);

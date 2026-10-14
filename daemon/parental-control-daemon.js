@@ -10,6 +10,7 @@ const { execFile, execFileSync, spawn, spawnSync } = require('child_process');
 const { promisify } = require('util');
 const crypto = require('crypto');
 const { createDefaultSync, dohIptablesStatus, ensureDohIptablesEnabled, ensureDohIptablesDisabled } = require('./defaultSync.js');
+const { chooseUpstream, resolveLiveDhcpDns, isUsableDns, dnsmasqServerDirective, restartDnsmasq, stopDnsmasq, pointResolvAtLocalDnsmasq, releaseResolvToNetworkManager } = require('./dnsUpstream.js');
 const { defaultSchoolTimes } = require('./schoolTimesDefaults.js');
 const { getUnixPeerUid } = require('./peerCredLinux.js');
 
@@ -1403,18 +1404,6 @@ function buildAndWriteAppCatalog() {
     } catch (e) {
         log.warn(`app-catalog: build failed: ${e.message}`);
     }
-}
-
-// --- DNS probe helper ---
-
-function probeDns4euSync(ip) {
-    // Quick TCP connect to port 53, 1-second timeout.
-    // Returns true if reachable, false otherwise (also on nc-not-found).
-    if (!/^\d{1,3}(\.\d{1,3}){3}$/.test(ip)) return false;
-    try {
-        execFileSync('nc', ['-w', '1', '-z', ip, '53'], { timeout: 2000 });
-        return true;
-    } catch { return false; }
 }
 
 // --- Password validation (same algorithm as settingsIpc.js) ---
@@ -3388,59 +3377,17 @@ function handleClientCommand(client, cmd) {
         // Write /etc/dnsmasq.conf with blocked domains + upstream DNS, set /etc/resolv.conf to use local dnsmasq,
         // protect resolv.conf with chattr +i so NetworkManager cannot overwrite it.
         const DNSMASQ_CONF = '/etc/dnsmasq.conf';
-        const RESOLV_CONF  = '/etc/resolv.conf';
-        // dns4eu server IPs
-        const DNS4EU = {
-            dns4eu_protective:  '86.54.11.1',
-            dns4eu_child:       '86.54.11.12',
-            dns4eu_ads:         '86.54.11.13',
-            dns4eu_child_ads:   '86.54.11.11',
-        };
         try {
             const entries  = Array.isArray(cmd.entries) ? cmd.entries : [];
             const dnsMode  = cmd.dnsMode || 'dns4eu_protective';
-            const isStubDns = (ip) => ip === '127.0.0.53' || ip === '127.0.0.1';
-            const dhcpFallbackDns = typeof cmd.dhcpFallbackDns === 'string' && !isStubDns(cmd.dhcpFallbackDns) ? cmd.dhcpFallbackDns : null;
-            let upstreamDns;
-            if (dnsMode === 'dhcp') {
-                // Use cached DHCP DNS from config first (written by NM dispatcher on every network-up)
-                upstreamDns = dhcpFallbackDns || null;
-                if (!upstreamDns) {
-                    try {
-                        const out = execFileSync('nmcli', ['-t', '-f', 'IP4.DNS', 'dev', 'show'], { timeout: 5000, encoding: 'utf8' });
-                        const match = out.match(/IP4\.DNS\[1\]:([^\n]+)/);
-                        const ip = match ? match[1].trim() : null;
-                        if (ip && !isStubDns(ip)) upstreamDns = ip;
-                    } catch { upstreamDns = null; }
-                }
-                if (!upstreamDns) {
-                    try {
-                        const out = fs.readFileSync('/run/NetworkManager/resolv.conf', 'utf8');
-                        const m = out.match(/^nameserver\s+([^\s]+)/m);
-                        const ip = m ? m[1] : null;
-                        if (ip && !isStubDns(ip)) upstreamDns = ip;
-                    } catch { upstreamDns = null; }
-                }
-                if (!upstreamDns) {
-                    client.write(JSON.stringify({ type: 'write-dnsmasq-result', ok: false, error: 'dhcp: could not detect local DNS server' }) + '\n');
-                    return;
-                }
-            } else {
-                // Probe dns4eu reachability — if unreachable on this network (e.g. school),
-                // fall back to the DHCP DNS immediately. No fallback entry in dnsmasq
-                // avoids the 5-second timeout dnsmasq imposes before trying the next server.
-                const dns4euIp = DNS4EU[dnsMode] || DNS4EU['dns4eu_protective'];
-                if (probeDns4euSync(dns4euIp)) {
-                    upstreamDns = dns4euIp;
-                } else {
-                    upstreamDns = dhcpFallbackDns;
-                    if (!upstreamDns) {
-                        client.write(JSON.stringify({ type: 'write-dnsmasq-result', ok: false, error: 'dns4eu unreachable and no DHCP fallback DNS available' }) + '\n');
-                        return;
-                    }
-                    log.warn(`write-dnsmasq: dns4eu unreachable, using DHCP fallback ${upstreamDns}`);
-                }
+            const chosen = chooseUpstream(dnsMode);
+            if (!chosen) {
+                releaseResolvToNetworkManager(log);
+                client.write(JSON.stringify({ type: 'write-dnsmasq-result', ok: false, error: 'no usable DNS on the default route' }) + '\n');
+                return;
             }
+            const upstreamDns = chosen.upstream;
+            if (chosen.source === 'dhcp-fallback') log.warn(`write-dnsmasq: dns4eu not answering, using network DNS ${upstreamDns}`);
 
             // DoH endpoints + canary domains — always blocked when web filter is active.
             // Browsers (Firefox, all Chromium-based) detect these as unavailable and
@@ -3475,7 +3422,7 @@ function handleClientCommand(client, cmd) {
                 '# Generated by LiFE Parental Control — do not edit manually',
                 'listen-address=127.0.0.1',
                 'bind-interfaces',
-                `server=${upstreamDns}`,
+                dnsmasqServerDirective(upstreamDns),
                 'no-resolv',
                 'no-poll',
                 'cache-size=1000',
@@ -3487,18 +3434,14 @@ function handleClientCommand(client, cmd) {
             fs.writeFileSync(DNSMASQ_CONF, dnsmasqConf, 'utf8');
             try { fs.chmodSync(DNSMASQ_CONF, 0o644); } catch { /* ignore */ }
 
-            // Write /etc/resolv.conf — remove immutable bit first, write, re-apply
-            try { execFileSync('chattr', ['-i', RESOLV_CONF], { timeout: 3000 }); } catch { /* not immutable yet, ok */ }
-            fs.writeFileSync(RESOLV_CONF, 'nameserver 127.0.0.1\n', 'utf8');
-            try { fs.chmodSync(RESOLV_CONF, 0o644); } catch { /* ignore */ }
-            try { execFileSync('chattr', ['+i', RESOLV_CONF], { timeout: 3000 }); } catch (e) {
-                log.warn('write-dnsmasq: chattr +i failed: ' + e.message);
+            if (!restartDnsmasq(log)) {
+                releaseResolvToNetworkManager(log);
+                client.write(JSON.stringify({ type: 'write-dnsmasq-result', ok: false, error: 'dnsmasq did not start' }) + '\n');
+                return;
             }
+            pointResolvAtLocalDnsmasq(log);
 
-            // Reload dnsmasq
-            execFile('systemctl', ['restart', 'dnsmasq.service'], { timeout: 10000 }, () => {});
-
-            log.info(`write-dnsmasq: applied ${entries.filter(e => e.enabled !== false).length} blocked domains, upstream=${upstreamDns}`);
+            log.info(`write-dnsmasq: applied ${entries.filter(e => e.enabled !== false).length} blocked domains, upstream=${upstreamDns}, source=${chosen.source}`);
             client.write(JSON.stringify({ type: 'write-dnsmasq-result', ok: true }) + '\n');
         } catch (e) {
             log.error('write-dnsmasq: ' + e.message);
@@ -3510,19 +3453,7 @@ function handleClientCommand(client, cmd) {
 
     if (cmd.type === 'get-dhcp-dns') {
         try {
-            let ip = null;
-            try {
-                const out = execFileSync('nmcli', ['-t', '-f', 'IP4.DNS', 'dev', 'show'], { timeout: 5000, encoding: 'utf8' });
-                const m = out.match(/IP4\.DNS\[1\]:([^\n]+)/);
-                ip = m ? m[1].trim() : null;
-            } catch { /* ignore */ }
-            if (!ip) {
-                try {
-                    const resolvContent = fs.readFileSync('/run/systemd/resolve/resolv.conf', 'utf8');
-                    const m = resolvContent.match(/^nameserver\s+([^\s]+)/m);
-                    ip = m ? m[1] : null;
-                } catch { /* ignore */ }
-            }
+            const ip = resolveLiveDhcpDns();
             client.write(JSON.stringify({ type: 'get-dhcp-dns-result', ok: true, ip }) + '\n');
         } catch (e) {
             client.write(JSON.stringify({ type: 'get-dhcp-dns-result', ok: false, error: e.message }) + '\n');
@@ -3531,11 +3462,8 @@ function handleClientCommand(client, cmd) {
     }
 
     if (cmd.type === 'remove-dnsmasq') {
-        // Remove LiFE webfilter rules, keep dnsmasq enabled as neutral local resolver.
-        const DNSMASQ_CONF = '/etc/dnsmasq.conf';
-        const RESOLV_CONF  = '/etc/resolv.conf';
+        // Filter off: hand DNS back to NetworkManager and stop a wedged dnsmasq.
         try {
-            // Ensure dnsmasq doesn't inject an extra -r resolv file via resolvconf integration.
             try {
                 const DEFAULT_DNSMASQ = '/etc/default/dnsmasq';
                 let txt = '';
@@ -3548,42 +3476,10 @@ function handleClientCommand(client, cmd) {
                 fs.writeFileSync(DEFAULT_DNSMASQ, txt, 'utf8');
             } catch { /* ignore */ }
 
-            // Ensure resolv.conf points to local dnsmasq and remains protected.
-            try { execFileSync('chattr', ['-i', RESOLV_CONF], { timeout: 3000 }); } catch { /* ignore */ }
-            fs.writeFileSync(RESOLV_CONF, 'nameserver 127.0.0.1\n', 'utf8');
-            try { fs.chmodSync(RESOLV_CONF, 0o644); } catch { /* ignore */ }
-            try { execFileSync('chattr', ['+i', RESOLV_CONF], { timeout: 3000 }); } catch { /* ignore */ }
-
-            // Use the dhcpFallbackDns cached in default.json by the NM dispatcher — it is
-            // updated on every network-up so it always reflects the current network, and it
-            // survives reboots unlike /run/NetworkManager/resolv.conf which may not exist yet
-            // when dnsmasq starts.  Fall back to 1.1.1.1 only as last resort.
-            const isStubNameserver = (ip) => ip === '127.0.0.53' || ip === '127.0.0.1';
-            let upstreamDns = null;
-            try {
-                const cfg = JSON.parse(fs.readFileSync(path.join(CONFIG_DIR, DEFAULT_JSON_FILE), 'utf8'));
-                const ip = cfg?.webfilter?.dhcpFallbackDns;
-                if (typeof ip === 'string' && ip && !isStubNameserver(ip)) upstreamDns = ip;
-            } catch { /* ignore */ }
-            if (!upstreamDns) upstreamDns = '1.1.1.1';
-
-            // Clear blocked domains file, reset dnsmasq.conf to static pass-through.
             try { fs.writeFileSync('/etc/dnsmasq.d/life-parental-blocked.conf', '# LiFE Parental Control — web filter disabled\n', 'utf8'); } catch { /* ignore */ }
-            fs.writeFileSync(DNSMASQ_CONF, [
-                '# Generated by LiFE Parental Control — web filter disabled',
-                'listen-address=127.0.0.1',
-                'bind-interfaces',
-                `server=${upstreamDns}`,
-                'no-resolv',
-                'no-poll',
-                'cache-size=1000',
-                'domain-needed',
-                'bogus-priv',
-                'conf-dir=/etc/dnsmasq.d/,*.conf',
-            ].join('\n') + '\n', 'utf8');
-
-            execFile('systemctl', ['restart', 'dnsmasq.service'], { timeout: 10000 }, () => {});
-            log.info('remove-dnsmasq: filter cleared, dnsmasq set to DHCP pass-through');
+            releaseResolvToNetworkManager(log);
+            stopDnsmasq(log);
+            log.info('remove-dnsmasq: filter cleared, resolv.conf returned to NetworkManager');
             client.write(JSON.stringify({ type: 'remove-dnsmasq-result', ok: true }) + '\n');
         } catch (e) {
             log.error('remove-dnsmasq: ' + e.message);
@@ -3703,44 +3599,36 @@ function handleClientCommand(client, cmd) {
         try { originalResolvConf = fs.readFileSync(RESOLV_CONF, 'utf8'); } catch { /* missing — ok */ }
 
         let resolvConfRewritten = false;
+        let resolvedStopped = false;
         try {
             const pickNameserverFromResolv = (text) => {
-                const m = String(text || '').match(/^nameserver\s+([^\s#]+)/m);
-                return m ? m[1].trim() : null;
+                const m = String(text || '').match(/^nameserver\s+(\S+)/m);
+                const ip = m ? m[1].trim() : null;
+                return isUsableDns(ip) ? ip : null;
             };
-            const isStubNameserver = (ip) => ip === '127.0.0.53' || ip === '127.0.0.1';
 
             // 1. Check dnsmasq binary exists before doing anything destructive
             const dnsmasqBin = ['/usr/bin/dnsmasq', '/usr/sbin/dnsmasq', '/sbin/dnsmasq'].find(p => fs.existsSync(p));
             if (!dnsmasqBin) throw new Error('dnsmasq binary not found — is dnsmasq installed?');
 
+            const nmNameserver = resolveLiveDhcpDns() || pickNameserverFromResolv(originalResolvConf);
+            if (!nmNameserver) throw new Error('could not detect network DNS');
+
             // 2. Stop and disable systemd-resolved so port 53 is free
-            try { execFileSync('systemctl', ['disable', '--now', 'systemd-resolved'], { timeout: 10000 }); } catch { /* may not be running */ }
+            try {
+                execFileSync('systemctl', ['disable', '--now', 'systemd-resolved'], { timeout: 10000 });
+                resolvedStopped = true;
+            } catch { /* may not be running */ }
 
             // 3. Create dnsmasq.d and write secure base dnsmasq.conf
             fs.mkdirSync('/etc/dnsmasq.d', { recursive: true });
-            let nmNameserver = null;
-            try { nmNameserver = pickNameserverFromResolv(fs.readFileSync('/run/NetworkManager/resolv.conf', 'utf8')); } catch { /* ignore */ }
-            if (!nmNameserver || isStubNameserver(nmNameserver)) {
-                try {
-                    const out = execFileSync('nmcli', ['-t', '-f', 'IP4.DNS', 'dev', 'show'], { timeout: 5000, encoding: 'utf8' });
-                    const m = String(out).match(/IP4\.DNS\[1\]:([^\n]+)/);
-                    const ip = m ? m[1].trim() : null;
-                    if (ip && !isStubNameserver(ip)) nmNameserver = ip;
-                } catch { /* ignore */ }
-            }
-            if ((!nmNameserver || isStubNameserver(nmNameserver)) && originalResolvConf) {
-                const ip = pickNameserverFromResolv(originalResolvConf);
-                if (ip && !isStubNameserver(ip)) nmNameserver = ip;
-            }
-            if (!nmNameserver || isStubNameserver(nmNameserver)) nmNameserver = '1.1.1.1';
 
             const baseLines = [
                 '# Generated by LiFE Parental Control — initial setup',
                 'listen-address=127.0.0.1',
                 'bind-interfaces',
             ];
-            const upstreamLines = [`server=${nmNameserver}`, 'no-resolv'];
+            const upstreamLines = [dnsmasqServerDirective(nmNameserver), 'no-resolv'];
             const dnsmasqConf = baseLines.concat(upstreamLines, [
                 'no-poll',
                 'cache-size=1000',
@@ -3771,30 +3659,13 @@ function handleClientCommand(client, cmd) {
                 log.warn('setup-dnsmasq: setcap failed: ' + e.message);
             }
 
-            // 5. Kill any stuck dnsmasq process, then enable and start via systemd
-            try { execFileSync('killall', ['dnsmasq'], { timeout: 5000 }); } catch { /* not running, ok */ }
-            try { execFileSync('systemctl', ['reset-failed', 'dnsmasq.service'], { timeout: 5000 }); } catch { /* ignore */ }
+            // 5. Enable and start. restartDnsmasq kills a process that ignored SIGTERM.
             try { execFileSync('systemctl', ['enable', 'dnsmasq.service'], { timeout: 5000 }); } catch { /* ignore */ }
-            try { execFileSync('systemctl', ['restart', 'dnsmasq.service'], { timeout: 10000 }); } catch (e) {
-                throw new Error('dnsmasq start failed: ' + e.message);
-            }
+            if (!restartDnsmasq(log)) throw new Error('dnsmasq did not come up');
 
-            // 6. Verify dnsmasq is actually running before touching resolv.conf
-            try {
-                const svcOut = execFileSync('systemctl', ['is-active', 'dnsmasq.service'], { timeout: 3000, encoding: 'utf8' });
-                if (String(svcOut).trim() !== 'active') throw new Error('dnsmasq not active after start');
-            } catch (e) {
-                throw new Error('dnsmasq did not come up: ' + e.message);
-            }
-
-            // 7. dnsmasq is running — now safe to redirect resolv.conf
-            try { execFileSync('chattr', ['-i', RESOLV_CONF], { timeout: 3000 }); } catch { /* not immutable yet */ }
-            fs.writeFileSync(RESOLV_CONF, 'nameserver 127.0.0.1\n', 'utf8');
+            // 6. dnsmasq is running — now safe to redirect resolv.conf
+            pointResolvAtLocalDnsmasq(log);
             resolvConfRewritten = true;
-            try { fs.chmodSync(RESOLV_CONF, 0o644); } catch { /* ignore */ }
-            try { execFileSync('chattr', ['+i', RESOLV_CONF], { timeout: 3000 }); } catch (e) {
-                log.warn('setup-dnsmasq: chattr +i failed: ' + e.message);
-            }
 
             log.info('setup-dnsmasq: systemd-resolved disabled, dnsmasq enabled and started');
             client.write(JSON.stringify({ type: 'setup-dnsmasq-result', ok: true }) + '\n');
@@ -3804,11 +3675,14 @@ function handleClientCommand(client, cmd) {
             if (resolvConfRewritten && originalResolvConf !== null) {
                 try {
                     execFileSync('chattr', ['-i', RESOLV_CONF], { timeout: 3000 });
+                    try { if (fs.lstatSync(RESOLV_CONF).isSymbolicLink()) fs.unlinkSync(RESOLV_CONF); } catch { /* absent */ }
                     fs.writeFileSync(RESOLV_CONF, originalResolvConf, 'utf8');
                     log.info('setup-dnsmasq: restored original resolv.conf after failure');
                 } catch (re) {
                     log.error('setup-dnsmasq: failed to restore resolv.conf: ' + re.message);
                 }
+            } else if (resolvedStopped) {
+                releaseResolvToNetworkManager(log);
             }
             client.write(JSON.stringify({ type: 'setup-dnsmasq-result', ok: false, error: e.message }) + '\n');
         }

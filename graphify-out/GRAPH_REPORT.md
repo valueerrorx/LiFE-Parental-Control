@@ -1,16 +1,16 @@
-# Graph Report - LiFE-Parental-Control  (2026-09-19)
+# Graph Report - LiFE-Parental-Control  (2026-10-14)
 
 ## Corpus Check
-- 101 files · ~500,987 words
+- 102 files · ~501,119 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 1862 nodes · 2833 edges · 161 communities (108 shown, 53 thin omitted)
+- 1886 nodes · 2904 edges · 161 communities (108 shown, 53 thin omitted)
 - Extraction: 97% EXTRACTED · 3% INFERRED · 0% AMBIGUOUS · INFERRED: 95 edges (avg confidence: 0.8)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `ef776fbf`
+- Built from commit: `0302ec8e`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -190,23 +190,23 @@
 
 ### Community 0 - "Community 0"
 Cohesion: 0.12
-Nodes (31): atLoggedMinuteBoundary(), buildAndWriteAppCatalog(), clearRequestDaemonWarningTestFlag(), desktopIdStem(), desktopIdTailStem(), findUserXauthorityPath(), getDefaultConfig(), isAppMonitorCatalogEntryExcluded() (+23 more)
+Nodes (34): broadcast(), broadcastWarn(), buildNotifySendEnvPairs(), buildWarningWindowEnvPairs(), clearRequestDaemonWarningTestFlag(), envPairsFromLoginctlSessionEnvironment(), findElectronExecPath(), findUserXauthorityPath() (+26 more)
 
 ### Community 1 - "Community 1"
 Cohesion: 0.27
 Nodes (14): monitorLabelsFromCatalog(), normalizeQuotaEntry(), quotaRowKey(), readAppMonitorUsage(), readAppMonitorUsageForDate(), readMonitorCatalogEntries(), readQuotaEntries(), readQuotas() (+6 more)
 
 ### Community 2 - "Community 2"
-Cohesion: 0.09
-Nodes (56): applyDesktopOverride(), applyDnsmasq(), applyDohChainBulk(), applyFromDefault(), buildApparmorProfile(), buildWebBlockedDomains(), chainExists(), createDefaultSync() (+48 more)
+Cohesion: 0.06
+Nodes (77): applyDesktopOverride(), applyDnsmasq(), applyDohChainBulk(), applyFromDefault(), buildApparmorProfile(), buildWebBlockedDomains(), chainExists(), { chooseUpstream, dnsmasqServerDirective, restartDnsmasq, stopDnsmasq, upstreamDrifted, pointResolvAtLocalDnsmasq, releaseResolvToNetworkManager } (+69 more)
 
 ### Community 3 - "Community 3"
-Cohesion: 0.17
-Nodes (12): registerActivityIpc(), appendActivity(), readActivityLog(), registerAppBlockerIpc(), registerBackupIpc(), registerLockdownIpc(), registerQuotaIpc(), registerSchedulesIpc() (+4 more)
+Cohesion: 0.22
+Nodes (10): registerActivityIpc(), registerAppBlockerIpc(), registerBackupIpc(), registerLockdownIpc(), registerProcessWhitelistIpc(), registerQuotaIpc(), registerSchedulesIpc(), registerSettingsDangerIpc() (+2 more)
 
 ### Community 4 - "Community 4"
-Cohesion: 0.08
-Nodes (67): CATEGORY_TO_HAGEZI_FEED, isKnownWebFilterCategory(), _known, WEB_FILTER_QUICK_ADD_ORDER, WEB_FILTER_STATIC_CATEGORIES, assertAllowedUrl(), dohIpsUrl(), domainsForEnabledFeeds() (+59 more)
+Cohesion: 0.07
+Nodes (68): CATEGORY_TO_HAGEZI_FEED, isKnownWebFilterCategory(), _known, WEB_FILTER_QUICK_ADD_ORDER, WEB_FILTER_STATIC_CATEGORIES, assertAllowedUrl(), dohIpsUrl(), domainsForEnabledFeeds() (+60 more)
 
 ### Community 5 - "Community 5"
 Cohesion: 0.20
@@ -249,8 +249,8 @@ Cohesion: 0.24
 Nodes (9): __dirname, GENERIC_ACTION_KEYS, isValidActionKey(), isValidResourceKey(), kcmIds, kioskDir, KNOWN_RESOURCE_KEYS, loadKcmIds() (+1 more)
 
 ### Community 15 - "Community 15"
-Cohesion: 0.06
-Nodes (47): allowsPrivilegedWriteConfig(), appBlockKnownPids, appBlockNotifyLastMs, appMonitoringIdentityKey(), appQuotaWarnOnce, clients, COMPOSITOR_PROCS_FOR_ENV, { createDefaultSync, dohIptablesStatus, ensureDohIptablesEnabled, ensureDohIptablesDisabled } (+39 more)
+Cohesion: 0.05
+Nodes (53): appBlockKnownPids, appBlockNotifyLastMs, appMonitoringIdentityKey(), appQuotaWarnOnce, atLoggedMinuteBoundary(), buildAndWriteAppCatalog(), { chooseUpstream, resolveLiveDhcpDns, isUsableDns, dnsmasqServerDirective, restartDnsmasq, stopDnsmasq, pointResolvAtLocalDnsmasq, releaseResolvToNetworkManager }, clients (+45 more)
 
 ### Community 16 - "Community 16"
 Cohesion: 0.04
@@ -301,12 +301,12 @@ Cohesion: 0.07
 Nodes (29): common, active, allAccounts, applyChanges, back, blocked, cancel, close (+21 more)
 
 ### Community 96 - "Community 96"
-Cohesion: 0.13
-Nodes (27): allowedHoursPostLogoutOverrideEndHHMM(), checkParentPassword(), denySocketPrivileged(), effectiveScreenMinutes(), emptyUsage(), handleClientCommand(), hashPassword(), isoWeekday() (+19 more)
+Cohesion: 0.19
+Nodes (14): allowsPrivilegedWriteConfig(), checkParentPassword(), denySocketPrivileged(), effectiveScreenMinutes(), handleClientCommand(), hashPassword(), isoWeekday(), probeDns4euSync() (+6 more)
 
 ### Community 97 - "Community 97"
-Cohesion: 0.16
-Nodes (23): allowedHoursOverrideOptionHHMMs(), appendActivityDaemon(), broadcast(), broadcastWarn(), effectiveAllowedHoursEndDayMinutes(), ensureUserMinutes(), findElectronExecPath(), getActiveSeatSessionId() (+15 more)
+Cohesion: 0.25
+Nodes (15): allowedHoursOverrideOptionHHMMs(), allowedHoursPostLogoutOverrideEndHHMM(), effectiveAllowedHoursEndDayMinutes(), emptyUsage(), ensureUserMinutes(), isWithinAllowedHours(), localIsoDate(), parseOverrideEndDayMinutes() (+7 more)
 
 ### Community 98 - "Community 98"
 Cohesion: 0.19
@@ -321,16 +321,16 @@ Cohesion: 0.09
 Nodes (23): app, confirmPassword, createPassword, daemonChecking, daemonInstalling, daemonRetry, daemonUpdating, daemonWaiting (+15 more)
 
 ### Community 101 - "Community 101"
-Cohesion: 0.20
-Nodes (13): localIsoDate(), localIsoDateDaysAgo(), DEFAULT_SCHEDULE, DEFAULT_SCHEDULE_PERIOD, emptyUsage(), normalizePeriod(), persistSchedule(), readSchedule() (+5 more)
+Cohesion: 0.19
+Nodes (14): localIsoDate(), localIsoDateDaysAgo(), DEFAULT_SCHEDULE, DEFAULT_SCHEDULE_PERIOD, emptyUsage(), normalizePeriod(), persistSchedule(), readSchedule() (+6 more)
 
 ### Community 102 - "Community 102"
 Cohesion: 0.47
 Nodes (6): normalizeQuotaLinuxUser(), quotaBonusMinutes(), quotaUsageKey(), quotaUsedMinutes(), effectiveScreenMinutes(), effectiveScreenMinutesFromFileData()
 
 ### Community 103 - "Community 103"
-Cohesion: 0.16
-Nodes (17): anyUserMatchingEntry(), anyUserRunningProcess(), execFileAsync, getActiveGraphicalSessions(), logindSessionStateLive(), parseLoginctlSession(), pgrepUserAnyCandidate(), pgrepUserProcess() (+9 more)
+Cohesion: 0.18
+Nodes (20): anyUserMatchingEntry(), anyUserRunningProcess(), appendActivityDaemon(), execFileAsync, getActiveGraphicalSessions(), isSchoolTimeNow(), normalizeLinuxUser(), pgrepUserProcess() (+12 more)
 
 ### Community 104 - "Community 104"
 Cohesion: 0.15
@@ -341,8 +341,8 @@ Cohesion: 0.12
 Nodes (16): processWhitelist, deactivatedBlocked, enableExemptions, enableExemptionsDesc, exempt, exemptAll, exemptApps, exemptCount (+8 more)
 
 ### Community 106 - "Community 106"
-Cohesion: 0.13
-Nodes (15): about, okBtn, message, save, quit, cancel, confirm, message (+7 more)
+Cohesion: 0.15
+Nodes (13): message, save, quit, cancel, confirm, message, save, title (+5 more)
 
 ### Community 107 - "Community 107"
 Cohesion: 0.12
@@ -377,8 +377,8 @@ Cohesion: 0.15
 Nodes (12): Build, Configuration files, Development, Distributing settings via `default.json`, Features, LiFE Parental Control, Links, Lockdown script (`/usr/bin/life-parental-lockdown`) (+4 more)
 
 ### Community 115 - "Community 115"
-Cohesion: 0.28
-Nodes (10): syncEmbeddedEnforcementIfNeeded(), readConfig(), readProcessWhitelistConfig(), registerProcessWhitelistIpc(), removeLegacyProcessKillCronArtifacts(), replaceProcessWhitelistFromBackup(), saveConfig(), redeployQuotaFromDisk() (+2 more)
+Cohesion: 0.24
+Nodes (10): appendActivity(), readActivityLog(), syncEmbeddedEnforcementIfNeeded(), readConfig(), readProcessWhitelistConfig(), removeLegacyProcessKillCronArtifacts(), replaceProcessWhitelistFromBackup(), saveConfig() (+2 more)
 
 ### Community 116 - "Community 116"
 Cohesion: 0.17
@@ -389,8 +389,8 @@ Cohesion: 0.17
 Nodes (12): sidebar, blockedAppsTitle, brand, controlCenter, dailyAppTimeLimits, dailyQuotaExemptions, exit, kdeKioskActive (+4 more)
 
 ### Community 118 - "Community 118"
-Cohesion: 0.15
-Nodes (12): 2026-05-04, Earlier (2026-03-20), IPC surface, KDE integration, LiFE Parental Control — persistent context (compressed), Open / TODO, Recent (2026-05-04), Recent (2026-05-06) (+4 more)
+Cohesion: 0.14
+Nodes (13): 2026-05-04, Earlier (2026-03-20), IPC surface, KDE integration, LiFE Parental Control — persistent context (compressed), Open / TODO, Recent (2026-05-04), Recent (2026-05-06) (+5 more)
 
 ### Community 119 - "Community 119"
 Cohesion: 0.18
@@ -401,8 +401,8 @@ Cohesion: 0.18
 Nodes (11): profiles, deleteConfirmMsg, deleteConfirmTitle, deleteProfile, loadSelected, noProfileSelected, saveAs, saveAsLabel (+3 more)
 
 ### Community 121 - "Community 121"
-Cohesion: 0.36
-Nodes (9): anyWhitelistedMonitorCatalogAppRunning(), catalogHasNonQuotaExemptAppRunning(), listNonQuotaExemptRunningCatalogApps(), loadExemptAppProcessNames(), loadQuotaExemptAppIds(), loadQuotaExemptProcessNamesLower(), onlyWhitelistedMonitorCatalogAppsRunning(), processNameCandidatesForAppEntry() (+1 more)
+Cohesion: 0.27
+Nodes (13): anyWhitelistedMonitorCatalogAppRunning(), catalogHasNonQuotaExemptAppRunning(), listNonQuotaExemptRunningCatalogApps(), loadQuotaExemptAppIds(), loadQuotaExemptProcessNamesLower(), onlyWhitelistedMonitorCatalogAppsRunning(), pgrepUserAnyCandidate(), processNameCandidatesForAppEntry() (+5 more)
 
 ### Community 122 - "Community 122"
 Cohesion: 0.25
@@ -425,12 +425,12 @@ Cohesion: 0.22
 Nodes (8): about, okBtn, urlRestrictions, addBlockedPath, desc, eachEntryDesc, noBlockedPaths, remove
 
 ### Community 127 - "Community 127"
-Cohesion: 0.33
-Nodes (6): urlRestrictions, addBlockedPath, desc, eachEntryDesc, noBlockedPaths, remove
+Cohesion: 0.22
+Nodes (8): about, okBtn, urlRestrictions, addBlockedPath, desc, eachEntryDesc, noBlockedPaths, remove
 
 ### Community 129 - "Community 129"
-Cohesion: 0.40
-Nodes (5): buildNotifySendEnvPairs(), buildWarningWindowEnvPairs(), envPairsFromLoginctlSessionEnvironment(), getUnixHomeDir(), readEnvVarsFromUserProcess()
+Cohesion: 0.22
+Nodes (11): desktopIdStem(), desktopIdTailStem(), getDefaultConfig(), loadExemptAppProcessNames(), normalizePeriod(), normalizeQuotaEntriesFromDefault(), normalizeScheduleFromDefault(), readInstalledDesktopIds() (+3 more)
 
 ### Community 130 - "Community 130"
 Cohesion: 0.60
@@ -449,24 +449,24 @@ Cohesion: 0.32
 Nodes (6): IDLE_LABEL, isLockIdleMinutesAllowed(), LOCK_IDLE_ALLOWED, LOCK_IDLE_MINUTES, LOCK_IDLE_OPTIONS, normalizedLockIdleMinutesOrUndefined()
 
 ## Knowledge Gaps
-- **1192 isolated node(s):** `fs`, `path`, `crypto`, `{ execFile, execFileSync }`, `{ defaultSchoolTimes }` (+1187 more)
+- **1198 isolated node(s):** `fs`, `path`, `crypto`, `{ execFile, execFileSync }`, `{ defaultSchoolTimes }` (+1193 more)
   These have ≤1 connection - possible missing edges or undocumented components.
 - **53 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `localIsoDate()` connect `Community 96` to `Community 0`, `Community 97`, `Community 1`, `Community 101`, `Community 15`?**
-  _High betweenness centrality (0.032) - this node is a cross-community bridge._
+- **Why does `localIsoDate()` connect `Community 97` to `Community 96`, `Community 0`, `Community 1`, `Community 101`, `Community 103`, `Community 15`, `Community 121`?**
+  _High betweenness centrality (0.038) - this node is a cross-community bridge._
 - **Why does `settings` connect `Community 8` to `Community 126`?**
-  _High betweenness centrality (0.032) - this node is a cross-community bridge._
-- **Why does `settings` connect `Community 10` to `Community 106`?**
-  _High betweenness centrality (0.024) - this node is a cross-community bridge._
+  _High betweenness centrality (0.030) - this node is a cross-community bridge._
+- **Why does `settings` connect `Community 10` to `Community 127`?**
+  _High betweenness centrality (0.026) - this node is a cross-community bridge._
 - **What connects `fs`, `path`, `crypto` to the rest of the system?**
-  _1192 weakly-connected nodes found - possible documentation gaps or missing edges._
+  _1198 weakly-connected nodes found - possible documentation gaps or missing edges._
 - **Should `Community 0` be split into smaller, more focused modules?**
-  _Cohesion score 0.11895161290322581 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.11932773109243698 - nodes in this community are weakly interconnected._
 - **Should `Community 2` be split into smaller, more focused modules?**
-  _Cohesion score 0.08825248392752776 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.06296296296296296 - nodes in this community are weakly interconnected._
 - **Should `Community 4` be split into smaller, more focused modules?**
-  _Cohesion score 0.07625707625707626 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.07497565725413827 - nodes in this community are weakly interconnected._
