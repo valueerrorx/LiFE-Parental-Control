@@ -13,6 +13,7 @@ const { createDefaultSync, dohIptablesStatus, ensureDohIptablesEnabled, ensureDo
 const { chooseUpstream, resolveLiveDhcpDns, isUsableDns, dnsmasqServerDirective, restartDnsmasq, stopDnsmasq, pointResolvAtLocalDnsmasq, releaseResolvToNetworkManager } = require('./dnsUpstream.js');
 const { defaultSchoolTimes } = require('./schoolTimesDefaults.js');
 const { getUnixPeerUid } = require('./peerCredLinux.js');
+const { JAVA_GAME_ID_PREFIX, JAVA_GAME_PROFILES, javaMarkersForEntry, matchJavaProcess } = require('./javaGameDetect.js');
 
 const DAY_KEYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
 
@@ -360,7 +361,7 @@ function resolveBlockedIdsAgainstInstalled(rawIds, installedIds) {
         if (!raw) continue
         // Portable IDs are already canonical and must not be rewritten to ".desktop".
         // Keeping them stable is critical for daemon enforcement + UI consistency.
-        if (raw.startsWith('appimage:')) {
+        if (raw.startsWith('appimage:') || raw.startsWith(JAVA_GAME_ID_PREFIX)) {
             if (seen.has(raw)) continue
             seen.add(raw)
             out.push(raw)
@@ -431,7 +432,7 @@ function normalizeQuotaEntriesFromDefault(defaultQuota, installedIds) {
         if (!rawAppId) continue
         const rawTrim = rawAppId.trim()
         if (!rawTrim) continue
-        const isPortable = rawTrim.startsWith('appimage:')
+        const isPortable = rawTrim.startsWith('appimage:') || rawTrim.startsWith(JAVA_GAME_ID_PREFIX)
         const appId = isPortable ? rawTrim : (rawTrim.endsWith('.desktop') ? rawTrim : `${rawTrim}.desktop`)
         const proc = typeof e.processName === 'string' ? e.processName.trim() : ''
         if (!proc) continue
@@ -497,6 +498,8 @@ function getDefaultConfig() {
             if (Array.isArray(raw.argvMarkers) && raw.argvMarkers.length) {
                 row.argvMarkers = raw.argvMarkers.filter((x) => typeof x === 'string' && x.trim()).map((x) => x.trim());
             }
+            const javaMarkers = javaMarkersForEntry(row.appId);
+            if (javaMarkers) row.javaMarkers = javaMarkers;
             blockedEntries.push(row);
         }
         mergeBlockedEntriesFromCatalog(blockedEntries);
@@ -1289,7 +1292,7 @@ async function listNonQuotaExemptRunningCatalogApps(limitLu, activeUsers, exempt
             if (!candidates.length) continue;
             const isExemptProc = candidates.some(c => exemptProcLower.has(String(c).toLowerCase()));
             if (isExemptProc) continue;
-            const matchedProc = await pgrepUserAnyCandidate(u, candidates, e.argvMarkers);
+            const matchedProc = await pgrepUserAnyCandidate(u, candidates, e.argvMarkers, javaMarkersForEntry(e.appId, e));
             if (!matchedProc) continue;
             const key = `${id}\0${matchedProc}`;
             if (seen.has(key)) continue;
@@ -1314,7 +1317,7 @@ async function anyWhitelistedMonitorCatalogAppRunning(limitLu, activeUsers) {
             const candidates = processNameCandidatesForAppEntry(e.processName, e.appId, e.commAliases);
             const isExemptProc = candidates.some(c => exemptProcLower.has(String(c).toLowerCase()));
             if (!isExemptId && !isExemptProc) continue;
-            const matched = await pgrepUserAnyCandidate(u, candidates, e.argvMarkers);
+            const matched = await pgrepUserAnyCandidate(u, candidates, e.argvMarkers, javaMarkersForEntry(e.appId, e));
             if (matched) return true;
         }
     }
@@ -1387,6 +1390,11 @@ function buildAndWriteAppCatalog() {
         const rawApps = readAllDesktopApps();
         const portable = portableAppImageCatalogEntries();
         const mergedRaw = dedupeAppsByMonitoringIdentity(rawApps.concat(portable));
+        // Synthetic Java game rows after dedupe (must never displace e.g. a Flatpak with the same tail name).
+        for (const p of JAVA_GAME_PROFILES) {
+            if (mergedRaw.some((a) => a.appId === p.appId)) continue;
+            mergedRaw.push({ appId: p.appId, appName: p.appName, processName: p.processName, exec: '', icon: '', portableKind: 'javagame' });
+        }
         const before = mergedRaw.length;
         const apps = mergedRaw.filter(a => !isAppMonitorCatalogEntryExcluded(a, excl));
         if (before !== apps.length) log.info(`app-catalog: excluded ${before - apps.length} background/service entries`);
@@ -1557,7 +1565,103 @@ async function userHasProcessMatchingEntry(user, candidatesLower, argvMarkersLow
     return false;
 }
 
-async function anyUserMatchingEntry(users, candidatesLower, argvMarkers) {
+// --- Java entries (javaGameDetect.js): /proc scan + marker/JVM classification, never pgrep -x java ---
+
+const JAVA_SCAN_TTL_MS = 2000;
+const JAVA_KILL_GRACE_MS = 10_000;
+const JAVA_UID_MIN = (() => {
+    try {
+        const m = fs.readFileSync('/etc/login.defs', 'utf8').match(/^\s*UID_MIN\s+(\d+)/m);
+        const n = m ? Number(m[1]) : NaN;
+        if (Number.isFinite(n) && n >= 100) return n;
+    } catch { /* ignore */ }
+    return 1000;
+})();
+const javaUidUserCache = new Map(); // uid → login name
+let javaScanCache = { ts: 0, rows: [] };
+const javaKillState = new Map(); // pid → { start, ts, killed }
+
+function javaUidUser(uid) {
+    if (javaUidUserCache.has(uid)) return javaUidUserCache.get(uid);
+    let name = '';
+    try { name = String(spawnSync('id', ['-nu', String(uid)], { encoding: 'utf8', timeout: 1000 }).stdout || '').trim(); } catch { /* ignore */ }
+    if (name) javaUidUserCache.set(uid, name);
+    return name;
+}
+
+// Child-range processes with non-empty cmdline; pids given = fresh scan (poller), else cached up to JAVA_SCAN_TTL_MS.
+function scanJavaCandidateProcs(pids) {
+    const now = Date.now();
+    if (!pids && now - javaScanCache.ts < JAVA_SCAN_TTL_MS) return javaScanCache.rows;
+    let list = pids ? Array.from(pids) : null;
+    if (!list) {
+        try { list = fs.readdirSync('/proc').filter((f) => f[0] >= '0' && f[0] <= '9'); } catch { list = []; }
+    }
+    const alive = new Set(list);
+    for (const pid of javaKillState.keys()) {
+        if (!alive.has(pid)) javaKillState.delete(pid);
+    }
+    const rows = [];
+    for (const pid of list) {
+        let uid;
+        try {
+            const m = fs.readFileSync(`/proc/${pid}/status`, 'utf8').match(/^Uid:\s+(\d+)/m);
+            if (m) uid = Number(m[1]);
+        } catch { continue; }
+        if (uid == null || uid < JAVA_UID_MIN || uid >= 65534) continue;
+        const cmdlineLower = readProcCmdlineLower(pid);
+        if (!cmdlineLower) continue; // zombies / kernel threads
+        rows.push({ pid, uid, cmdlineLower });
+    }
+    javaScanCache = { ts: now, rows };
+    return rows;
+}
+
+// Matches of a Java entry: [{ pid, uid, user, marker, start }]; user filter optional. Never logs cmdlines (may hold access tokens).
+function javaEntryMatches(markers, user, rows) {
+    const out = [];
+    if (!Array.isArray(markers) || !markers.length) return out;
+    for (const r of rows || scanJavaCandidateProcs()) {
+        if (!markers.some((m) => r.cmdlineLower.includes(m))) continue;
+        const procUser = javaUidUser(r.uid);
+        if (user && procUser !== user) continue;
+        let comm = '';
+        let exeBase = '';
+        try { comm = fs.readFileSync(`/proc/${r.pid}/comm`, 'utf8').trim().toLowerCase(); } catch { /* ignore */ }
+        try { exeBase = path.basename(fs.readlinkSync(`/proc/${r.pid}/exe`)); } catch { /* ignore */ }
+        const marker = matchJavaProcess({
+            uid: r.uid, comm, exeBase, cmdlineLower: r.cmdlineLower,
+            readMaps: () => fs.readFileSync(`/proc/${r.pid}/maps`, 'utf8')
+        }, markers, JAVA_UID_MIN);
+        if (!marker) continue;
+        let start = '';
+        try {
+            const st = fs.readFileSync(`/proc/${r.pid}/stat`, 'utf8');
+            start = st.slice(st.lastIndexOf(')') + 2).split(' ')[19] || '';
+        } catch { continue; }
+        out.push({ pid: r.pid, uid: r.uid, user: procUser, marker, start });
+    }
+    return out;
+}
+
+// SIGTERM first, SIGKILL after JAVA_KILL_GRACE_MS if the same process (pid + starttime) is still classified. True only on first hit.
+function javaTerminate(m) {
+    const st = javaKillState.get(m.pid);
+    if (!st || st.start !== m.start) {
+        javaKillState.set(m.pid, { start: m.start, ts: Date.now(), killed: false });
+        try { process.kill(Number(m.pid), 'SIGTERM'); } catch { /* gone */ }
+        return true;
+    }
+    if (!st.killed && Date.now() - st.ts >= JAVA_KILL_GRACE_MS) {
+        st.killed = true;
+        try { process.kill(Number(m.pid), 'SIGKILL'); } catch { /* gone */ }
+        log.info(`java-kill: SIGKILL pid=${m.pid} (still running ${Math.round(JAVA_KILL_GRACE_MS / 1000)}s after SIGTERM)`);
+    }
+    return false;
+}
+
+async function anyUserMatchingEntry(users, candidatesLower, argvMarkers, javaMarkers) {
+    if (javaMarkers) return users.some((u) => javaEntryMatches(javaMarkers, u).length > 0);
     const markers = Array.isArray(argvMarkers) ? argvMarkers.map((m) => String(m).trim().toLowerCase()).filter(Boolean) : [];
     const cands = Array.isArray(candidatesLower) ? candidatesLower.filter(Boolean) : [];
     for (const u of users) {
@@ -1572,7 +1676,16 @@ async function anyUserMatchingEntry(users, candidatesLower, argvMarkers) {
     return false;
 }
 
-async function pkillUsersMatchingEntry(users, candidatesLower, argvMarkers) {
+async function pkillUsersMatchingEntry(users, candidatesLower, argvMarkers, javaMarkers) {
+    if (javaMarkers) {
+        // Only classified JVM pids; never pkill -x on the dummy processName or on "java".
+        for (const u of users) {
+            for (const m of javaEntryMatches(javaMarkers, u)) {
+                if (javaTerminate(m)) log.info(`pkill java pid=${m.pid} user=${u} marker=${m.marker}`);
+            }
+        }
+        return;
+    }
     const markers = Array.isArray(argvMarkers) ? argvMarkers.map((m) => String(m).trim().toLowerCase()).filter(Boolean) : [];
     const cands = Array.isArray(candidatesLower) ? candidatesLower.filter(Boolean) : [];
     for (const u of users) {
@@ -1665,7 +1778,8 @@ function dedupeAppsByMonitoringIdentity(apps) {
     return out;
 }
 
-async function pgrepUserAnyCandidate(user, candidates, argvMarkers) {
+async function pgrepUserAnyCandidate(user, candidates, argvMarkers, javaMarkers) {
+    if (javaMarkers) return javaEntryMatches(javaMarkers, user).length ? 'java' : '';
     const list = Array.isArray(candidates) ? candidates.filter(Boolean) : [];
     const markers = Array.isArray(argvMarkers) ? argvMarkers.map((m) => String(m).trim().toLowerCase()).filter(Boolean) : [];
     if (!markers.length) {
@@ -2772,7 +2886,8 @@ async function tickAppQuotas(logMinute) {
             ...processNameCandidatesForAppEntry(catProc, appId, catAli)
         ].filter(Boolean));
         const procCandidates = Array.from(candidatesSet);
-        const isRunning = await anyUserMatchingEntry(usersForQuota, procCandidates, argvM);
+        const javaM = javaMarkersForEntry(appId, catRow);
+        const isRunning = await anyUserMatchingEntry(usersForQuota, procCandidates, argvM, javaM);
         const procForMsg = procFromQuota || catProc;
         const uk = quotaUsageKey(appId, lu);
         const bonus = quotaBonusMinutes(appExtra, appId, lu);
@@ -2794,7 +2909,7 @@ async function tickAppQuotas(logMinute) {
                     const warnPayload = { type: 'app-exhausted', appId, appName: name, processName: procForMsg, effectiveLimit: limit, usedMinutes: usedBefore, linuxUser: lu || undefined };
                     notifyOrSpawn(warnPayload, `${name}: Zeit aufgebraucht`, `Tageslimit von ${limit} Min. erreicht.`, 'critical');
                 }
-                await pkillUsersMatchingEntry(usersForQuota, procCandidates, argvM);
+                await pkillUsersMatchingEntry(usersForQuota, procCandidates, argvM, javaM);
                 appendActivityDaemon({ action: 'app_killed_quota_exhausted', appId, appName: name, processName: procForMsg, usedMinutes: usedBefore, limit, linuxUser: lu || undefined });
             } else if (logMinute) {
                 if (!exempt.has(appId) && usedBefore === limit - 1) {
@@ -2865,7 +2980,7 @@ async function tickAppMonitor(logMinute) {
         const candidates = processNameCandidatesForAppEntry(entry.processName, appId, entry.commAliases);
         if (!appId || !candidates.length) continue;
         for (const user of activeUsers) {
-            const matched = await pgrepUserAnyCandidate(user, candidates, entry.argvMarkers);
+            const matched = await pgrepUserAnyCandidate(user, candidates, entry.argvMarkers, javaMarkersForEntry(appId, entry));
             if (matched && logMinute) {
                 const key = `${user}:${appId}`;
                 track[key] = (track[key] || 0) + 1;
@@ -2879,6 +2994,35 @@ async function tickAppMonitor(logMinute) {
 }
 
 // --- App block poller (/proc scan) ---
+
+const JAVA_SWEEP_MS = 2000;
+let javaSweepLastMs = 0;
+
+function sweepBlockedJavaEntries(cfg, entries, pids) {
+    const rows = scanJavaCandidateProcs(pids);
+    for (const entry of entries) {
+        if (entry.allowAtSchoolTime && isSchoolTimeNow(cfg.schoolTimes)) continue;
+        const lu = normalizeLinuxUser(entry.linuxUser);
+        for (const m of javaEntryMatches(entry.javaMarkers, lu, rows)) {
+            if (!javaTerminate(m)) continue; // log/activity/notify once per pid
+            log.info(`app-block: java SIGTERM pid=${m.pid} user=${m.user} appId=${entry.appId} marker=${m.marker}`);
+            appendActivityDaemon({ action: 'app_blocked_killed', appId: entry.appId, appName: entry.appName, processName: entry.processName, pid: Number(m.pid), linuxUser: m.user });
+            const notifyKey = `${entry.appId}\0${lu || m.user}`;
+            const lastNotify = appBlockNotifyLastMs.get(notifyKey) || 0;
+            if (Date.now() - lastNotify >= APP_BLOCK_NOTIFY_COOLDOWN_MS) {
+                appBlockNotifyLastMs.set(notifyKey, Date.now());
+                notifyOrSpawn(
+                    { type: 'app-blocked', appId: entry.appId, appName: entry.appName, processName: entry.processName },
+                    'App blockiert',
+                    `Der Start von "${entry.appName || entry.processName}" ist durch die Kindersicherung blockiert.`,
+                    'critical',
+                    true,
+                    lu || m.user
+                );
+            }
+        }
+    }
+}
 
 function tickAppBlockPoller() {
     const cfg = getDefaultConfig();
@@ -2918,6 +3062,13 @@ function tickAppBlockPoller() {
         }
     }
     appBlockKnownPids = currentPids;
+
+    // Java entries: periodic sweep over all pids (a JVM may exec after its pid was first seen); runs before the no-new-pids return.
+    const javaBlocked = cfg.blockedEntries.filter((e) => Array.isArray(e.javaMarkers) && e.javaMarkers.length);
+    if (javaBlocked.length && Date.now() - javaSweepLastMs >= JAVA_SWEEP_MS) {
+        javaSweepLastMs = Date.now();
+        try { sweepBlockedJavaEntries(cfg, javaBlocked, currentPids); } catch (e) { log.warn(`app-block java sweep: ${e.message}`); }
+    }
 
     if (newPids.length === 0) return;
 

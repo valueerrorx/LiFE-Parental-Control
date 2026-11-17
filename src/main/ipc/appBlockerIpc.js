@@ -223,7 +223,7 @@ function resolveBlockedIdsAgainstApps(ids, apps) {
 
     function fuzzyResolve(rawWithExt) {
         const raw = String(rawWithExt || '').trim()
-        if (raw.startsWith('appimage:')) return appIds.has(raw) ? raw : raw
+        if (raw.startsWith('appimage:') || raw.startsWith('javagame:')) return appIds.has(raw) ? raw : raw
         const rawStem = desktopIdStem(rawWithExt)
         const rawTail = desktopIdTailStem(rawWithExt)
         const maxLen = Math.max(rawStem.length, rawTail.length)
@@ -249,7 +249,7 @@ function resolveBlockedIdsAgainstApps(ids, apps) {
     for (const rawId of ids || []) {
         const raw = String(rawId || '').trim()
         if (!raw) continue
-        if (raw.startsWith('appimage:')) {
+        if (raw.startsWith('appimage:') || raw.startsWith('javagame:')) {
             if (!seen.has(raw)) { seen.add(raw); out.push(raw) }
             continue
         }

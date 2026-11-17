@@ -92,7 +92,7 @@ export function registerBackupIpc(ipcMain, configDir, getWindow) {
             const src = Array.isArray(raw.blockedApps) ? raw.blockedApps : []
             const ids = src
                 .map(x => (typeof x === 'string' ? x : x?.id))
-                .filter(id => typeof id === 'string' && id.endsWith('.desktop'))
+                .filter(id => typeof id === 'string' && (id.endsWith('.desktop') || id.startsWith('javagame:')))
             replaceBlockedDesktopIds(configDir, ids)
         }
         if (Object.hasOwn(raw, 'quotas')) {
