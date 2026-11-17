@@ -53,9 +53,8 @@ for (const raw of Array.isArray(def?.blockedDesktopIds) ? def.blockedDesktopIds 
     if (!raw || typeof raw !== 'object') continue
     const cat = byId.get(String(raw.appId || '').trim().toLowerCase())
     const proc = String(cat?.processName || raw.processName || '').trim()
-    const hasExecPath = !!String(cat?.exec || '').trim()
     report('blocked', raw.appId, raw.appName, candidatesFor(proc, raw.appId, cat?.commAliases),
-        hasExecPath ? 'poller: exe filter applies' : 'poller: java comm now skipped')
+        'poller: java comm now skipped')
 }
 for (const q of Array.isArray(def?.quota) ? def.quota : []) {
     if (!q || typeof q !== 'object') continue

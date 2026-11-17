@@ -3106,7 +3106,7 @@ function tickAppBlockPoller() {
         for (const entry of cfg.blockedEntries) {
             const candidates = processNameCandidatesForAppEntry(entry.processName, entry.appId, entry.commAliases);
             if (entry.javaMarkers) continue; // Java entries: handled by sweepBlockedJavaEntries only
-            if (comm === 'java' && !entry.execPath) continue; // no exe filter: a bare "java" comm would hit every JVM
+            if (comm === 'java') continue; // a bare "java" comm would hit every JVM (wrapper scripts put java into execExeBases too)
             if (!procCommMatchesCandidates(comm, candidates)) continue;
             // If the catalog provided an expected binary path, reject processes whose exe differs —
             // catches search providers and other same-comm-name system helpers.
