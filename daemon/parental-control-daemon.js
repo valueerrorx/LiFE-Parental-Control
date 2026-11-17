@@ -1667,6 +1667,7 @@ async function anyUserMatchingEntry(users, candidatesLower, argvMarkers, javaMar
     for (const u of users) {
         if (!markers.length) {
             for (const c of cands) {
+                if (c === 'java') continue; // never match every JVM of the user (Java games use the Java branch)
                 if (await pgrepUserProcess(u, c)) return true;
             }
         } else if (await userHasProcessMatchingEntry(u, cands, markers)) {
@@ -1691,6 +1692,7 @@ async function pkillUsersMatchingEntry(users, candidatesLower, argvMarkers, java
     for (const u of users) {
         if (!markers.length) {
             for (const c of cands) {
+                if (c === 'java') continue; // never pkill -x java (would kill every Java app of the user)
                 try {
                     await execFileAsync('pkill', ['-u', u, '-x', '-i', c], { timeout: 3000 });
                     log.info(`pkill OK proc=${c} user=${u}`);
@@ -3096,6 +3098,7 @@ function tickAppBlockPoller() {
 
         for (const entry of cfg.blockedEntries) {
             const candidates = processNameCandidatesForAppEntry(entry.processName, entry.appId, entry.commAliases);
+            if (comm === 'java' && !entry.execPath) continue; // no exe filter: a bare "java" comm would hit every JVM
             if (!procCommMatchesCandidates(comm, candidates)) continue;
             // If the catalog provided an expected binary path, reject processes whose exe differs —
             // catches search providers and other same-comm-name system helpers.
