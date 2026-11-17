@@ -13,7 +13,7 @@ const { createDefaultSync, dohIptablesStatus, ensureDohIptablesEnabled, ensureDo
 const { chooseUpstream, resolveLiveDhcpDns, isUsableDns, dnsmasqServerDirective, restartDnsmasq, stopDnsmasq, pointResolvAtLocalDnsmasq, releaseResolvToNetworkManager } = require('./dnsUpstream.js');
 const { defaultSchoolTimes } = require('./schoolTimesDefaults.js');
 const { getUnixPeerUid } = require('./peerCredLinux.js');
-const { JAVA_GAME_ID_PREFIX, JAVA_GAME_PROFILES, javaMarkersForEntry, matchJavaProcess } = require('./javaGameDetect.js');
+const { JAVA_GAME_ID_PREFIX, JAVA_GAME_PROFILES, javaMarkersForEntry, javaJarMarkerFromExec, matchJavaProcess } = require('./javaGameDetect.js');
 
 const DAY_KEYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
 
@@ -307,6 +307,8 @@ function mergeBlockedEntriesFromCatalog(entries) {
             if (pn) e.processName = pn;
             if (Array.isArray(a.commAliases) && a.commAliases.length) e.commAliases = a.commAliases;
             if (Array.isArray(a.argvMarkers) && a.argvMarkers.length) e.argvMarkers = a.argvMarkers;
+            const javaM = javaMarkersForEntry(e.appId, a);
+            if (javaM) e.javaMarkers = javaM;
             const execFull = execLineToFullPath(String(a.exec || ''));
             if (execFull) e.execPath = execFull;
             const execBases = execLineToExeBasenames(String(a.exec || ''));
@@ -852,6 +854,11 @@ function parseDesktopFile(filePath) {
         if (!name || !exec || noDisplay || hidden) return null;
         // execLineToProcessName first (unwraps sh -c/flatpak/electron); symlink-only basename would stay "sh" and false-match pgrep every minute.
         const processName = execLineToProcessName(exec) || desktopExecResolvedProcessName(exec);
+        // Exec=java -jar /abs.jar: Java entry matched by JAR path (javaMarkers); processName is never a real comm, no commAliases.
+        const jarMarker = processName === 'java' ? javaJarMarkerFromExec(exec) : '';
+        if (jarMarker) {
+            return { appId: path.basename(filePath), appName: name, exec, icon, filePath, processName: `java:${path.basename(jarMarker, '.jar')}`, javaMarkers: [jarMarker] };
+        }
         // Skip entries where the resolved processName is a bare dispatcher — pgrep would match every instance on the system.
         if (isBareInterpreterCommName(processName)) return null;
         const commAliases = desktopExecCommAliases(exec);
@@ -3098,6 +3105,7 @@ function tickAppBlockPoller() {
 
         for (const entry of cfg.blockedEntries) {
             const candidates = processNameCandidatesForAppEntry(entry.processName, entry.appId, entry.commAliases);
+            if (entry.javaMarkers) continue; // Java entries: handled by sweepBlockedJavaEntries only
             if (comm === 'java' && !entry.execPath) continue; // no exe filter: a bare "java" comm would hit every JVM
             if (!procCommMatchesCandidates(comm, candidates)) continue;
             // If the catalog provided an expected binary path, reject processes whose exe differs —

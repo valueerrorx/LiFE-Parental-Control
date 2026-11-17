@@ -31,10 +31,27 @@ function javaGameProfileForAppId(appId) {
     return JAVA_GAME_PROFILES.find((p) => p.appId === id) || null;
 }
 
-// Marker list for a Java entry, or null when the entry is not handled by the Java branch.
-function javaMarkersForEntry(appId) {
+// Marker list for a Java entry (javagame: profile, else catalog row javaMarkers), or null when not handled by the Java branch.
+function javaMarkersForEntry(appId, row) {
     const p = javaGameProfileForAppId(appId);
-    return p ? p.markersAny : null;
+    if (p) return p.markersAny;
+    if (String(appId || '').trim().startsWith(JAVA_GAME_ID_PREFIX)) return null;
+    const list = row && Array.isArray(row.javaMarkers)
+        ? row.javaMarkers.map((m) => String(m || '').trim().toLowerCase()).filter(Boolean)
+        : [];
+    return list.length ? list : null;
+}
+
+// Exec=java … -jar /abs/path/x.jar → lowercase absolute JAR path (appears verbatim in the JVM argv), else ''.
+function javaJarMarkerFromExec(execLine) {
+    const tokens = String(execLine || '').trim().split(/\s+/).map((t) => t.replace(/^['"]|['"]$/g, '')).filter((t) => t && !/^%[a-zA-Z]$/.test(t));
+    let i = 0;
+    while (i < tokens.length && (tokens[i] === 'env' || /^[A-Za-z_][A-Za-z0-9_]*=/.test(tokens[i]))) i++;
+    if (i >= tokens.length || tokens[i].split('/').pop().toLowerCase() !== 'java') return '';
+    const j = tokens.indexOf('-jar', i + 1);
+    const jar = j > 0 ? tokens[j + 1] || '' : '';
+    if (!jar.startsWith('/') || !/\.jar$/i.test(jar)) return '';
+    return jar.toLowerCase();
 }
 
 // proc: { uid, comm, exeBase, cmdlineLower, readMaps? }. Returns the hit marker or ''.
@@ -67,6 +84,7 @@ module.exports = {
     JAVA_GAME_PROFILES,
     javaGameProfileForAppId,
     javaMarkersForEntry,
+    javaJarMarkerFromExec,
     matchJavaProcess,
     classifyJavaGame
 };

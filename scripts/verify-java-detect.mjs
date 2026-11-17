@@ -8,7 +8,7 @@ import path from 'path'
 import { createRequire } from 'module'
 
 const require = createRequire(import.meta.url)
-const { classifyJavaGame, javaMarkersForEntry } = require('../daemon/javaGameDetect.js')
+const { classifyJavaGame, javaMarkersForEntry, javaJarMarkerFromExec, matchJavaProcess } = require('../daemon/javaGameDetect.js')
 
 const UID_MIN = 1000
 const KID = 1001
@@ -71,7 +71,27 @@ const ENTRY_IDS = [
     { id: 'javagame:unknown', expect: false },
     { id: 'org.prismlauncher.PrismLauncher.desktop', expect: false },
     { id: 'appimage:0123456789abcdef', expect: false },
-    { id: '', expect: false }
+    { id: '', expect: false },
+    { id: 'jdownloader.desktop', row: { javaMarkers: ['/opt/jd2/JDownloader.jar'] }, expect: true },
+    { id: 'javagame:unknown', row: { javaMarkers: ['/x.jar'] }, expect: false }
+]
+
+// Exec=java -jar entries: absolute JAR path marker or '' (entry stays dropped as before)
+const JAR_EXECS = [
+    { exec: 'java -jar /opt/jd2/JDownloader.jar', expect: '/opt/jd2/jdownloader.jar' },
+    { exec: '/usr/lib/jvm/java-17/bin/java -Xmx1g -jar "/opt/tool/Tool.jar" %f', expect: '/opt/tool/tool.jar' },
+    { exec: 'env JAVA_HOME=/opt/jdk java -jar /opt/tool/Tool.jar %U', expect: '/opt/tool/tool.jar' },
+    { exec: 'java -jar tool.jar', expect: '' },
+    { exec: 'java -cp /opt/x.jar com.example.Main', expect: '' },
+    { exec: 'sh -c "java -jar /opt/x.jar"', expect: '' },
+    { exec: 'prismlauncher', expect: '' }
+]
+
+// JAR marker against processes: JVM with that jar hits; other JVMs and non-JVMs do not
+const JAR_PROCS = [
+    { label: 'JDownloader JVM', comm: 'java', exe: 'java', cmd: '/usr/bin/java -Xmx1g -jar /opt/jd2/JDownloader.jar', expect: true },
+    { label: 'other JVM', comm: 'java', exe: 'java', cmd: '/usr/bin/java -jar /opt/other/Other.jar', expect: false },
+    { label: 'editor on the jar', comm: 'vim', exe: 'vim', cmd: 'vim /opt/jd2/JDownloader.jar', expect: false }
 ]
 
 function runFixtures() {
@@ -91,10 +111,23 @@ function runFixtures() {
         console.log(`${ok ? 'ok  ' : 'FAIL'} ${f.label}: ${got ?? '-'}${r ? ` (${r.marker})` : ''}`)
     }
     for (const e of ENTRY_IDS) {
-        const got = !!javaMarkersForEntry(e.id)
+        const got = !!javaMarkersForEntry(e.id, e.row)
         const ok = got === e.expect
         if (!ok) fails++
-        console.log(`${ok ? 'ok  ' : 'FAIL'} javaMarkersForEntry(${JSON.stringify(e.id)}): ${got}`)
+        console.log(`${ok ? 'ok  ' : 'FAIL'} javaMarkersForEntry(${JSON.stringify(e.id)}${e.row ? ', row' : ''}): ${got}`)
+    }
+    for (const j of JAR_EXECS) {
+        const got = javaJarMarkerFromExec(j.exec)
+        const ok = got === j.expect
+        if (!ok) fails++
+        console.log(`${ok ? 'ok  ' : 'FAIL'} javaJarMarkerFromExec(${JSON.stringify(j.exec)}): ${got || '-'}`)
+    }
+    const jdMarkers = javaMarkersForEntry('jdownloader.desktop', { javaMarkers: ['/opt/jd2/JDownloader.jar'] })
+    for (const f of JAR_PROCS) {
+        const got = !!matchJavaProcess({ uid: KID, comm: f.comm, exeBase: f.exe, cmdlineLower: f.cmd.toLowerCase(), readMaps: NO_JVM }, jdMarkers, UID_MIN)
+        const ok = got === f.expect
+        if (!ok) fails++
+        console.log(`${ok ? 'ok  ' : 'FAIL'} jar marker: ${f.label}: ${got}`)
     }
     return fails
 }
@@ -138,4 +171,4 @@ if (fails) {
     console.error(`verify-java-detect: ${fails} failure(s)`)
     process.exit(1)
 }
-console.log(`verify-java-detect: ok (${FIXTURES.length + ENTRY_IDS.length} checks)`)
+console.log(`verify-java-detect: ok (${FIXTURES.length + ENTRY_IDS.length + JAR_EXECS.length + JAR_PROCS.length} checks)`)
