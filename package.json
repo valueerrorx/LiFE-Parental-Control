@@ -14,7 +14,8 @@
         "check": "npm run lint && npm run compile",
         "build": "electron-vite build && electron-builder --publish never && node scripts/embed-appimage-update-info.mjs",
         "lint": "eslint src/main src/preload src/renderer src/shared",
-        "verify:kiosk": "node scripts/verify-kiosk-catalog.mjs"
+        "verify:kiosk": "node scripts/verify-kiosk-catalog.mjs",
+        "verify:java": "node scripts/verify-java-detect.mjs"
     },
     "dependencies": {
         "bootstrap": "^5.3.8",
