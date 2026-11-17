@@ -1403,7 +1403,9 @@ function buildAndWriteAppCatalog() {
             mergedRaw.push({ appId: p.appId, appName: p.appName, processName: p.processName, exec: '', icon: '', portableKind: 'javagame' });
         }
         const before = mergedRaw.length;
-        const apps = mergedRaw.filter(a => !isAppMonitorCatalogEntryExcluded(a, excl));
+        // Sort after appending AppImage/Java rows so the whole catalog is alphabetical (order is display-only).
+        const apps = mergedRaw.filter(a => !isAppMonitorCatalogEntryExcluded(a, excl))
+            .sort((a, b) => String(a.appName || '').localeCompare(String(b.appName || '')));
         if (before !== apps.length) log.info(`app-catalog: excluded ${before - apps.length} background/service entries`);
         const payload = {
             updatedAt: new Date().toISOString(),
